@@ -1,6 +1,6 @@
 import unittest
 from worldCreator import *
-from solver import *
+from world.world import *
 
 class TestSolver5Player(unittest.TestCase):
     def test_investigator_washerwoman(self):
@@ -135,22 +135,17 @@ class TestSolver5Player(unittest.TestCase):
         ## Possible worlds
         ## Player 2 is not the demon
         ## Player 2 is the demon with a Scarlet Woman who is now the demon
-        execution = {
-            'player': 2
-        }
+        executed_player = 2
 
-        execution_worlds = create_worlds_from_execution(execution)
-
+        soldier_execution_worlds = create_worlds_from_execution(soldier_worlds, executed_player, 2)
         ## Player 0 dies in the night
 
         ## Possible worlds
         ## Player 0 is not the Imp
         ## Player 0 is the Imp who starpassed and a minion became the Imp
-        night_2_death = {
-            'player': 0
-        }
+        player_killed = 0
 
-        night_death_worlds = create_worlds_from_night_death(night_2_death)
+        night_death_worlds = create_worlds_from_night_kill(soldier_execution_worlds, player_killed, 2)
 
         ## Combined worlds:
         ## Player 2 is the Drunk and Player 2 is not the demon and Player 0 is not the Imp - VALID (1)
@@ -168,10 +163,7 @@ class TestSolver5Player(unittest.TestCase):
         ## Player 2 is the Soldier and Player 2 is the demon with a Scarlet Woman who is now the demon and Player 0 is not the Imp - INVALID
         ## Player 2 is the Soldier and Player 2 is the demon with a Scarlet Woman who is now the demon and Player 0 is the Imp who starpassed and a minion became the Imp - INVALID (covered by previous)
 
-        valid_worlds, conflicting_worlds = combine_worlds([soldier_worlds, execution_worlds, night_death_worlds])
-
-        self.assertEqual(len(valid_worlds), 6)
-        self.assertEqual(len(conflicting_worlds), 4)
+        self.assertEqual(len(night_death_worlds), 6)
 
     def test_saint_claim_fortune_teller_claim(self):
         game: Game = {
@@ -303,7 +295,7 @@ class TestSolver5Player(unittest.TestCase):
         self.assertEqual(len(valid_worlds), 15)
         self.assertEqual(len(invalid_worlds), 13)
 
-    def test_sc_promotion(self):
+    def test_sw_promotion(self):
 
         world = World()
         phase = world.phases[0]
@@ -312,12 +304,8 @@ class TestSolver5Player(unittest.TestCase):
         ## Possible worlds
         ## Player 2 is not the Imp
         ## Player 2 is the Imp and the Scarlet Woman is now the Imp
-        execution = {
-            'player': 2
-        }
-        execution_worlds = create_worlds_from_execution(execution)
-
-        valid_worlds, _ = combine_worlds([[world], execution_worlds])
+        executed_player = 2
+        valid_worlds = create_worlds_from_execution([world], executed_player, 2)
 
         ## World 1: Player 2 is not the Imp is still the minion
         self.assertIn(Role.ANY_OTHER_MINION, valid_worlds[0].phases[0].minion_types)
@@ -327,7 +315,7 @@ class TestSolver5Player(unittest.TestCase):
         self.assertIn(Role.SCARLET_WOMAN, valid_worlds[1].phases[0].minion_types)
         self.assertEqual(valid_worlds[1].phases[0].characters[2], Role.IMP)
         self.assertEqual(valid_worlds[1].phases[0].characters[4], Role.SCARLET_WOMAN)
-        self.assertEqual(len(valid_worlds[1].phases[1].minion_types), 0)
+        self.assertIn(Role.SCARLET_WOMAN, valid_worlds[1].phases[1].minion_types)
         self.assertEqual(valid_worlds[1].phases[1].characters[2], Role.IMP)
         self.assertEqual(valid_worlds[1].phases[1].characters[4], Role.IMP)
 
@@ -335,7 +323,7 @@ class TestSolver5Player(unittest.TestCase):
         phase2 = world2.phases[0]
         phase2.add_minion_type(Role.SPY)
 
-        valid_worlds, _ = combine_worlds([[world2], execution_worlds])
+        valid_worlds = create_worlds_from_execution([world2], executed_player, 2)
 
         ## Only valid world: Player 2 is not the Imp
         self.assertEqual(len(valid_worlds), 1)
@@ -351,12 +339,13 @@ class TestSolver5Player(unittest.TestCase):
         phase4.characters[2] = Role.IMP
         phase4.characters[3] = Role.ANY_OTHER_MINION
 
-        world5, _ = World.combine(world4, execution_worlds[1])
-        world6, _ = World.combine(world3, world5)
+        valid_worlds = create_worlds_from_execution([world3], executed_player, 2)
+        self.assertEqual(len(valid_worlds), 1)
+        world6, _ = World.combine(world4, valid_worlds[0])
         self.assertEqual(world6.phases[1].characters[2], Role.IMP)
         self.assertEqual(world6.phases[1].characters[3], Role.IMP)
         self.assertTrue(world6.phases[1].dead[2])
 
-        
+
 if __name__ == '__main__':
     _ = unittest.main()

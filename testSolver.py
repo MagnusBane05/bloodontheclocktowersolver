@@ -1,6 +1,7 @@
 import unittest
-from solver import Role, World, combine_worlds
-from worldCreator import create_worlds_from_fortune_teller_info, Game, FortuneTellerInfo
+from world.world import World
+from world.role import Role
+from world.phase import Phase
 
 class TestSolver(unittest.TestCase):
     def test_chef_worlds(self):
@@ -268,31 +269,417 @@ class TestSolver(unittest.TestCase):
         _, valid17 = World.combine(world17a, world17b)
         self.assertFalse(valid17)
 
-    def testStarpass(self):
-        game: Game = {
-            "players": 5
-        }
+    def test_add_phase(self):
+        world = World()
+        world.add_phase(2)
 
-        n1_fortune_teller_info: FortuneTellerInfo = {
-            "player": 0,
-            "night": 1,
-            "pings": ((1,2),False)
-        }
+        self.assertEqual(len(world.phases), 2)
+        self.assertEqual(world.phases[0].night, 1)
+        self.assertEqual(world.phases[1].night, 2)
 
-        n2_fortune_teller_info: FortuneTellerInfo = {
-            "player": 0,
-            "night": 2,
-            "pings": ((1,2),True)
-        }
+        world.add_phase(5)
+        world.add_phase(3)
 
-        n1_fortune_teller_worlds = create_worlds_from_fortune_teller_info(game, n1_fortune_teller_info)
-        n2_fortune_teller_worlds = create_worlds_from_fortune_teller_info(game, n2_fortune_teller_info)
-        combined_worlds, invalid_worlds = combine_worlds([n1_fortune_teller_worlds, n2_fortune_teller_worlds])
+        self.assertEqual(len(world.phases), 4)
+        self.assertEqual(world.phases[2].night, 3)
+        self.assertEqual(world.phases[3].night, 5)
 
-        filtered_worlds = [x for x in combined_worlds if x.phases[0].characters[0] == Role.FORTUNE_TELLER and not any([y for ys in x.phases[0].poisoned for y in ys]) and not any([z == Role.RECLUSE for z in x.phases[0].characters])]
+        world.add_phase(0)
+        self.assertEqual(world.phases[0].night, 0)
 
-        self.assertEqual(1,2)
+    def test_execution(self):
 
+        # executed player is dead in both worlds
+        world = World()
+        no_sw_world, sw_world = world.execute_player(1,2)
+        self.assertEqual(len(no_sw_world.phases), 2)
+        self.assertTrue(no_sw_world.phases[1].dead[1])
+        self.assertNotEqual(sw_world, None)
+        self.assertEqual(len(sw_world.phases), 2)
+        self.assertTrue(sw_world.phases[1].dead[1])
+
+        # known imp executed -> None
+        world = World()
+        world.phases[0].characters[0] = Role.IMP
+        no_sw_world, sw_world = world.execute_player(0,2)
+        self.assertIsNone(no_sw_world)
+
+        # minion type is scarlet woman in sw world
+        world = World()
+        _, sw_world = world.execute_player(0,2)
+        self.assertIn(Role.SCARLET_WOMAN, sw_world.phases[1].minion_types)
+
+        # known scarlet woman becomes imp
+        world = World()
+        world.phases[0].characters[0] = Role.SCARLET_WOMAN
+        _, sw_world = world.execute_player(1,2)
+        self.assertNotEqual(sw_world, None)
+        self.assertEqual(len(sw_world.phases), 2)
+        self.assertEqual(sw_world.phases[1].characters[0], Role.IMP)
+
+        # single alive minion becomes imp
+        world = World()
+        world.phases[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_MINION, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
+        _, sw_world = world.execute_player(0,2)
+        self.assertNotEqual(sw_world, None)
+        self.assertEqual(len(sw_world.phases), 2)
+        self.assertEqual(sw_world.phases[1].characters[1], Role.IMP)
+        self.assertEqual(sw_world.phases[0].characters[1], Role.SCARLET_WOMAN)
+        self.assertIn(Role.SCARLET_WOMAN, sw_world.phases[0].minion_types)
+        self.assertIn(Role.SCARLET_WOMAN, sw_world.phases[1].minion_types)
+
+        # non-demons become any role
+        world = World()
+        world.phases[0].characters[0] = Role.NON_DEMON
+        _, sw_world = world.execute_player(1,2)
+        self.assertNotEqual(sw_world, None)
+        self.assertEqual(len(sw_world.phases), 2)
+        self.assertEqual(sw_world.phases[1].characters[0], Role.ANY_OTHER)
+
+        # minions become any evil
+        world = World(13)
+        world.phases[0].characters[0] = Role.ANY_OTHER_MINION
+        world.phases[0].characters[2] = Role.ANY_OTHER_MINION
+        _, sw_world = world.execute_player(1,2)
+        self.assertNotEqual(sw_world, None)
+        self.assertEqual(len(sw_world.phases), 2)
+        self.assertEqual(sw_world.phases[1].characters[0], Role.ANY_OTHER_EVIL)
+
+        # no room for scarlet woman in minion types
+        world = World()
+        world.phases[0].minion_types = [Role.BARON, Role.POISONER]
+        _, sw_world = world.execute_player(1,2)
+        self.assertIsNone(sw_world)
+
+        # no room for scarlet woman in characters
+        world = World()
+        world.phases[0].characters = [Role.POISONER, Role.ANY_OTHER_EVIL, Role.WASHERWOMAN, Role.EMPATH, Role.MONK]
+        _, sw_world = world.execute_player(2,2)
+        self.assertIsNone(sw_world)
+
+        # scarlet woman is dead already -> None
+        world = World()
+        world.phases[0].characters[0] = Role.SCARLET_WOMAN
+        world.phases[0].dead[0] = True
+        _, sw_world = world.execute_player(1,2)
+        self.assertIsNone(sw_world)
+
+        # non-demon executed
+        world = World()
+        world.phases[0].characters = [Role.POISONER, Role.ANY_OTHER_EVIL, Role.WASHERWOMAN, Role.EMPATH, Role.MONK]
+        _, sw_world = world.execute_player(1,2)
+        self.assertIsNone(sw_world)
+
+    def test_night_death(self):
+        # player is dead in all worlds
+        world = World()
+        no_sp_world, sp_world = world.killed_by_demon(1,2)
+        self.assertEqual(len(no_sp_world.phases), 2)
+        self.assertTrue(no_sp_world.phases[1].dead[1])
+        self.assertIsNotNone(sp_world)
+        self.assertEqual(len(sp_world.phases), 2)
+        self.assertTrue(sp_world.phases[1].dead[1])
+
+        # known imp killed by demon -> None
+        world = World()
+        world.phases[0].characters[0] = Role.IMP
+        no_sp_world, sp_world = world.killed_by_demon(0,2)
+        self.assertIsNone(no_sp_world)
+
+        # known scarlet woman becomes imp
+        world = World()
+        world.phases[0].characters[0] = Role.SCARLET_WOMAN
+        _, sp_world = world.killed_by_demon(1,2)
+        self.assertIsNotNone(sp_world)
+        self.assertEqual(len(sp_world.phases), 2)
+        self.assertEqual(sp_world.phases[1].characters[0], Role.IMP)
+
+        # single alive minion becomes demon
+        world = World()
+        world.phases[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_MINION, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
+        _, sp_world = world.killed_by_demon(0,2)
+        self.assertIsNotNone(sp_world)
+        self.assertEqual(len(sp_world.phases), 2)
+        self.assertEqual(sp_world.phases[1].characters[1], Role.IMP)
+
+        # non-demons become any role
+        world = World()
+        world.phases[0].characters[0] = Role.NON_DEMON
+        _, sp_world = world.killed_by_demon(1,2)
+        self.assertIsNotNone(sp_world)
+        self.assertEqual(len(sp_world.phases), 2)
+        self.assertEqual(sp_world.phases[1].characters[0], Role.ANY_OTHER)
+
+        # any other minions become any other evil
+        world = World(13)
+        world.phases[0].characters[0] = Role.ANY_OTHER_MINION
+        world.phases[0].characters[2] = Role.ANY_OTHER_MINION
+        _, sp_world = world.killed_by_demon(1,2)
+        self.assertIsNotNone(sp_world)
+        self.assertEqual(len(sp_world.phases), 2)
+        self.assertEqual(sp_world.phases[1].characters[0], Role.ANY_OTHER_EVIL)
+
+        # no room in minion types -> None
+        world = World()
+        world.phases[0].minion_types = [Role.IMP]
+        _, sp_world = world.killed_by_demon(1,2)
+        self.assertIsNone(sp_world)
+
+        # no alive minions -> None
+        world = World()
+        world.phases[0].characters = [Role.ANY_OTHER, Role.POISONER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER]
+        world.phases[0].dead[1] = True
+        _, sp_world = world.killed_by_demon(0,2)
+        self.assertIsNone(sp_world)
+
+        # known non-demon killed by demon -> None
+        world = World()
+        world.phases[0].characters = [Role.NON_DEMON, Role.WASHERWOMAN, Role.LIBRARIAN, Role.EMPATH, Role.MONK]
+        _, sp_world = world.killed_by_demon(0,2)
+        self.assertIsNone(sp_world)
+
+    def test_pass_through_phases(self):
+        # sanity check, same characters should be okay
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.characters[0] = Role.MONK
+        night2.characters[0] = Role.MONK
+        self.assertTrue(World._pass_through_phases(world))
+
+        # different characters should be invalid
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.characters[0] = Role.MONK
+        night2.characters[0] = Role.SLAYER
+        self.assertFalse(World._pass_through_phases(world))
+
+        # specific role -> non specific should be okay
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.characters[0] = Role.MONK
+        night2.characters[0] = Role.ANY_OTHER_TOWNSFOLK
+        self.assertTrue(World._pass_through_phases(world))
+
+        # non-specific role -> specific should be okay
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.characters[0] = Role.ANY_OTHER_EVIL
+        night2.characters[0] = Role.SCARLET_WOMAN
+        self.assertTrue(World._pass_through_phases(world))
+
+        # if there was a character change, it's okay
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.characters[0] = Role.SCARLET_WOMAN
+        night2.characters[0] = Role.IMP
+        night2.character_changed[0] = True
+        self.assertTrue(World._pass_through_phases(world))
+
+        # any other evil to non-demon becomes any other minion
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.characters[0] = Role.ANY_OTHER_EVIL
+        night2.characters[0] = Role.NON_DEMON
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertEqual(night2.characters[0], Role.ANY_OTHER_MINION)
+
+        # same in reverse
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.characters[0] = Role.NON_DEMON
+        night2.characters[0] = Role.ANY_OTHER_EVIL
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertEqual(night2.characters[0], Role.ANY_OTHER_MINION)
+
+        # combined characters resulting in an invalid world should be invalid
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.characters = [Role.FORTUNE_TELLER, Role.NON_DEMON, Role.NON_DEMON, Role.ANY_OTHER, Role.ANY_OTHER]
+        night2.characters = [Role.FORTUNE_TELLER, Role.ANY_OTHER, Role.ANY_OTHER, Role.NON_DEMON, Role.NON_DEMON]
+        self.assertFalse(World._pass_through_phases(world))
+
+        # if there's a starpass, the scarlet woman should become the imp and other minions stay the same
+        world = World(13)
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night2.star_passed = True
+        night1.characters[0] = Role.SCARLET_WOMAN
+        night1.characters[1] = Role.ANY_OTHER_MINION
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertEqual(night2.characters[0], Role.IMP)
+        self.assertEqual(night2.characters[1], Role.ANY_OTHER_MINION)
+
+        # if there's a starpass but no scarlet woman, any known minions would have caught it and non-demons stay non demons
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night2.star_passed = True
+        night1.characters[0] = Role.ANY_OTHER_MINION
+        night1.characters[1] = Role.NON_DEMON
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertEqual(night2.characters[0], Role.ANY_OTHER_EVIL)
+        self.assertEqual(night2.characters[1], Role.NON_DEMON)
+
+        # if not all minions are known, non-demons become any other role
+        world = World(13)
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night2.star_passed = True
+        night1.characters[0] = Role.ANY_OTHER_MINION
+        night1.characters[1] = Role.NON_DEMON
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertEqual(night2.characters[0], Role.ANY_OTHER_EVIL)
+        self.assertEqual(night2.characters[1], Role.ANY_OTHER)
+
+        # same minion types should be okay
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.minion_types = [Role.POISONER]
+        night2.minion_types = [Role.POISONER]
+        self.assertTrue(World._pass_through_phases(world))
+
+        # different minion types should be invalid
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.minion_types = [Role.POISONER]
+        night2.minion_types = [Role.SCARLET_WOMAN]
+        self.assertFalse(World._pass_through_phases(world))
+
+        # specific minion type -> any other minion should be okay
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.minion_types = [Role.ANY_OTHER_MINION]
+        night2.minion_types = [Role.POISONER]
+        self.assertTrue(World._pass_through_phases(world))
+
+        # same in reverse
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.minion_types = [Role.POISONER]
+        night2.minion_types = [Role.ANY_OTHER_MINION]
+        self.assertTrue(World._pass_through_phases(world))
+
+        # red herring should be passed through
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.red_herring[0] = True
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertTrue(night2.red_herring[0])
+
+        # two red herrings is invalid
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.red_herring[0] = True
+        night2.red_herring[1] = True
+        self.assertFalse(World._pass_through_phases(world))
+
+        # poisoned should not be passed through
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.poisoned[0] = True
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertFalse(night2.poisoned[0])
+
+        # drunk token should be passed through
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.drunk_token = Role.UNDERTAKER
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertEqual(night2.drunk_token, Role.UNDERTAKER)
+
+        # different drunk token should be invalid
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.drunk_token = Role.UNDERTAKER
+        night2.drunk_token = Role.FORTUNE_TELLER
+        self.assertFalse(World._pass_through_phases(world))
+
+        # chef number should be passed through
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.chef_number = 1
+        self.assertTrue(World._pass_through_phases(world))
+        self.assertEqual(night2.chef_number, 1)
+
+        # different chef number should be invalid
+        world = World()
+        night1 = world.phases[0]
+        night2 = world.add_phase(2)
+        night1.chef_number = 1
+        night2.chef_number = 2
+        self.assertFalse(World._pass_through_phases(world))
+
+    def test_comine_poisoned(self):
+
+        # one poisoning should be okay
+        phase1 = Phase()
+        phase2 = Phase()
+        new_phase = Phase()
+        phase1.poisoned[0] = True
+        result = World._combine_poisoned(new_phase, phase1, phase2, 5)
+        self.assertTrue(result)
+        self.assertTrue(new_phase.poisoned[0])
+
+        # two poisonings are invalid
+        phase1 = Phase()
+        phase2 = Phase()
+        phase1.poisoned[0] = True
+        phase2.poisoned[1] = True
+        result = World._combine_poisoned(new_phase, phase1, phase2, 5)
+        self.assertFalse(result)
+
+        # other minions with enough room for a poisoner
+        phase1 = Phase(num_players=13)
+        phase2 = Phase(num_players=13)
+        new_phase = Phase(num_players=13)
+        phase2.poisoned[0] = True
+        new_phase.minion_types[0] = Role.SCARLET_WOMAN
+        new_phase.minion_types[1] = Role.SPY
+        result = World._combine_poisoned(new_phase, phase1, phase2, 5)
+        self.assertTrue(result)
+        self.assertTrue(new_phase.poisoned[0])
+
+        # no room for a poisoner
+        phase1 = Phase(num_players=13)
+        phase2 = Phase(num_players=13)
+        new_phase = Phase(num_players=13)
+        phase2.poisoned[0] = True
+        new_phase.minion_types[0] = Role.SCARLET_WOMAN
+        new_phase.minion_types[1] = Role.BARON
+        new_phase.minion_types[2] = Role.SPY
+        result = World._combine_poisoned(new_phase, phase1, phase2, 5)
+        self.assertFalse(result)
+
+        # dead poisoner with active poisoning should return false
+        phase1 = Phase()
+        phase2 = Phase()
+        new_phase = Phase()
+        phase1.poisoned[0] = True
+        new_phase.characters[0] = Role.POISONER
+        new_phase.dead[0] = True
+        result = World._combine_poisoned(new_phase, phase1, phase2, 5)
+        self.assertFalse(result)
+
+    def test_killed_by_slayer(self):
+        pass
 
 if __name__ == '__main__':
     _ = unittest.main()
