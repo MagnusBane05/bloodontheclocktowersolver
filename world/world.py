@@ -4,6 +4,7 @@ from itertools import compress
 from .role import *
 from .errors import *
 from .phase import Phase
+from .helper import minionTypeLooseEquals, roleLooseEquals
 
 class World:
     def __init__(self, num_players:int=5):
@@ -11,15 +12,29 @@ class World:
             raise ValueError(f"{num_players} player worlds are not yet handled.")
         self.phases: list[Phase] = [Phase(num_players,1)]
 
-    def __eq__(self, value):
+    @override
+    def __eq__(self, value: object):
         if not isinstance(value, World):
             return False
         players = len(self.phases[0].characters)
         if players != len(value.phases[0].characters):
             return False
-        last_phase = self.phases[-1]
-        other_phase = value.phases[-1]
-        return all(last_phase[p] == other_phase[p] for p in range(players)) and all(m in other_phase.minion_types for m in last_phase.minion_types)
+        for phase in self.phases:
+            night = phase.night
+            try:
+                other_phase = value.get_phase(night)
+            except:
+                continue
+            # print("Characters")
+            # for i in range(players):
+            #     print(f"{i}. {phase.characters[i].name:<15} - {other_phase.characters[i].name}")
+            # print("Minion types")
+            # for i in range(len(phase.minion_types)):
+            #     print(f"{i}. {phase.minion_types[i].name:<15} - {other_phase.minion_types[i].name}")
+            equal = all(roleLooseEquals(phase.characters[p], other_phase.characters[p]) for p in range(players)) and all(minionTypeLooseEquals(phase.minion_types[m], other_phase.minion_types[m]) for m in range(len(phase.minion_types)))
+            if not equal:
+                return False
+        return True
 
     @override
     def __str__(self):
@@ -55,7 +70,6 @@ class World:
         raise PhaseNotFoundError(f"World does not contain phase with night {night}")
 
     def add_phase(self, night: int) -> Phase:
-        inserted = False
         previous = None
         position = 0
         for i, phase in enumerate(self.phases):
@@ -65,28 +79,30 @@ class World:
                 continue
             previous = self.phases[i-1]
             position = i
-            inserted = True
             break
-        if not inserted:
+        if previous is None:
             previous = self.phases[-1]
             position = len(self.phases)
 
         new_phase = copy.deepcopy(previous)
+        new_phase.poisoned = [False]*len(previous.poisoned)
         new_phase.night = night
         self.phases.insert(position, new_phase)
         
         return new_phase
 
-    def execute_player(self: World, player: int, night: int) -> tuple[World, World | None]:
+    def execute_player(self: World, player: int, night: int) -> tuple[World | None, World | None]:
         try:
-            phase: Phase = self.get_phase(night)
+            phase: Phase = self.get_phase(night)  # pyright: ignore[reportRedeclaration]
         except PhaseNotFoundError:
-            phase: Phase = self.add_phase(night)      
+            phase: Phase = self.add_phase(night)
+
+        assert(not phase.dead[player])
 
         phase.dead[player] = True
         phase.executee = player
         
-        non_sw_world: World = copy.deepcopy(self)
+        non_sw_world: World | None = copy.deepcopy(self)
         non_sw_phase = non_sw_world.get_phase(night)
 
         # dead player is a non-demon
@@ -103,7 +119,9 @@ class World:
             elif prev_non_sw_phase.characters[player] == Role.ANY_OTHER_EVIL:
                 prev_non_sw_phase.characters[player] = Role.ANY_OTHER_MINION
             
-        non_sw_world = non_sw_world if World._validate_world(non_sw_world) else None
+        non_sw_world = non_sw_world if World.validate_world(non_sw_world) else None
+        if non_sw_world is not None:
+            non_sw_world = World._deduce_world(non_sw_world)
 
         if phase.characters[player] == Role.IMP:
             non_sw_world = None
@@ -126,17 +144,12 @@ class World:
             return non_sw_world, None
         
         # if there's room for a scarlet woman
-        sw_world: World = copy.deepcopy(self)
+        sw_world: World | None = copy.deepcopy(self)
         sw_phase = sw_world.get_phase(night)
 
         # dead player was the imp
         sw_phase.characters[player] = Role.IMP
         sw_phase.star_passed = True
-
-        # also update all previous phases
-        for n in range(1, night):
-            prev_phase = sw_world.get_phase(n)
-            prev_phase.characters[player] = Role.IMP
 
         # minion type becomes scarlet woman
         try:
@@ -182,19 +195,23 @@ class World:
                 sw_phase.characters[i] = Role.ANY_OTHER_EVIL
                 sw_phase.character_changed[i] = True
 
-        sw_world = sw_world if World._validate_world(sw_world) else None
+        sw_world = sw_world if World.validate_world(sw_world) else None
+        if sw_world is not None:
+            sw_world = World._deduce_world(sw_world)
 
         return non_sw_world, sw_world
 
-    def killed_by_demon(self: World, player: int, night: int) -> tuple[World, World | None]:
+    def killed_by_demon(self: World, player: int, night: int) -> tuple[World | None, World | None]:
         try:
-            phase: Phase = self.get_phase(night)
+            phase: Phase = self.get_phase(night)  # pyright: ignore[reportRedeclaration]
         except PhaseNotFoundError:
             phase: Phase = self.add_phase(night)
 
+        assert(not phase.dead[player])
+
         phase.dead[player] = True
         
-        non_sp_world: World = copy.deepcopy(self)
+        non_sp_world: World | None = copy.deepcopy(self)
         non_sp_phase = non_sp_world.get_phase(night)
 
         # dead player is a non-demon
@@ -211,7 +228,9 @@ class World:
             elif prev_non_sp_phase.characters[player] == Role.ANY_OTHER_EVIL:
                 prev_non_sp_phase.characters[player] = Role.ANY_OTHER_MINION
 
-        non_sp_world = non_sp_world if World._validate_world(non_sp_world) else None
+        non_sp_world = non_sp_world if World.validate_world(non_sp_world) else None
+        if non_sp_world is not None:
+            non_sp_world = World._deduce_world(non_sp_world)
 
         if phase.characters[player] == Role.IMP:
             non_sp_world = None
@@ -242,11 +261,6 @@ class World:
         # dead player was the imp
         sp_phase.characters[player] = Role.IMP
         sp_phase.star_passed = True
-
-        # also update all previous phases
-        for n in range(1, night):
-            prev_phase = sp_world.get_phase(n)
-            prev_phase.characters[player] = Role.IMP
 
         # if there's a known scarlet woman, they become the demon
         try:
@@ -280,7 +294,9 @@ class World:
                 sp_phase.characters[i] = Role.ANY_OTHER_EVIL
                 sp_phase.character_changed[i] = True
 
-        sp_world = sp_world if World._validate_world(sp_world) else None
+        sp_world = sp_world if World.validate_world(sp_world) else None
+        if sp_world is not None:
+            sp_world = World._deduce_world(sp_world)
 
         return non_sp_world, sp_world
     
@@ -289,6 +305,8 @@ class World:
             phase = self.get_phase(night)
         except PhaseNotFoundError:
             phase = self.add_phase(night)
+
+        assert(not phase.dead[target])
 
         phase.dead[target] = True
 
@@ -306,9 +324,10 @@ class World:
                 phase.characters[target] = Role.RECLUSE
 
         # make sure the world is sill valid
-        if recluse_world is not None and not World._validate_world(recluse_world):
+        if recluse_world is not None and not World.validate_world(recluse_world):
             recluse_world = None
-
+        if recluse_world is not None:
+            recluse_world = World._deduce_world(recluse_world)
         demon_world = copy.deepcopy(self)
         demon_phase = demon_world.get_phase(night)
         
@@ -379,11 +398,14 @@ class World:
                 demon_phase.characters[i] = Role.ANY_OTHER_EVIL
                 demon_phase.character_changed[i] = True
 
-        demon_world = demon_world if World._validate_world(demon_world) else None
+        demon_world = demon_world if World.validate_world(demon_world) else None
+        if demon_world is not None:
+            demon_world = World._deduce_world(demon_world)
+        return recluse_world, demon_world
 
     
     @staticmethod
-    def _validate_world(world: World) -> bool:
+    def validate_world(world: World) -> bool:
         for phase in world.phases:
             valid = all([
                 World._validate_character_counts(phase, world.phases[0], len(phase.characters)),
@@ -391,6 +413,14 @@ class World:
             if not valid:
                 return False
         return True
+
+    @staticmethod
+    def _deduce_world(world: World) -> World:
+        world_copy = copy.deepcopy(world)
+        num_players = len(world_copy.phases[0].characters)
+        for phase in world_copy.phases:
+            phase.make_deductions(num_players)
+        return world_copy
     
     @classmethod
     def combine(cls, w1: Self, w2: Self) -> tuple[Self, bool]:
@@ -416,9 +446,9 @@ class World:
             if p1 is None and p2 is None:
                 continue
             if p1 is None:
-                new_world.phases.append(copy.deepcopy(p2))
+                new_world.phases.append(copy.deepcopy(p2))  # pyright: ignore[reportArgumentType]
                 continue
-            if p2 is None:
+            if p2 is None :
                 new_world.phases.append(copy.deepcopy(p1))
                 continue
 
@@ -431,7 +461,7 @@ class World:
             if not World._combine_phases(new_world.phases[0], new_phase, num_players, p1, p2):
                 return w1, False
             
-            World._make_deductions(new_phase, num_players)
+            new_phase.make_deductions(num_players)
             
         if not World._pass_through_phases(new_world):
             return w1, False
@@ -456,7 +486,7 @@ class World:
             return False
 
         # Combine and validate chef numbers
-        if not World._combine_chef_number(new_phase, p1, p2, num_players):
+        if new_phase.night == 0 and not World._combine_chef_number(new_phase, p1, p2, num_players):
             return False
         
         if not World._combine_deaths(new_phase, p1, p2, num_players):
@@ -473,6 +503,11 @@ class World:
         # Check if there's more than one red herring or if the red herring is on an evil player
         if not World._combine_red_herring(new_phase, p1, p2, num_players):
             return False
+
+        # Combine star passed and character changed
+        new_phase.star_passed = p1.star_passed or p2.star_passed
+        for i in range(num_players):
+            new_phase.character_changed[i] = p1.character_changed[i] or p2.character_changed[i]
 
         return True
 
@@ -682,30 +717,107 @@ class World:
 
     @staticmethod
     def _combine_chef_number(new_phase: Phase, p1: Phase, p2: Phase, num_players: int):
-        if p1.chef_number is not None and p2.chef_number is not None and p1.chef_number is not p2.chef_number:
+        # If both have chef numbers and they conflict, invalid
+        if p1.chef_number is not None and p2.chef_number is not None and p1.chef_number != p2.chef_number:
             return False
-        
+
+        # Carry forward the known chef number if any
         new_phase.chef_number = p1.chef_number if p1.chef_number is not None else p2.chef_number
         if new_phase.chef_number is None:
             return True
-        
+
+        chef_number = new_phase.chef_number
         characters = new_phase.characters
-        # set a minimum number of non-Spy evil pairs
-        minimum = 0
-        for i in range(num_players):
-            j = (i+1) % num_players
-            if characters[i] in EVIL_CHARACTERS and characters[i] != Role.SPY and characters[j] in EVIL_CHARACTERS and characters[j] != Role.SPY:
-                minimum += 1
+        minion_types = new_phase.minion_types
 
-        possible_numbers = [minimum]
-        maximum = minimum
-        for i in range(num_players):
-            j = (i+1) % num_players
-            if (characters[i] in EVIL_CHARACTERS or characters[i] == Role.RECLUSE) and (characters[j] in EVIL_CHARACTERS or characters[j] == Role.RECLUSE):
-                maximum += 1
-                possible_numbers.append(maximum)
+        # Could an unkown player be the spy
+        spy_possible = Role.SPY not in characters and (Role.SPY in minion_types or Role.ANY_OTHER_MINION in minion_types)
 
-        return new_phase.chef_number in possible_numbers
+        # Could an unknown player be the recluse
+        known_outsiders = len([c for c in characters if c in OUTSIDERS])
+        baron_possible = Role.BARON in minion_types or Role.ANY_OTHER_MINION in minion_types
+        max_outsiders = ROLE_BREAKDOWNS[num_players]['outsiders']+2 if baron_possible else ROLE_BREAKDOWNS[num_players]['outsiders']
+        recluse_possible = Role.RECLUSE not in characters and known_outsiders < max_outsiders
+
+        # Helper predicates
+        def is_definitely_evil(role: Role):
+            if role == Role.SPY:
+                return False
+            if role in EVIL_CHARACTERS:
+                return True
+            if not spy_possible and role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
+                return True
+            return False
+
+        def is_possibly_evil(role: Role):
+            if is_definitely_evil(role):
+                return True
+            if role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
+                return True
+            if role in [Role.ANY_OTHER, Role.NON_DEMON]:
+                return True
+            if role in [Role.SPY, Role.RECLUSE]:
+                return True
+            return False
+
+        def could_be_recluse(role: Role):
+            return role in [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_OUTSIDER]
+
+        def is_evil_could_be_spy(role: Role):
+            return role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]
+
+        pairs = [(i, (i + 1) % num_players) for i in range(num_players)]
+
+        min_pairs = 0
+        max_pairs = 0
+
+        recluse_needed: list[int] = []
+        possible_spies: list[int] = []
+        spies_needed = 0
+
+        for i, j in pairs:
+            r1 = characters[i]
+            r2 = characters[j]
+
+            if is_definitely_evil(r1) and is_definitely_evil(r2):
+                min_pairs += 1
+
+            elif is_definitely_evil(r1) and is_evil_could_be_spy(r2):
+                possible_spies.append(j)
+                spies_needed += 1
+
+            elif is_evil_could_be_spy(r1) and is_definitely_evil(r2):
+                possible_spies.append(i)
+                spies_needed += 1
+
+            elif is_evil_could_be_spy(r1) and is_evil_could_be_spy(r2):
+                possible_spies.append(i)
+                possible_spies.append(j)
+                spies_needed += 1
+
+            if is_possibly_evil(r1) and is_possibly_evil(r2):
+                max_pairs += 1
+
+            elif is_possibly_evil(r1) and could_be_recluse(r2):
+                recluse_needed.append(j)
+
+            elif could_be_recluse(r1) and is_possibly_evil(r2):
+                recluse_needed.append(i)
+
+
+        recluse_impact = 0 if len(recluse_needed) == 0 else max([recluse_needed.count(i) for i in recluse_needed])
+        max_pairs = max_pairs+recluse_impact if recluse_possible else max_pairs
+
+        spy_impact = 0 if len(possible_spies) == 0 else max([possible_spies.count(i) for i in possible_spies])
+        min_pairs = min_pairs+spies_needed-spy_impact if spy_possible else min_pairs # the check if spy is possible is probably redundant
+
+
+        # Global evil count constraint
+        max_evils = ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']
+        max_pairs = min(max_pairs, max_evils)
+
+        return min_pairs <= chef_number <= max_pairs
+
 
     @staticmethod
     def _combine_poisoned(new_phase: Phase, p1: Phase, p2: Phase, num_players: int):
@@ -718,9 +830,9 @@ class World:
         if any(new_phase.poisoned) and Role.POISONER not in new_phase.minion_types and Role.ANY_OTHER_MINION not in new_phase.minion_types:
             return False
         # return false if known poisoner or all minions are dead
-        if Role.POISONER in compress(new_phase.characters,new_phase.dead):
+        if any(new_phase.poisoned) and Role.POISONER in compress(new_phase.characters,new_phase.dead):
             return False
-        if sum([x for x in compress(new_phase.characters,new_phase.dead) if x == Role.ANY_OTHER_MINION]) == ROLE_BREAKDOWNS[num_players]['minions']:
+        if any(new_phase.poisoned) and len([x for x in compress(new_phase.characters,new_phase.dead) if x == Role.ANY_OTHER_MINION]) == ROLE_BREAKDOWNS[num_players]['minions']:
             return False
 
         return True
@@ -739,7 +851,7 @@ class World:
         # we don't know if a baron is in play, valid counts could be base and base plus 2
         if Role.BARON not in phase_0.minion_types and Role.ANY_OTHER_MINION in phase_0.minion_types:
             valid_counts.append(ROLE_BREAKDOWNS[num_players]['outsiders']+2)
-        minimum = sum([1 if c in OUTSIDERS else 0 for c in phase_0.characters])
+        minimum = sum([1 if c in OUTSIDERS or c == Role.ANY_OTHER_OUTSIDER else 0 for c in phase_0.characters])
         maximum = minimum + sum([1 if c in [Role.ANY_OTHER_GOOD, Role.ANY_OTHER, Role.NON_DEMON] else 0 for c in phase_0.characters])
         # valid if any possible number of outsiders is in one of the valid counts
         return any([c in valid_counts for c in range(minimum, maximum+1)])
@@ -759,6 +871,9 @@ class World:
             return False
         # validate not all evils are dead
         if sum([1 if c in EVIL_ROLES and new_phase.dead[i] else 0 for i,c in enumerate(new_phase.characters)]) >= ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']:
+            return False
+        # validate not too many minions
+        if len([c for c in new_phase.characters if c in MINIONS or c == Role.ANY_OTHER_MINION]) > ROLE_BREAKDOWNS[num_players]['minions']:
             return False
         if World._num_characters_of_type(new_phase, EVIL_ROLES) > ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']:
             return False
@@ -782,7 +897,7 @@ class World:
 
         # make sure the red herring doesn't belong to an evil player
         for i in range(num_players):
-            if new_phase.red_herring[i] and new_phase.characters[i] in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION, Role.IMP] + MINIONS:
+            if new_phase.red_herring[i] and new_phase.characters[i] in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION, Role.IMP] + MINIONS and new_phase.characters[i] != Role.SPY:
                     return False
                 
         return True
@@ -802,69 +917,6 @@ class World:
             if character in character_type:
                 n += 1
         return n
-    
-    @staticmethod
-    def _make_deductions(phase: Phase, num_players: int):
-        deduced = True
-        max_depth = 5
-        d = 0
-        while deduced and d < max_depth:
-            deduced = World._deduction_step(phase, num_players)
-            d += 1
-
-    @staticmethod
-    def _deduction_step(phase: Phase, num_players: int) -> bool:
-        deduced = False
-
-        # If no other spot for alive demon, assign demon
-        alive_demon_candidates = [
-            i for i, c in enumerate(phase.characters)
-            if c in [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.IMP] and not phase.dead[i]
-        ]
-        if len(alive_demon_candidates) == 1 and phase.characters[alive_demon_candidates[0]] != Role.IMP:
-            phase.characters[alive_demon_candidates[0]] = Role.IMP
-            deduced = True
-        
-        # If no other spot for evils, assign evil
-        evil_indices = [i for i, c in enumerate(phase.characters) if c in EVIL_ROLES]
-        if ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons'] - len(evil_indices) > 0:
-            if all(c in GOOD_ROLES or i in evil_indices for i,c in enumerate(phase.characters)):
-                for i,c in enumerate(phase.characters):
-                    if c == Role.ANY_OTHER:
-                        phase.characters[i] = Role.ANY_OTHER_EVIL
-                        deduced = True
-                    if c == Role.NON_DEMON:
-                        phase.characters[i] = Role.ANY_OTHER_MINION
-                        deduced = True
-
-
-        # If 2 evil players and one is known minion / demon, assign the opposite to the unknown evil
-        evil_indices = [i for i, c in enumerate(phase.characters) if c in EVIL_ROLES]
-        if len(evil_indices) == 2:
-            roles = [phase.characters[i] for i in evil_indices]
-            # If one is Imp and the other is ANY_OTHER_EVIL, assign the other as minion
-            if Role.IMP in roles:
-                for i in evil_indices:
-                    if phase.characters[i] == Role.ANY_OTHER_EVIL:
-                        phase.characters[i] = Role.ANY_OTHER_MINION
-                        deduced = True
-            # If one is a known minion and the other is ANY_OTHER_EVIL, assign the other as Imp
-            elif any(r in MINIONS for r in roles) or Role.ANY_OTHER_MINION in roles:
-                for i in evil_indices:
-                    if phase.characters[i] == Role.ANY_OTHER_EVIL:
-                        phase.characters[i] = Role.IMP
-                        deduced = True
-
-        # If all minion types are known and there is one player with the ANY_OTHER_MINION role, we can assign that player the unasigned minion type
-        if Role.ANY_OTHER_MINION not in phase.minion_types:
-            unassigned_types = list(set(phase.minion_types) - set([c for c in phase.characters if c in MINIONS]))
-            if len(unassigned_types) == 1 and Role.ANY_OTHER_MINION in phase.characters:
-                phase.characters[phase.characters.index(Role.ANY_OTHER_MINION)] = unassigned_types[0]
-                deduced = True
-
-        # TODO: If all minion players are known and there are one or more players with the NON_DEMON role, assign ANY_OTHER_GOOD to those players
-                
-        return deduced
     
     @staticmethod
     def _pass_through_phases(world: World) -> bool:
@@ -922,14 +974,14 @@ class World:
                 elif prev_phase.chef_number != curr_phase.chef_number:
                     return False
                 
-        if not World._validate_world(world):
+        if not World.validate_world(world):
             return False
 
         return True
 
 def combine_worlds(world_lists: list[list[World]]):
     starting_worlds: list[World] = world_lists[0]
-    conflicting_worlds: list[list[World]] = []
+    conflicting_worlds: list[tuple[World,World]] = []
 
     for i in range(1, len(world_lists)):
         valid_worlds: list[World] = []
@@ -939,7 +991,7 @@ def combine_worlds(world_lists: list[list[World]]):
                 if valid: 
                     valid_worlds.append(combined_world)
                 else:
-                    conflicting_worlds.append([w1, w2])
+                    conflicting_worlds.append((w1, w2))
         starting_worlds = valid_worlds[:]
 
     return starting_worlds, conflicting_worlds

@@ -111,14 +111,66 @@ class TestSolver(unittest.TestCase):
         self.assertFalse(valid)
 
         chef_world.phases[0].chef_number = 3
-        # Chef 3 with evil, Recluse, evil, Baron and another outsider (impossible in 5 players)
+        # Chef 3 impossible in 5 players
         w_invalid3 = World()
-        w_invalid3.phases[0].characters = [
-            Role.CHEF, Role.IMP, Role.RECLUSE, Role.BARON, Role.DRUNK
-        ]
-        w_invalid3.phases[0].add_minion_type(Role.BARON)
         w_invalid3, valid = World.combine(w_invalid3, chef_world)
         self.assertFalse(valid)
+
+        # In an unknown world, Chef number can be up to maximum possible
+        chef_world.phases[0].chef_number = 2
+        world = World()
+        world, valid = World.combine(world, chef_world)
+        self.assertTrue(valid)
+
+        # If an unknown evil could be a Spy, a chef could get a 0
+        chef_world.phases[0].chef_number = 0
+        world = World()
+        world.phases[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER]
+        world, valid = World.combine(world, chef_world)
+        self.assertTrue(valid)
+        # self.assertIn(Role.SPY, world.phases[0].minion_types)
+
+        # 0 is not possible if no Spy
+        chef_world.phases[0].chef_number = 0
+        world = World()
+        world.phases[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER]
+        world.phases[0].minion_types = [Role.SCARLET_WOMAN]
+        world, valid = World.combine(world, chef_world)
+        self.assertFalse(valid)
+
+        # if Spy is elsewhere, 0 is not possible
+        chef_world = World(13)
+        chef_world.phases[0].chef_number = 0
+        world = World(13)
+        world.phases[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER, Role.SPY, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER]
+        world.phases[0].minion_types = [Role.SPY, Role.ANY_OTHER_MINION, Role.ANY_OTHER_MINION]
+        world, valid = World.combine(world, chef_world)
+        self.assertFalse(valid)
+
+        # only 1 possible evil pair can include a spy
+        chef_world.phases[0].chef_number = 0
+        world = World(13)
+        world.phases[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER]
+        world, valid = World.combine(world, chef_world)
+        self.assertFalse(valid)
+
+        # an unknown good could be the Recluse, making 2 the max Chef number
+        chef_world = World()
+        chef_world.phases[0].chef_number = 2
+        world = World()
+        world.phases[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
+        world, valid = World.combine(world, chef_world)
+        self.assertTrue(valid)
+
+        # if the unknown good is not the Recluse, they can't contribute to the Chef number
+        chef_world.phases[0].chef_number = 2
+        world = World()
+        world.phases[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
+        world.phases[0].minion_types = [Role.SCARLET_WOMAN]
+        world, valid = World.combine(world, chef_world)
+        self.assertFalse(valid)
+
+
 
     def test_combine_characters(self):
         ## Valid cases
@@ -271,20 +323,20 @@ class TestSolver(unittest.TestCase):
 
     def test_add_phase(self):
         world = World()
-        world.add_phase(2)
+        _ = world.add_phase(2)
 
         self.assertEqual(len(world.phases), 2)
         self.assertEqual(world.phases[0].night, 1)
         self.assertEqual(world.phases[1].night, 2)
 
-        world.add_phase(5)
-        world.add_phase(3)
+        _ = world.add_phase(5)
+        _ = world.add_phase(3)
 
         self.assertEqual(len(world.phases), 4)
         self.assertEqual(world.phases[2].night, 3)
         self.assertEqual(world.phases[3].night, 5)
 
-        world.add_phase(0)
+        _ = world.add_phase(0)
         self.assertEqual(world.phases[0].night, 0)
 
     def test_execution(self):
@@ -437,6 +489,17 @@ class TestSolver(unittest.TestCase):
         world.phases[0].characters = [Role.NON_DEMON, Role.WASHERWOMAN, Role.LIBRARIAN, Role.EMPATH, Role.MONK]
         _, sp_world = world.killed_by_demon(0,2)
         self.assertIsNone(sp_world)
+
+        # simple world sanity check
+        world = World()
+        test_characters = [Role.IMP, Role.SCARLET_WOMAN, Role.FORTUNE_TELLER, Role.MONK, Role.CHEF]
+        world.phases[0].characters = test_characters
+        _, sp_world = world.killed_by_demon(0,2)
+        self.assertIsNotNone(sp_world)
+        self.assertEqual(len(sp_world.phases), 2)
+        self.assertListEqual(sp_world.phases[0].characters, test_characters)
+        self.assertListEqual(sp_world.phases[1].characters, [Role.IMP, Role.IMP, Role.FORTUNE_TELLER, Role.MONK, Role.CHEF])
+        
 
     def test_pass_through_phases(self):
         # sanity check, same characters should be okay
@@ -680,6 +743,36 @@ class TestSolver(unittest.TestCase):
 
     def test_killed_by_slayer(self):
         pass
+    
+    def test_validate_world(self):
+        # Sanity test, simple world works
+        world = World()
+        phase = world.phases[0]
+        phase.characters = [Role.IMP, Role.SCARLET_WOMAN, Role.FORTUNE_TELLER, Role.SLAYER, Role.CHEF]
+        valid = World.validate_world(world)
+        self.assertTrue(valid)
+
+        # Only 1 alive imp is okay
+        world = World()
+        phase = world.phases[0]
+        phase.characters = [Role.IMP, Role.IMP, Role.FORTUNE_TELLER, Role.SLAYER, Role.CHEF]
+        valid = World.validate_world(world)
+        self.assertFalse(valid)
+
+        world = World()
+        phase = world.phases[0]
+        phase.characters = [Role.IMP, Role.IMP, Role.FORTUNE_TELLER, Role.SLAYER, Role.CHEF]
+        phase.dead[1] = True
+        valid = World.validate_world(world)
+        self.assertTrue(valid)
+
+        # More than 2 evils is not
+        world = World()
+        phase = world.phases[0]
+        phase.characters = [Role.IMP, Role.IMP, Role.IMP, Role.SLAYER, Role.CHEF]
+        phase.dead = [True, True, False, False, False]
+        valid = World.validate_world(world)
+        self.assertFalse(valid)
 
 if __name__ == '__main__':
     _ = unittest.main()

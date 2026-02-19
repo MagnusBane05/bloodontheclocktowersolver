@@ -1,17 +1,17 @@
+from typing import Any
 from world.world import World
 import numpy as np
 import pandas as pd
-from worldCreator import Game
+from worldCreator import Game, create_worlds_from_info
 from world.role import Role, ROLE_BREAKDOWNS, MINIONS
 from pprint import pprint
 from itertools import permutations
 from collections import defaultdict
-import random
 from simulator import simulate_info
 
 def _set_up_worlds(worlds: list[World], game: Game) -> pd.DataFrame:
     zeros = np.zeros((game['players'],Role.__len__()))
-    player_characters = pd.DataFrame(zeros, columns=[x.name for x in Role])
+    player_characters = pd.DataFrame(zeros, columns=[x.name for x in Role], dtype='uint8')
     for world in worlds:
         for i,c in enumerate(world.phases[-1].characters):
             player_characters.loc[i,c.name] += 1
@@ -79,7 +79,7 @@ def predict_minion_type(worlds: list[World], game: Game) -> tuple[Role, float]:
     minion_type_df.sort_values(by='probability', ascending=False, inplace=True)
     return minion_type_df.index[0], minion_type_df['probability'][minion_type_df.index[0]].item()
 
-def guess_correct_world(worlds: list[World], game: Game) -> World:
+def guess_correct_world(worlds: list[World], game: Game) -> tuple[World, float]:
     demon_df = _calculate_demon_df(worlds, game)
     evil_team_df = _calculate_evil_team_df(worlds, game)
     minion_type_df = _calculate_minion_types_df(worlds, game)
@@ -122,20 +122,29 @@ def guess_correct_world(worlds: list[World], game: Game) -> World:
     if total > 0:
         worlds_df['minion_type_weight'] = worlds_df['minion_type_weight'] / total
 
-    demon_weight = 1
-    evil_team_weight = 1
-    minion_type_weight = 1
-    worlds_df['total_weight'] = (worlds_df['demon_weight']*demon_weight+worlds_df['evil_team_weight']*evil_team_weight+worlds_df['minion_type_weight']*minion_type_weight)/(demon_weight+evil_team_weight+minion_type_weight)
+    demon_weight = 0.33
+    evil_team_weight = 0.33
+    minion_type_weight = 0.34
+    worlds_df['total_weight'] = worlds_df['demon_weight']*demon_weight+worlds_df['evil_team_weight']*evil_team_weight+worlds_df['minion_type_weight']*minion_type_weight
 
-    pprint(worlds_df)
+    # pprint(worlds_df)
     
     worlds_df.sort_values(by='total_weight', ascending=False, inplace=True)
     return worlds[worlds_df.index[0]], worlds_df['total_weight'][worlds_df.index[0]].item()
 
 
-players = 5
-n = 5
+game: Game = {
+    'players': 5
+}
+n = 100
 seed = 42
-x = simulate_info(n, players, seed)
-for x_i,y in x:
-    print(y)
+x = simulate_info(n, game['players'], seed)
+correct = 0
+for ((info_list, death_info), true_world) in x:
+
+    combined_worlds, _ = create_worlds_from_info(game, info_list, death_info)
+    guessed_world, guessed_world_probs = guess_correct_world(combined_worlds, game)
+    if guessed_world == true_world:
+        correct += 1
+
+print(correct)
