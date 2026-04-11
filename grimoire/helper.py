@@ -1,4 +1,4 @@
-from world.role import DEMONS, EVIL_CHARACTERS, GOOD_CHARACTERS, MINIONS, OUTSIDERS, TOWNSFOLK, Role
+from grimoire.role import DEMONS, EVIL_CHARACTERS, GOOD_CHARACTERS, MINIONS, OUTSIDERS, TOWNSFOLK, Role
 
 
 def roleLooseEquals(r1: Role, r2: Role) -> bool:
@@ -28,11 +28,11 @@ def roleLooseEquals(r1: Role, r2: Role) -> bool:
         return r2 == Role.ANY_OTHER_MINION or r2 == Role.ANY_OTHER_EVIL
     if r1 in DEMONS:
         return r2 == Role.ANY_OTHER_EVIL
-    raise Exception("Something terrible has gone wrong")
+    raise Exception("Something has gone terribly wrong")
 
-def minionTypeLooseEquals(mt1: Role, mt2: Role) -> bool:
-    if mt1 == mt2:
-        return True
-    return mt1 == Role.ANY_OTHER_MINION or mt2 == Role.ANY_OTHER_MINION
+def minion_types_loose_equals(mt1: list[Role], mt2: list[Role]):
+    unique_minions = set(mt1 + mt2)
+    unique_minions.discard(Role.ANY_OTHER_MINION)
+    return len(unique_minions) <= len(mt1)
 
             

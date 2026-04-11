@@ -1,6 +1,6 @@
 import unittest
-from worldCreator import *
-from world.world import *
+from grimoire.info_to_grim import *
+from grimoire.grimoire import *
 
 class TestSolver5Player(unittest.TestCase):
     def test_investigator_washerwoman(self):
@@ -28,7 +28,7 @@ class TestSolver5Player(unittest.TestCase):
             'minion': Role.SCARLET_WOMAN
         }
 
-        investigator_worlds = create_worlds_from_investigator_info(game, investigator_info)
+        investigator_worlds = _create_worlds_from_investigator_info(game, investigator_info)
 
         ## Player 1 is claiming to be the Washerwoman who saw you and player 4 as the Investigator
         ## What are the possible worlds?
@@ -47,7 +47,7 @@ class TestSolver5Player(unittest.TestCase):
             'townsfolk': Role.INVESTIGATOR
         }
 
-        washerwoman_worlds = create_worlds_from_washerwoman_info(game, washerwoman_info)
+        washerwoman_worlds = _create_worlds_from_washerwoman_info(game, washerwoman_info)
 
         ## Combining these two sets of worlds together, what are the possible valid worlds and which worlds conflict?
         ## Possible worlds:
@@ -131,7 +131,7 @@ class TestSolver5Player(unittest.TestCase):
             'character': Role.SOLDIER
         }
 
-        soldier_worlds = create_worlds_from_claim(game, soldier_claim)
+        soldier_worlds = _create_worlds_from_claim(game, soldier_claim)
 
         # Player 2 is executed
 
@@ -184,7 +184,7 @@ class TestSolver5Player(unittest.TestCase):
             'character': Role.SAINT
         }
 
-        saint_worlds = create_worlds_from_claim(game, saint_claim)
+        saint_worlds = _create_worlds_from_claim(game, saint_claim)
 
         ## Player 3 claims Fortune Teller
 
@@ -269,8 +269,8 @@ class TestSolver5Player(unittest.TestCase):
             'night': 2
         }
 
-        fortune_teller_n1_worlds = create_worlds_from_fortune_teller_info(game, fortune_teller_n1_info)
-        fortune_teller_n2_worlds = create_worlds_from_fortune_teller_info(game, fortune_teller_n2_info)
+        fortune_teller_n1_worlds = _create_worlds_from_fortune_teller_info(game, fortune_teller_n1_info)
+        fortune_teller_n2_worlds = _create_worlds_from_fortune_teller_info(game, fortune_teller_n2_info)
         fortune_teller_worlds, ft_invalid_worlds = combine_worlds([fortune_teller_n1_worlds, fortune_teller_n2_worlds])
 
         self.assertEqual(len(fortune_teller_worlds), 18)
@@ -321,8 +321,8 @@ class TestSolver5Player(unittest.TestCase):
 
     def test_sw_promotion(self):
 
-        world = World()
-        phase = world.phases[0]
+        world = Grimoire()
+        phase = world.pages[0]
         phase.characters[4] = Role.ANY_OTHER_MINION
 
         ## Possible worlds
@@ -332,43 +332,43 @@ class TestSolver5Player(unittest.TestCase):
         valid_worlds = create_worlds_from_execution([world], executed_player, 2)
 
         ## World 1: Player 2 is not the Imp and Player 4 is still the minion
-        self.assertIn(Role.ANY_OTHER_MINION, valid_worlds[0].phases[0].minion_types)
-        self.assertEqual(valid_worlds[0].phases[0].characters[2], Role.NON_DEMON)
+        self.assertIn(Role.ANY_OTHER_MINION, valid_worlds[0].pages[0].minion_types)
+        self.assertEqual(valid_worlds[0].pages[0].characters[2], Role.NON_DEMON)
 
         ## World 2: Player 2 is the Imp and Player 4 is now the Imp
-        self.assertIn(Role.SCARLET_WOMAN, valid_worlds[1].phases[0].minion_types)
+        self.assertIn(Role.SCARLET_WOMAN, valid_worlds[1].pages[0].minion_types)
         # self.assertEqual(valid_worlds[1].phases[0].characters[2], Role.IMP) we can't know if the character was the imp the previous night (sw passes after exeucting imp then star passes to third minion)
-        self.assertEqual(valid_worlds[1].phases[0].characters[4], Role.SCARLET_WOMAN)
-        self.assertIn(Role.SCARLET_WOMAN, valid_worlds[1].phases[1].minion_types)
-        self.assertEqual(valid_worlds[1].phases[1].characters[2], Role.IMP)
-        self.assertEqual(valid_worlds[1].phases[1].characters[4], Role.IMP)
+        self.assertEqual(valid_worlds[1].pages[0].characters[4], Role.SCARLET_WOMAN)
+        self.assertIn(Role.SCARLET_WOMAN, valid_worlds[1].pages[1].minion_types)
+        self.assertEqual(valid_worlds[1].pages[1].characters[2], Role.IMP)
+        self.assertEqual(valid_worlds[1].pages[1].characters[4], Role.IMP)
 
-        world2 = World()
-        phase2 = world2.phases[0]
+        world2 = Grimoire()
+        phase2 = world2.pages[0]
         phase2.add_minion_type(Role.SPY)
 
         valid_worlds = create_worlds_from_execution([world2], executed_player, 2)
 
         ## Only valid world: Player 2 is not the Imp
         self.assertEqual(len(valid_worlds), 1)
-        self.assertIn(Role.SPY, valid_worlds[0].phases[0].minion_types)
-        self.assertEqual(valid_worlds[0].phases[0].characters[2], Role.NON_DEMON)
+        self.assertIn(Role.SPY, valid_worlds[0].pages[0].minion_types)
+        self.assertEqual(valid_worlds[0].pages[0].characters[2], Role.NON_DEMON)
 
-        world3 = World()
-        phase3 = world3.phases[0]
+        world3 = Grimoire()
+        phase3 = world3.pages[0]
         phase3.characters[2] = Role.IMP
 
-        world4 = World()
-        phase4 = world4.phases[0]
+        world4 = Grimoire()
+        phase4 = world4.pages[0]
         phase4.characters[2] = Role.IMP
         phase4.characters[3] = Role.ANY_OTHER_MINION
 
         valid_worlds = create_worlds_from_execution([world3], executed_player, 2)
         self.assertEqual(len(valid_worlds), 1)
-        world6, _ = World.combine(world4, valid_worlds[0])
-        self.assertEqual(world6.phases[1].characters[2], Role.IMP)
-        self.assertEqual(world6.phases[1].characters[3], Role.IMP)
-        self.assertTrue(world6.phases[1].dead[2])
+        world6, _ = Grimoire.combine(world4, valid_worlds[0])
+        self.assertEqual(world6.pages[1].characters[2], Role.IMP)
+        self.assertEqual(world6.pages[1].characters[3], Role.IMP)
+        self.assertTrue(world6.pages[1].dead[2])
 
 
 if __name__ == '__main__':

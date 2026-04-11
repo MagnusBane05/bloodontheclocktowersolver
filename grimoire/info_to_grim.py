@@ -1,128 +1,43 @@
-from typing import TypedDict, Literal
-from world.world import World, Role, OUTSIDERS, ROLE_BREAKDOWNS, EVIL_CHARACTERS, GOOD_CHARACTERS, combine_worlds
+from .info import *
+from .grimoire import Grimoire
+from .role import Role, OUTSIDERS, ROLE_BREAKDOWNS, EVIL_CHARACTERS, GOOD_CHARACTERS
+from .game import Game
+from .nightOrderPosition import NightOrderPosition
 
-class Game(TypedDict):
-    players: int
+def _create_drunk_evil_poisoned_worlds(
+        game: Game, 
+        player: int, 
+        token: Role, 
+        night:int=1, 
+        night_order_position: NightOrderPosition = NightOrderPosition.AFTER_IMP
+        ) -> list[Grimoire]:
+    
+    worlds: list[Grimoire] = []
 
-class DeathInfo(TypedDict):
-    executed: tuple[int,int] | None
-    slayer_shot: tuple[int,int] | None
-    killed_by_demon: tuple[int,int] | None
-
-class Claim(TypedDict):
-    kind: Literal["claim"]
-    player: int
-    character: Role
-
-class InvestigatorInfo(TypedDict):
-    kind: Literal["investigator"]
-    investigator: int
-    first_player: int
-    second_player: int
-    minion: Role
-
-class WasherwomanInfo(TypedDict):
-    kind: Literal["washerwoman"]
-    washerwoman: int
-    first_player: int
-    second_player: int
-    townsfolk: Role
-
-class LibrarianInfo(TypedDict):
-    kind: Literal["librarian"]
-    librarian: int
-    first_player: int | None
-    second_player: int | None
-    token: Role | None
-
-class ChefInfo(TypedDict):
-    kind: Literal["chef"]
-    chef: int
-    number: int
-
-class FortuneTellerInfo(TypedDict):
-    kind: Literal["fortune teller"]
-    fortune_teller: int
-    night: int
-    pings: tuple[tuple[int,int],bool]
-
-class EmpathInfo(TypedDict):
-    kind: Literal["empath"]
-    empath: int
-    number: int
-    night: int
-    left_neighbour: int
-    right_neighbour: int    
-
-class UndertakerInfo(TypedDict):
-    kind: Literal["undertaker"]
-    undertaker: int
-    body: int
-    token: Role
-    night: int
-
-class RavenkeeperInfo(TypedDict):
-    kind: Literal["ravenkeeper"]
-    ravenkeeper: int
-    chosen: int
-    token: Role
-    night: int
-
-class VirginInfo(TypedDict):
-    kind: Literal["virgin"]
-    virgin: int
-    nominator: int
-    executed: bool
-    night: int
-
-class SlayerInfo(TypedDict):
-    kind: Literal["slayer"]
-    slayer: int
-    target: int
-    successful: bool
-    night: int
-
-Info = (
-    Claim |
-    InvestigatorInfo |
-    WasherwomanInfo |
-    LibrarianInfo |
-    ChefInfo |
-    FortuneTellerInfo |
-    EmpathInfo |
-    UndertakerInfo |
-    RavenkeeperInfo |
-    VirginInfo |
-    SlayerInfo
-)
-
-def create_drunk_evil_poisoned_worlds(game: Game, player: int, token: Role, night:int=1) -> list[World]:
-    worlds: list[World] = []
-
-    world1 = World(game['players'])
+    world1 = Grimoire(game['players'])
     if night == 1:
-        phase1 = world1.phases[0]
+        phase1 = world1.pages[0]
     else:
-        phase1 = world1.add_phase(night)
+        phase1 = world1.add_page(night, night_order_position)
     phase1.characters[player] = Role.DRUNK
     phase1.drunk_token = token
     if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
         phase1.add_minion_type(Role.BARON)
     worlds.append(world1)
 
-    world2 = World(game['players'])
+    world2 = Grimoire(game['players'])
     if night == 1:
-        phase2 = world2.phases[0]
+        phase2 = world2.pages[0]
     else:
-        phase2 = world2.add_phase(night)
+        phase2 = world2.add_page(night, night_order_position)
     phase2.characters[player] = Role.ANY_OTHER_EVIL
     worlds.append(world2)
 
-    world3 = World(game['players'])
+    world3 = Grimoire(game['players'])
     if night == 1:
-        phase3 = world3.phases[0]
+        phase3 = world3.pages[0]
     else:
-        phase3 = world3.add_phase(night)
+        phase3 = world3.add_page(night, night_order_position)
     phase3.characters[player] = token
     phase3.poisoned[player] = True
     phase3.add_minion_type(Role.POISONER)
@@ -131,15 +46,15 @@ def create_drunk_evil_poisoned_worlds(game: Game, player: int, token: Role, nigh
     return worlds
 
 
-def create_worlds_from_claim(game: Game, claim: Claim) -> list[World]:
+def _create_worlds_from_claim(game: Game, claim: Claim) -> list[Grimoire]:
     player = claim['player']
     character = claim['character']
-    worlds: list[World] = []
+    worlds: list[Grimoire] = []
 
     # World where the player is the Drunk
     if character not in OUTSIDERS:
-        world_drunk = World(game['players'])
-        phase_drunk = world_drunk.phases[0]
+        world_drunk = Grimoire(game['players'])
+        phase_drunk = world_drunk.pages[0]
         phase_drunk.characters[player] = Role.DRUNK
         phase_drunk.drunk_token = character
         if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
@@ -147,14 +62,14 @@ def create_worlds_from_claim(game: Game, claim: Claim) -> list[World]:
         worlds.append(world_drunk)
 
     # World where the player is an unspecified evil character
-    world_evil = World(game['players'])
-    phase_evil = world_evil.phases[0]
+    world_evil = Grimoire(game['players'])
+    phase_evil = world_evil.pages[0]
     phase_evil.characters[player] = Role.ANY_OTHER_EVIL
     worlds.append(world_evil)
 
     # World where the player is exactly the claimed character
-    world_claimed = World(game['players'])
-    phase_claimed = world_claimed.phases[0]
+    world_claimed = Grimoire(game['players'])
+    phase_claimed = world_claimed.pages[0]
     phase_claimed.characters[player] = character
     if character in OUTSIDERS:
         phase_claimed.add_minion_type(Role.BARON)
@@ -162,34 +77,34 @@ def create_worlds_from_claim(game: Game, claim: Claim) -> list[World]:
 
     return worlds
 
-def create_worlds_from_investigator_info(game: Game, info: InvestigatorInfo):
+def _create_worlds_from_investigator_info(game: Game, info: InvestigatorInfo):
     player = info['investigator']
-    worlds = create_drunk_evil_poisoned_worlds(game, player, Role.INVESTIGATOR)
+    worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.INVESTIGATOR)
 
-    world3 = World(game['players'])
-    phase3 = world3.phases[0]
+    world3 = Grimoire(game['players'])
+    phase3 = world3.pages[0]
     phase3.characters[info['first_player']] = info['minion']
     phase3.characters[player] = Role.INVESTIGATOR
     phase3.add_minion_type(info['minion'])
     worlds.append(world3)
 
-    world4 = World(game['players'])
-    phase4 = world4.phases[0]
+    world4 = Grimoire(game['players'])
+    phase4 = world4.pages[0]
     phase4.characters[info['second_player']] = info['minion']
     phase4.characters[player] = Role.INVESTIGATOR
     phase4.add_minion_type(info['minion'])
     worlds.append(world4)
 
-    world5 = World(game['players'])
-    phase5 = world5.phases[0]
+    world5 = Grimoire(game['players'])
+    phase5 = world5.pages[0]
     phase5.characters[info['first_player']] = Role.RECLUSE
     phase5.characters[player] = Role.INVESTIGATOR
     if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase5.characters[info['first_player']] == Role.RECLUSE: # have to add an extra check in the case where the investigator saw themselves!
         phase5.add_minion_type(Role.BARON)
     worlds.append(world5)
 
-    world6 = World(game['players'])
-    phase6 = world6.phases[0]
+    world6 = Grimoire(game['players'])
+    phase6 = world6.pages[0]
     phase6.characters[info['second_player']] = Role.RECLUSE
     phase6.characters[player] = Role.INVESTIGATOR
     if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase6.characters[info['second_player']] == Role.RECLUSE:
@@ -198,32 +113,32 @@ def create_worlds_from_investigator_info(game: Game, info: InvestigatorInfo):
 
     return worlds
 
-def create_worlds_from_washerwoman_info(game: Game, info: WasherwomanInfo):
+def _create_worlds_from_washerwoman_info(game: Game, info: WasherwomanInfo):
     player = info['washerwoman']
-    worlds = create_drunk_evil_poisoned_worlds(game, player, Role.WASHERWOMAN)
+    worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.WASHERWOMAN)
 
-    world3 = World(game['players'])
-    phase3 = world3.phases[0]
+    world3 = Grimoire(game['players'])
+    phase3 = world3.pages[0]
     phase3.characters[info['first_player']] = info['townsfolk']
     phase3.characters[player] = Role.WASHERWOMAN
     worlds.append(world3)
 
-    world4 = World(game['players'])
-    phase4 = world4.phases[0]
+    world4 = Grimoire(game['players'])
+    phase4 = world4.pages[0]
     phase4.characters[info['second_player']] = info['townsfolk']
     phase4.characters[player] = Role.WASHERWOMAN
     worlds.append(world4)
 
-    world5 = World(game['players'])
-    phase5 = world5.phases[0]
+    world5 = Grimoire(game['players'])
+    phase5 = world5.pages[0]
     phase5.characters[info['first_player']] = Role.SPY
     phase5.characters[player] = Role.WASHERWOMAN
     if phase5.characters[info['first_player']] == Role.SPY: # have to add an extra check in the case where the washerwoman saw themselves!
         phase5.add_minion_type(Role.SPY)
     worlds.append(world5)
 
-    world6 = World(game['players'])
-    phase6 = world6.phases[0]
+    world6 = Grimoire(game['players'])
+    phase6 = world6.pages[0]
     phase6.characters[info['second_player']] = Role.SPY
     phase6.characters[player] = Role.WASHERWOMAN
     if phase6.characters[info['second_player']] == Role.SPY:
@@ -232,60 +147,60 @@ def create_worlds_from_washerwoman_info(game: Game, info: WasherwomanInfo):
 
     return worlds
 
-def create_worlds_from_chef_info(game: Game, info: ChefInfo):
+def _create_worlds_from_chef_info(game: Game, info: ChefInfo):
     player = info['chef']
     number = info['number']
-    worlds = create_drunk_evil_poisoned_worlds(game, player, Role.CHEF)
+    worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.CHEF)
 
-    world = World(game['players'])
-    world.phases[0].characters[player] = Role.CHEF
-    world.phases[0].chef_number = number
+    world = Grimoire(game['players'])
+    world.pages[0].characters[player] = Role.CHEF
+    world.pages[0].chef_number = number
     worlds.append(world)
 
     return worlds
 
-def create_worlds_from_librarian_info(game: Game, info: LibrarianInfo) -> list[World]:
+def _create_worlds_from_librarian_info(game: Game, info: LibrarianInfo) -> list[Grimoire]:
     player = info['librarian']
     first_player = info['first_player']
     second_player = info['second_player']
     token = info['token']
-    worlds = create_drunk_evil_poisoned_worlds(game, player, Role.LIBRARIAN)
+    worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.LIBRARIAN)
 
     if token is None:
-        world_no_outsiders = World(game['players'])
-        world_no_outsiders.phases[0].characters[player] = Role.LIBRARIAN
-        world_no_outsiders.phases[0].no_outsiders = True
+        world_no_outsiders = Grimoire(game['players'])
+        world_no_outsiders.pages[0].characters[player] = Role.LIBRARIAN
+        world_no_outsiders.pages[0].no_outsiders = True
         worlds.append(world_no_outsiders)
         return worlds
 
     assert first_player is not None and second_player is not None
 
-    world3 = World(game['players'])
-    phase3 = world3.phases[0]
+    world3 = Grimoire(game['players'])
+    phase3 = world3.pages[0]
     phase3.characters[first_player] = token
     phase3.characters[player] = Role.LIBRARIAN
     if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase3.characters[first_player] == token: # have to add an extra check in the case where the librarian saw themselves!
         phase3.add_minion_type(Role.BARON)
     worlds.append(world3)
 
-    world4 = World(game['players'])
-    phase4 = world4.phases[0]
+    world4 = Grimoire(game['players'])
+    phase4 = world4.pages[0]
     phase4.characters[second_player] = token
     phase4.characters[player] = Role.LIBRARIAN
     if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase4.characters[second_player] == token: # have to add an extra check in the case where the librarian saw themselves!
         phase4.add_minion_type(Role.BARON)
     worlds.append(world4)
 
-    world5 = World(game['players'])
-    phase5 = world5.phases[0]
+    world5 = Grimoire(game['players'])
+    phase5 = world5.pages[0]
     phase5.characters[player] = Role.LIBRARIAN
     if player != first_player:
         phase5.characters[first_player] = Role.SPY
         phase5.add_minion_type(Role.SPY)
     worlds.append(world5)
 
-    world6 = World(game['players'])
-    phase6 = world6.phases[0]
+    world6 = Grimoire(game['players'])
+    phase6 = world6.pages[0]
     phase6.characters[player] = Role.LIBRARIAN
     if player != second_player:
         phase6.characters[second_player] = Role.SPY
@@ -294,62 +209,62 @@ def create_worlds_from_librarian_info(game: Game, info: LibrarianInfo) -> list[W
 
     return worlds
 
-def create_worlds_from_fortune_teller_info(game: Game, info: FortuneTellerInfo):
+def _create_worlds_from_fortune_teller_info(game: Game, info: FortuneTellerInfo):
     player = info['fortune_teller']
     pings, result = info['pings']
     a, b = pings
     night = info['night']
-    worlds = create_drunk_evil_poisoned_worlds(game, player, Role.FORTUNE_TELLER, night)
+    worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.FORTUNE_TELLER, night)
 
     if result:
         ## Player a is the Demon
-        world4 = World(game['players'])
+        world4 = Grimoire(game['players'])
         if night == 1:
-            phase4 = world4.phases[0]
+            phase4 = world4.pages[0]
         else:
-            phase4 = world4.add_phase(night)
+            phase4 = world4.add_page(night, NightOrderPosition.AFTER_IMP)
         phase4.characters[a] = Role.IMP
         phase4.characters[player] = Role.FORTUNE_TELLER
         worlds.append(world4)
 
         ## Player b is the Demon
-        world5 = World(game['players'])
+        world5 = Grimoire(game['players'])
         if night == 1:
-            phase5 = world5.phases[0]
+            phase5 = world5.pages[0]
         else:
-            phase5 = world5.add_phase(night)
+            phase5 = world5.add_page(night, NightOrderPosition.AFTER_IMP)
         phase5.characters[b] = Role.IMP
         phase5.characters[player] = Role.FORTUNE_TELLER
         worlds.append(world5)
 
         ## Player a is the Red Herring and is good
-        world6 = World(game['players'])
+        world6 = Grimoire(game['players'])
         if night == 1:
-            phase6 = world6.phases[0]
+            phase6 = world6.pages[0]
         else:
-            phase6 = world6.add_phase(night)
+            phase6 = world6.add_page(night, NightOrderPosition.AFTER_IMP)
         phase6.characters[a] = Role.ANY_OTHER_GOOD
         phase6.characters[player] = Role.FORTUNE_TELLER
         phase6.red_herring[a] = True
         worlds.append(world6)
 
         ## Player b is the Red Herring and is good
-        world7 = World(game['players'])
+        world7 = Grimoire(game['players'])
         if night == 1:
-            phase7 = world7.phases[0]
+            phase7 = world7.pages[0]
         else:
-            phase7 = world7.add_phase(night)
+            phase7 = world7.add_page(night, NightOrderPosition.AFTER_IMP)
         phase7.characters[b] = Role.ANY_OTHER_GOOD
         phase7.characters[player] = Role.FORTUNE_TELLER
         phase7.red_herring[b] = True
         worlds.append(world7)
 
         ## Player a is the Red Herring and is the Spy
-        world6 = World(game['players'])
+        world6 = Grimoire(game['players'])
         if night == 1:
-            phase6 = world6.phases[0]
+            phase6 = world6.pages[0]
         else:
-            phase6 = world6.add_phase(night)
+            phase6 = world6.add_page(night, NightOrderPosition.AFTER_IMP)
         phase6.characters[player] = Role.FORTUNE_TELLER
         if player != a:
             phase6.characters[a] = Role.SPY
@@ -358,11 +273,11 @@ def create_worlds_from_fortune_teller_info(game: Game, info: FortuneTellerInfo):
         worlds.append(world6)
 
         ## Player b is the Red Herring and is the Spy
-        world7 = World(game['players'])
+        world7 = Grimoire(game['players'])
         if night == 1:
-            phase7 = world7.phases[0]
+            phase7 = world7.pages[0]
         else:
-            phase7 = world7.add_phase(night)
+            phase7 = world7.add_page(night, NightOrderPosition.AFTER_IMP)
         phase7.characters[player] = Role.FORTUNE_TELLER
         if player != b:
             phase7.characters[b] = Role.SPY
@@ -371,11 +286,11 @@ def create_worlds_from_fortune_teller_info(game: Game, info: FortuneTellerInfo):
         worlds.append(world7)
 
         ## Player a is the Recluse
-        world8 = World(game['players'])
+        world8 = Grimoire(game['players'])
         if night == 1:
-            phase8 = world8.phases[0]
+            phase8 = world8.pages[0]
         else:
-            phase8 = world8.add_phase(night)
+            phase8 = world8.add_page(night, NightOrderPosition.AFTER_IMP)
         phase8.characters[a] = Role.RECLUSE
         phase8.characters[player] = Role.FORTUNE_TELLER
         if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase8.characters[a] == Role.RECLUSE:
@@ -383,11 +298,11 @@ def create_worlds_from_fortune_teller_info(game: Game, info: FortuneTellerInfo):
         worlds.append(world8)
 
         ## Player b is the Recluse
-        world9 = World(game['players'])
+        world9 = Grimoire(game['players'])
         if night == 1:
-            phase9 = world9.phases[0]
+            phase9 = world9.pages[0]
         else:
-            phase9 = world9.add_phase(night)
+            phase9 = world9.add_page(night, NightOrderPosition.AFTER_IMP)
         phase9.characters[b] = Role.RECLUSE
         phase9.characters[player] = Role.FORTUNE_TELLER
         if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase9.characters[b] == Role.RECLUSE:
@@ -396,11 +311,11 @@ def create_worlds_from_fortune_teller_info(game: Game, info: FortuneTellerInfo):
 
     else:
         ## Player a is not the Imp and Player b is not the Imp
-        world10 = World(game['players'])
+        world10 = Grimoire(game['players'])
         if night == 1:
-            phase10 = world10.phases[0]
+            phase10 = world10.pages[0]
         else:
-            phase10 = world10.add_phase(night)
+            phase10 = world10.add_page(night, NightOrderPosition.AFTER_IMP)
         phase10.characters[a] = Role.NON_DEMON
         phase10.characters[b] = Role.NON_DEMON
         phase10.characters[player] = Role.FORTUNE_TELLER
@@ -408,7 +323,7 @@ def create_worlds_from_fortune_teller_info(game: Game, info: FortuneTellerInfo):
 
     return worlds
 
-def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
+def _create_worlds_from_empath_info(game: Game, info: EmpathInfo):
     player = info['empath']
     number = info['number']
     night = info['night']
@@ -417,37 +332,37 @@ def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
     if number < 0 or number > 2:
         raise ValueError('An empath was given an invalid number')
 
-    worlds = create_drunk_evil_poisoned_worlds(game, player, Role.EMPATH, night)
+    worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.EMPATH, night)
 
     if number == 0:
         # Both neighbours are good
-        world1 = World(game['players'])
+        world1 = Grimoire(game['players'])
         if night == 1:
-            phase1 = world1.phases[0]
+            phase1 = world1.pages[0]
         else:
-            phase1 = world1.add_phase(night)
+            phase1 = world1.add_page(night, NightOrderPosition.AFTER_IMP)
         phase1.characters[player] = Role.EMPATH
         phase1.characters[left] = Role.ANY_OTHER_GOOD
         phase1.characters[right] = Role.ANY_OTHER_GOOD
         worlds.append(world1)
 
         # Left neighbour is the Spy (registering as good)
-        world2 = World(game['players'])
+        world2 = Grimoire(game['players'])
         if night == 1:
-            phase2 = world2.phases[0]
+            phase2 = world2.pages[0]
         else:
-            phase2 = world2.add_phase(night)
+            phase2 = world2.add_page(night, NightOrderPosition.AFTER_IMP)
         phase2.characters[player] = Role.EMPATH
         phase2.characters[left] = Role.SPY
         phase2.characters[right] = Role.ANY_OTHER_GOOD
         worlds.append(world2)
 
         # Right neighbour is the Spy (registering as good)
-        world3 = World(game['players'])
+        world3 = Grimoire(game['players'])
         if night == 1:
-            phase3 = world3.phases[0]
+            phase3 = world3.pages[0]
         else:
-            phase3 = world3.add_phase(night)
+            phase3 = world3.add_page(night, NightOrderPosition.AFTER_IMP)
         phase3.characters[player] = Role.EMPATH
         phase3.characters[left] = Role.ANY_OTHER_GOOD
         phase3.characters[right] = Role.SPY
@@ -455,55 +370,55 @@ def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
 
     elif number == 1:
         # Left neighbour is any other evil and right neighbour is good
-        world4 = World(game['players'])
+        world4 = Grimoire(game['players'])
         if night == 1:
-            phase4 = world4.phases[0]
+            phase4 = world4.pages[0]
         else:
-            phase4 = world4.add_phase(night)
+            phase4 = world4.add_page(night, NightOrderPosition.AFTER_IMP)
         phase4.characters[player] = Role.EMPATH
         phase4.characters[left] = Role.ANY_OTHER_EVIL
         phase4.characters[right] = Role.ANY_OTHER_GOOD
         worlds.append(world4)
 
         # Right neighbour is any other evil and left neighbour is good
-        world5 = World(game['players'])
+        world5 = Grimoire(game['players'])
         if night == 1:
-            phase5 = world5.phases[0]
+            phase5 = world5.pages[0]
         else:
-            phase5 = world5.add_phase(night)
+            phase5 = world5.add_page(night, NightOrderPosition.AFTER_IMP)
         phase5.characters[player] = Role.EMPATH
         phase5.characters[left] = Role.ANY_OTHER_GOOD
         phase5.characters[right] = Role.ANY_OTHER_EVIL
         worlds.append(world5)
 
         # Left neighbour is any other evil and right neighbour is the Spy
-        world6 = World(game['players'])
+        world6 = Grimoire(game['players'])
         if night == 1:
-            phase6 = world6.phases[0]
+            phase6 = world6.pages[0]
         else:
-            phase6 = world6.add_phase(night)
+            phase6 = world6.add_page(night, NightOrderPosition.AFTER_IMP)
         phase6.characters[player] = Role.EMPATH
         phase6.characters[left] = Role.ANY_OTHER_EVIL
         phase6.characters[right] = Role.SPY
         worlds.append(world6)
 
         # Right neighbour is any other evil and left neighbour is the Spy
-        world7 = World(game['players'])
+        world7 = Grimoire(game['players'])
         if night == 1:
-            phase7 = world7.phases[0]
+            phase7 = world7.pages[0]
         else:
-            phase7 = world7.add_phase(night)
+            phase7 = world7.add_page(night, NightOrderPosition.AFTER_IMP)
         phase7.characters[player] = Role.EMPATH
         phase7.characters[left] = Role.SPY
         phase7.characters[right] = Role.ANY_OTHER_EVIL
         worlds.append(world7)
 
         # Left neighbour is the Recluse and right neighbour is good
-        world8 = World(game['players'])
+        world8 = Grimoire(game['players'])
         if night == 1:
-            phase8 = world8.phases[0]
+            phase8 = world8.pages[0]
         else:
-            phase8 = world8.add_phase(night)
+            phase8 = world8.add_page(night, NightOrderPosition.AFTER_IMP)
         phase8.characters[player] = Role.EMPATH
         phase8.characters[left] = Role.RECLUSE
         phase8.characters[right] = Role.ANY_OTHER_GOOD
@@ -512,11 +427,11 @@ def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
         worlds.append(world8)
 
         # Right neighbour is the Recluse and left neighbour is good
-        world9 = World(game['players'])
+        world9 = Grimoire(game['players'])
         if night == 1:
-            phase9 = world9.phases[0]
+            phase9 = world9.pages[0]
         else:
-            phase9 = world9.add_phase(night)
+            phase9 = world9.add_page(night, NightOrderPosition.AFTER_IMP)
         phase9.characters[player] = Role.EMPATH
         phase9.characters[left] = Role.ANY_OTHER_GOOD
         phase9.characters[right] = Role.RECLUSE
@@ -525,11 +440,11 @@ def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
         worlds.append(world9)
 
         # Left neighbour is the Recluse and right neighbour is the Spy
-        world10 = World(game['players'])
+        world10 = Grimoire(game['players'])
         if night == 1:
-            phase10 = world10.phases[0]
+            phase10 = world10.pages[0]
         else:
-            phase10 = world10.add_phase(night)
+            phase10 = world10.add_page(night, NightOrderPosition.AFTER_IMP)
         phase10.characters[player] = Role.EMPATH
         phase10.characters[left] = Role.RECLUSE
         phase10.characters[right] = Role.SPY
@@ -538,11 +453,11 @@ def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
         worlds.append(world10)
 
         # Right neighbour is the Recluse and left neighbour is the Spy
-        world11 = World(game['players'])
+        world11 = Grimoire(game['players'])
         if night == 1:
-            phase11 = world11.phases[0]
+            phase11 = world11.pages[0]
         else:
-            phase11 = world11.add_phase(night)
+            phase11 = world11.add_page(night, NightOrderPosition.AFTER_IMP)
         phase11.characters[player] = Role.EMPATH
         phase11.characters[left] = Role.SPY
         phase11.characters[right] = Role.RECLUSE
@@ -552,22 +467,22 @@ def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
 
     else:  # number == 2
         # Both neighbours are evil
-        world12 = World(game['players'])
+        world12 = Grimoire(game['players'])
         if night == 1:
-            phase12 = world12.phases[0]
+            phase12 = world12.pages[0]
         else:
-            phase12 = world12.add_phase(night)
+            phase12 = world12.add_page(night, NightOrderPosition.AFTER_IMP)
         phase12.characters[player] = Role.EMPATH
         phase12.characters[left] = Role.ANY_OTHER_EVIL
         phase12.characters[right] = Role.ANY_OTHER_EVIL
         worlds.append(world12)
 
         # Left neighbour is evil and right is the Recluse
-        world13 = World(game['players'])
+        world13 = Grimoire(game['players'])
         if night == 1:
-            phase13 = world13.phases[0]
+            phase13 = world13.pages[0]
         else:
-            phase13 = world13.add_phase(night)
+            phase13 = world13.add_page(night, NightOrderPosition.AFTER_IMP)
         phase13.characters[player] = Role.EMPATH
         phase13.characters[left] = Role.ANY_OTHER_EVIL
         phase13.characters[right] = Role.RECLUSE
@@ -576,11 +491,11 @@ def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
         worlds.append(world13)
 
         # Right neighbour is evil and left is the Recluse
-        world14 = World(game['players'])
+        world14 = Grimoire(game['players'])
         if night == 1:
-            phase14 = world14.phases[0]
+            phase14 = world14.pages[0]
         else:
-            phase14 = world14.add_phase(night)
+            phase14 = world14.add_page(night, NightOrderPosition.AFTER_IMP)
         phase14.characters[player] = Role.EMPATH
         phase14.characters[left] = Role.RECLUSE
         phase14.characters[right] = Role.ANY_OTHER_EVIL
@@ -590,30 +505,30 @@ def create_worlds_from_empath_info(game: Game, info: EmpathInfo):
 
     return worlds
 
-def create_worlds_from_undertaker_info(game: Game, info: UndertakerInfo):
+def _create_worlds_from_undertaker_info(game: Game, info: UndertakerInfo):
     player = info['undertaker']
     body = info['body']
     token = info['token']
     night = info['night']
-    worlds = create_drunk_evil_poisoned_worlds(game, player, Role.UNDERTAKER, night=night)
+    worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.UNDERTAKER, night=night)
 
     # World where the undertaker sees the actual token (body is that token)
-    world1 = World(game['players'])
+    world1 = Grimoire(game['players'])
     if night == 1:
-        phase1 = world1.phases[0]
+        phase1 = world1.pages[0]
     else:
-        phase1 = world1.add_phase(night)
+        phase1 = world1.add_page(night, NightOrderPosition.AFTER_IMP)
     phase1.characters[player] = Role.UNDERTAKER
     phase1.characters[body] = token
     worlds.append(world1)
 
     # If the token is an evil character, the body could be the Recluse (registering as evil)
     if token in EVIL_CHARACTERS:
-        world2 = World(game['players'])
+        world2 = Grimoire(game['players'])
         if night == 1:
-            phase2 = world2.phases[0]
+            phase2 = world2.pages[0]
         else:
-            phase2 = world2.add_phase(night)
+            phase2 = world2.add_page(night, NightOrderPosition.AFTER_IMP)
         phase2.characters[player] = Role.UNDERTAKER
         phase2.characters[body] = Role.RECLUSE
         if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
@@ -622,41 +537,42 @@ def create_worlds_from_undertaker_info(game: Game, info: UndertakerInfo):
 
     # If the token is a good character, the body could be the Spy (registering as good)
     if token in GOOD_CHARACTERS:
-        world3 = World(game['players'])
+        world3 = Grimoire(game['players'])
         if night == 1:
-            phase3 = world3.phases[0]
+            phase3 = world3.pages[0]
         else:
-            phase3 = world3.add_phase(night)
+            phase3 = world3.add_page(night, NightOrderPosition.AFTER_IMP)
         phase3.characters[player] = Role.UNDERTAKER
         phase3.characters[body] = Role.SPY
+        phase3.add_minion_type(Role.SPY)
         worlds.append(world3)
 
     return worlds
 
-def create_worlds_from_ravenkeeper_info(game: Game, info: RavenkeeperInfo):
+def _create_worlds_from_ravenkeeper_info(game: Game, info: RavenkeeperInfo):
     player = info['ravenkeeper']
     chosen = info['chosen']
     token = info['token']
     night = info['night']
-    worlds = create_drunk_evil_poisoned_worlds(game, player, Role.RAVENKEEPER, night=night)
+    worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.RAVENKEEPER, night=night)
 
     # World where the Ravenkeeper sees the actual token (chosen player is that token)
-    world1 = World(game['players'])
+    world1 = Grimoire(game['players'])
     if night == 1:
-        phase1 = world1.phases[0]
+        phase1 = world1.pages[0]
     else:
-        phase1 = world1.add_phase(night)
+        phase1 = world1.add_page(night, NightOrderPosition.AFTER_IMP)
     phase1.characters[chosen] = token
     phase1.characters[player] = Role.RAVENKEEPER
     worlds.append(world1)
 
     # If the token is an evil character, the chosen player could be the Recluse (registering as evil)
     if token in EVIL_CHARACTERS:
-        world2 = World(game['players'])
+        world2 = Grimoire(game['players'])
         if night == 1:
-            phase2 = world2.phases[0]
+            phase2 = world2.pages[0]
         else:
-            phase2 = world2.add_phase(night)
+            phase2 = world2.add_page(night, NightOrderPosition.AFTER_IMP)
         phase2.characters[chosen] = Role.RECLUSE
         phase2.characters[player] = Role.RAVENKEEPER
         if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase2.characters[chosen] == Role.RECLUSE:
@@ -665,11 +581,11 @@ def create_worlds_from_ravenkeeper_info(game: Game, info: RavenkeeperInfo):
 
     # If the token is a good character, the chosen player could be the Spy (registering as good)
     if token in GOOD_CHARACTERS:
-        world3 = World(game['players'])
+        world3 = Grimoire(game['players'])
         if night == 1:
-            phase3 = world3.phases[0]
+            phase3 = world3.pages[0]
         else:
-            phase3 = world3.add_phase(night)
+            phase3 = world3.add_page(night, NightOrderPosition.AFTER_IMP)
         phase3.characters[player] = Role.RAVENKEEPER
         if player != chosen:
             phase3.characters[chosen] = Role.SPY
@@ -678,29 +594,23 @@ def create_worlds_from_ravenkeeper_info(game: Game, info: RavenkeeperInfo):
 
     return worlds
 
-def create_worlds_from_virgin_nominated(game: Game, info: VirginInfo):
+def _create_worlds_from_virgin_nominated(game: Game, info: VirginInfo):
     virgin:int = info['virgin']
     nominator:int = info['nominator']
     executed:bool = info['executed']
     night = info['night']
 
-    worlds: list[World] = []
+    worlds: list[Grimoire] = []
 
     if executed:
-        world1 = World(game['players'])
-        if night == 1:
-            phase1 = world1.phases[0]
-        else:
-            phase1 = world1.add_phase(night)
+        world1 = Grimoire(game['players'])
+        phase1 = world1.add_page(night, NightOrderPosition.AFTER_EXECUTION)
         phase1.characters[nominator] = Role.ANY_OTHER_TOWNSFOLK
         phase1.characters[virgin] = Role.VIRGIN
         worlds.append(world1)
         
-        world2 = World(game['players'])
-        if night == 1:
-            phase2 = world2.phases[0]
-        else:
-            phase2 = world2.add_phase(night)
+        world2 = Grimoire(game['players'])
+        phase2 = world2.add_page(night, NightOrderPosition.AFTER_EXECUTION)
         phase2.characters[virgin] = Role.VIRGIN
         if virgin != nominator:
             phase2.characters[nominator] = Role.SPY
@@ -708,56 +618,56 @@ def create_worlds_from_virgin_nominated(game: Game, info: VirginInfo):
         worlds.append(world2)
 
     else:
-        worlds += create_drunk_evil_poisoned_worlds(game, virgin, Role.VIRGIN, night)
+        worlds += _create_drunk_evil_poisoned_worlds(game, virgin, Role.VIRGIN, night)
 
         if virgin == nominator:
             return worlds
 
-        world3 = World(game['players'])
+        world3 = Grimoire(game['players'])
         if night == 1:
-            phase3 = world3.phases[0]
+            phase3 = world3.pages[0]
         else:
-            phase3 = world3.add_phase(night)
+            phase3 = world3.add_page(night, NightOrderPosition.AFTER_IMP)
         phase3.characters[virgin] = Role.VIRGIN
         phase3.characters[nominator] = Role.ANY_OTHER_EVIL
         worlds.append(world3)
 
-        world4 = World(game['players'])
+        world4 = Grimoire(game['players'])
         if night == 1:
-            phase4 = world4.phases[0]
+            phase4 = world4.pages[0]
         else:
-            phase4 = world4.add_phase(night)
+            phase4 = world4.add_page(night, NightOrderPosition.AFTER_IMP)
         phase4.characters[virgin] = Role.VIRGIN
         phase4.characters[nominator] = Role.ANY_OTHER_OUTSIDER
         worlds.append(world4)
 
     return worlds
 
-def create_worlds_from_slayer_info(game: Game, info: SlayerInfo):
+def _create_worlds_from_slayer_info(game: Game, info: SlayerInfo):
     slayer = info['slayer']
     target = info['target']
     successful = info['successful']
     night = info['night']
 
-    worlds = create_drunk_evil_poisoned_worlds(game, slayer, Role.SLAYER, night)
+    worlds = _create_drunk_evil_poisoned_worlds(game, slayer, Role.SLAYER, night)
 
     if successful:
         # World where the slayer killed the Imp
-        world1 = World(game['players'])
+        world1 = Grimoire(game['players'])
         if night == 1:
-            phase1 = world1.phases[0]
+            phase1 = world1.pages[0]
         else:
-            phase1 = world1.add_phase(night)
+            phase1 = world1.add_page(night, NightOrderPosition.AFTER_IMP)
         phase1.characters[slayer] = Role.SLAYER
         phase1.characters[target] = Role.IMP
         worlds.append(world1)
 
         # World where the slayer killed the Recluse (registering as evil)
-        world2 = World(game['players'])
+        world2 = Grimoire(game['players'])
         if night == 1:
-            phase2 = world2.phases[0]
+            phase2 = world2.pages[0]
         else:
-            phase2 = world2.add_phase(night)
+            phase2 = world2.add_page(night, NightOrderPosition.AFTER_IMP)
         phase2.characters[slayer] = Role.SLAYER
         phase2.characters[target] = Role.RECLUSE
         if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
@@ -766,115 +676,108 @@ def create_worlds_from_slayer_info(game: Game, info: SlayerInfo):
 
     else:
         # World where the slayer's shot hit a non-demon
-        world3 = World(game['players'])
+        world3 = Grimoire(game['players'])
         if night == 1:
-            phase3 = world3.phases[0]
+            phase3 = world3.pages[0]
         else:
-            phase3 = world3.add_phase(night)
+            phase3 = world3.add_page(night, NightOrderPosition.AFTER_IMP)
         phase3.characters[target] = Role.NON_DEMON
         phase3.characters[slayer] = Role.SLAYER
         worlds.append(world3)
 
     return worlds
 
-def create_worlds_from_slayer_kill(worlds: list[World], target: int, night: int):
-    new_worlds: list[World] = []
-    for world in worlds:
-        recluse_world, imp_world = world.killed_by_slayer(target, night)
-        if recluse_world is not None:
-            new_worlds.append(recluse_world)
-        if imp_world is not None:
-            new_worlds.append(imp_world)
-
-    return new_worlds
-
-
-def create_worlds_from_execution(worlds: list[World], player: int, night: int):
-    new_worlds: list[World] = []
-    for world in worlds:
-        no_sw_world, sw_world = world.execute_player(player, night)
-        if no_sw_world != None:
-            new_worlds.append(no_sw_world)
-        if sw_world != None:
-            new_worlds.append(sw_world)
-
-    return new_worlds
-
-def create_worlds_from_night_kill(worlds: list[World], player: int, night: int):
-    new_worlds: list[World] = []
-    for world in worlds:
-        no_sp_world, sp_world = world.killed_by_demon(player, night)
-        if no_sp_world != None:
-            new_worlds.append(no_sp_world)
-        if sp_world != None:
-            new_worlds.append(sp_world)
-
-    return new_worlds
-
-def create_worlds_from_info(game: Game, info_list: list[Info], death_info: DeathInfo, true_world: World) -> tuple[list[World], list[tuple[World, World]]]:
-    def true_world_in_worlds(true_world: World, worlds: list[World]):
-        for world in worlds:
-            if true_world == world:
-                return True
-        return False
+def info_to_grimoires(game: Game, info: Info):
+    if info["kind"] == "washerwoman":
+        return _create_worlds_from_washerwoman_info(game, info)
+    elif info["kind"]  == "librarian":
+        return _create_worlds_from_librarian_info(game, info)
+    elif info["kind"]  == "investigator":
+        return _create_worlds_from_investigator_info(game, info)
+    elif info["kind"]  == "chef":
+        return _create_worlds_from_chef_info(game, info)
+    elif info["kind"]  == "fortune teller":
+        return _create_worlds_from_fortune_teller_info(game, info)
+    elif info["kind"]  == "empath":
+        return _create_worlds_from_empath_info(game, info)
+    elif info["kind"]  == "virgin":
+        return _create_worlds_from_virgin_nominated(game, info)
+    elif info["kind"]  == "slayer":
+        return _create_worlds_from_slayer_info(game, info)
+    elif info["kind"]  == "undertaker":
+        return _create_worlds_from_undertaker_info(game, info)
+    elif info["kind"]  == "ravenkeeper":
+        return _create_worlds_from_ravenkeeper_info(game, info)
+    elif info["kind"]  == "claim":
+        return _create_worlds_from_claim(game, info)
+    else:
+        raise NotImplementedError(f"{info["kind"]} info has not been implemented.")
     
-    worlds_list: list[list[World]] = []
-    for info in info_list:
-        if info["kind"] == "washerwoman":
-            worlds_list.append(create_worlds_from_washerwoman_info(game, info))
-        elif info["kind"]  == "librarian":
-            worlds_list.append(create_worlds_from_librarian_info(game, info))
-        elif info["kind"]  == "investigator":
-            worlds_list.append(create_worlds_from_investigator_info(game, info))
-        elif info["kind"]  == "chef":
-            worlds_list.append(create_worlds_from_chef_info(game, info))
-        elif info["kind"]  == "fortune teller" and info["night"] == 1:
-            worlds_list.append(create_worlds_from_fortune_teller_info(game, info))
-        elif info["kind"]  == "empath" and info["night"] == 1:
-            worlds_list.append(create_worlds_from_empath_info(game, info))
-        elif info["kind"]  == "virgin":
-            worlds_list.append(create_worlds_from_virgin_nominated(game, info))
-        elif info["kind"]  == "slayer":
-            worlds_list.append(create_worlds_from_slayer_info(game, info))
-        elif info["kind"]  == "claim":
-            worlds_list.append(create_worlds_from_claim(game, info))
-        if not true_world_in_worlds(true_world, [x for xs in worlds_list for x in xs]):
-            pass
-    combined_worlds, conflicting_worlds = combine_worlds(worlds_list)
-    if death_info['slayer_shot'] is not None:
-        target = death_info['slayer_shot'][0]
-        night = death_info['slayer_shot'][1]
-        combined_worlds = create_worlds_from_slayer_kill(combined_worlds, target, night)
-        if not true_world_in_worlds(true_world, combined_worlds):
-            pass        
-    if death_info['executed'] is not None:
-        executed = death_info['executed'][0]
-        night = death_info['executed'][1]
-        combined_worlds = create_worlds_from_execution(combined_worlds, executed, night)
-        if not true_world_in_worlds(true_world, combined_worlds):
-            pass     
-    if death_info['killed_by_demon'] is not None:
-        target = death_info['killed_by_demon'][0]
-        night = death_info['killed_by_demon'][1]
-        combined_worlds = create_worlds_from_night_kill(combined_worlds, target, night)
-        if not true_world_in_worlds(true_world, combined_worlds):
-            pass     
-    worlds_list = [combined_worlds]
-    for info in info_list:
-        if info["kind"]  == "fortune teller" and info["night"] == 2:
-            worlds_list.append(create_worlds_from_fortune_teller_info(game, info))
-        elif info["kind"]  == "empath" and info["night"] == 2:
-            worlds_list.append(create_worlds_from_empath_info(game, info))
-        elif info["kind"]  == "undertaker":
-            worlds_list.append(create_worlds_from_undertaker_info(game, info))
-        elif info["kind"]  == "ravenkeeper":
-            worlds_list.append(create_worlds_from_ravenkeeper_info(game, info))
-        if not true_world_in_worlds(true_world, combined_worlds):
-            pass     
 
-    if len(worlds_list) > 1:
-        combined_worlds, conflicting_worlds = combine_worlds(worlds_list)
-        if not true_world_in_worlds(true_world, combined_worlds):
-            pass     
+# def create_worlds_from_info(game: Game, info_list: list[Info], death_info: DeathInfo, true_world: Grimoire) -> tuple[list[Grimoire], list[tuple[Grimoire, Grimoire]]]:
+#     def true_world_in_worlds(true_world: Grimoire, worlds: list[Grimoire]):
+#         for world in worlds:
+#             if true_world == world:
+#                 return True
+#         return False
+    
+#     worlds_list: list[list[Grimoire]] = []
+#     for info in info_list:
+#         if info["kind"] == "washerwoman":
+#             worlds_list.append(create_worlds_from_washerwoman_info(game, info))
+#         elif info["kind"]  == "librarian":
+#             worlds_list.append(create_worlds_from_librarian_info(game, info))
+#         elif info["kind"]  == "investigator":
+#             worlds_list.append(create_worlds_from_investigator_info(game, info))
+#         elif info["kind"]  == "chef":
+#             worlds_list.append(create_worlds_from_chef_info(game, info))
+#         elif info["kind"]  == "fortune teller" and info["night"] == 1:
+#             worlds_list.append(create_worlds_from_fortune_teller_info(game, info))
+#         elif info["kind"]  == "empath" and info["night"] == 1:
+#             worlds_list.append(create_worlds_from_empath_info(game, info))
+#         elif info["kind"]  == "virgin":
+#             worlds_list.append(create_worlds_from_virgin_nominated(game, info))
+#         elif info["kind"]  == "slayer":
+#             worlds_list.append(create_worlds_from_slayer_info(game, info))
+#         elif info["kind"]  == "claim":
+#             worlds_list.append(create_worlds_from_claim(game, info))
+#         if not true_world_in_worlds(true_world, [x for xs in worlds_list for x in xs]):
+#             pass
+#     combined_worlds, conflicting_worlds = combine_worlds(worlds_list)
+#     if death_info['slayer_shot'] is not None:
+#         target = death_info['slayer_shot'][0]
+#         night = death_info['slayer_shot'][1]
+#         combined_worlds = create_worlds_from_slayer_kill(combined_worlds, target, night)
+#         if not true_world_in_worlds(true_world, combined_worlds):
+#             pass        
+#     if death_info['executed'] is not None:
+#         executed = death_info['executed'][0]
+#         night = death_info['executed'][1]
+#         combined_worlds = create_worlds_from_execution(combined_worlds, executed, night)
+#         if not true_world_in_worlds(true_world, combined_worlds):
+#             pass     
+#     if death_info['killed_by_demon'] is not None:
+#         target = death_info['killed_by_demon'][0]
+#         night = death_info['killed_by_demon'][1]
+#         combined_worlds = create_worlds_from_night_kill(combined_worlds, target, night)
+#         if not true_world_in_worlds(true_world, combined_worlds):
+#             pass     
+#     worlds_list = [combined_worlds]
+#     for info in info_list:
+#         if info["kind"]  == "fortune teller" and info["night"] == 2:
+#             worlds_list.append(create_worlds_from_fortune_teller_info(game, info))
+#         elif info["kind"]  == "empath" and info["night"] == 2:
+#             worlds_list.append(create_worlds_from_empath_info(game, info))
+#         elif info["kind"]  == "undertaker":
+#             worlds_list.append(create_worlds_from_undertaker_info(game, info))
+#         elif info["kind"]  == "ravenkeeper":
+#             worlds_list.append(create_worlds_from_ravenkeeper_info(game, info))
+#         if not true_world_in_worlds(true_world, combined_worlds):
+#             pass     
 
-    return combined_worlds, conflicting_worlds
+#     if len(worlds_list) > 1:
+#         combined_worlds, conflicting_worlds = combine_worlds(worlds_list)
+#         if not true_world_in_worlds(true_world, combined_worlds):
+#             pass     
+
+#     return combined_worlds, conflicting_worlds
