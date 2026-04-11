@@ -1,5 +1,3 @@
-from itertools import compress
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -154,19 +152,13 @@ def get_characters_of_type(characters: list[Role], type: set[Role]):
     return [c for c in characters if c in type]
 
 def get_alive_characters_of_type(page: GrimoirePage, type: set[Role]):
-    return get_characters_of_type(
-        list(compress(page.characters, [not b for b in page.dead])), 
-        type
-    )
+    return [c for i, c in enumerate(page.characters) if not page.dead[i] and c in type]
 
 def get_alive_players_of_type(page: GrimoirePage, type: set[Role]):
     return [i for i,(c,d) in enumerate(zip(page.characters, page.dead)) if not d and c in type]
 
 def get_dead_characters_of_type(page: GrimoirePage, type: set[Role]):
-    return get_characters_of_type(
-        list(compress(page.characters, page.dead)), 
-        type
-    )
+    return [c for i, c in enumerate(page.characters) if page.dead[i] and c in type]
 
 def get_characters_of_type_count(characters: list[Role], type: set[Role]):
     return sum([1 for c in characters if c in type])

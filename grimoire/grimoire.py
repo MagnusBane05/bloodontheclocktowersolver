@@ -1,8 +1,6 @@
 import bisect
-import copy
 from collections import Counter
 from typing import override
-from itertools import compress
 
 from .nightOrderPosition import NightOrderPosition
 
@@ -49,6 +47,9 @@ class Grimoire:
             if not equal:
                 return False
         return True
+
+    def __hash__(self):
+        return hash(tuple(hash(p) for p in self.pages))
 
     @override
     def __str__(self):
@@ -107,7 +108,7 @@ class Grimoire:
             raise IndexError("You should not be adding a page before the first page.")
 
         prev = self.pages[i-1]
-        new_page = copy.deepcopy(prev) if page is None else page
+        new_page = prev.clone() if page is None else page
         new_page.night = night
         new_page.night_order_position = night_order_position
         if prev.night != night:
@@ -162,6 +163,9 @@ class Grimoire:
     
     @classmethod
     def combine(cls, w1: Grimoire, w2: Grimoire) -> tuple[Grimoire, bool]:
+        if not w1 == w2:
+            return w1, False
+
         if w1.num_players != w2.num_players:
             raise Exception("You are trying to combine world with different numbers of players. Something has gone terribly wrong.")
         num_players = w1.num_players
@@ -574,15 +578,16 @@ class Grimoire:
         for i in range(num_players):
             new_phase.poisoned[i] = p1.poisoned[i] or p2.poisoned[i]
         # don't allow 2 instances of poisoning
-        if sum([int(p) for p in new_phase.poisoned]) > 1:
+        if sum(new_phase.poisoned) > 1:
             return False
         # return false if no room for poisoner
         if any(new_phase.poisoned) and Role.POISONER not in new_phase.minion_types and Role.ANY_OTHER_MINION not in new_phase.minion_types:
             return False
         # return false if known poisoner or all minions are dead
-        if any(new_phase.poisoned) and Role.POISONER in compress(new_phase.characters,new_phase.dead):
+        dead_characters = [c for i, c in enumerate(new_phase.characters) if new_phase.dead[i]]
+        if any(new_phase.poisoned) and Role.POISONER in dead_characters:
             return False
-        if any(new_phase.poisoned) and len([x for x in compress(new_phase.characters,new_phase.dead) if x == Role.ANY_OTHER_MINION]) == ROLE_BREAKDOWNS[num_players]['minions']:
+        if any(new_phase.poisoned) and len([c for c in dead_characters if c == Role.ANY_OTHER_MINION]) == ROLE_BREAKDOWNS[num_players]['minions']:
             return False
 
         return True
@@ -594,7 +599,7 @@ class Grimoire:
             new_phase.red_herring[i] = p1.red_herring[i] or p2.red_herring[i]
 
         # more than one red herring
-        if sum([int(x) for x in new_phase.red_herring]) > 1:
+        if sum(new_phase.red_herring) > 1:
             return False
 
         # make sure the red herring doesn't belong to an evil player
@@ -655,7 +660,7 @@ class Grimoire:
                     if value:
                         curr_phase.red_herring[j] = True
                 
-                if sum([int(x) for x in curr_phase.red_herring]) > 1:
+                if sum(curr_phase.red_herring) > 1:
                     return False
 
             # pass drunk token

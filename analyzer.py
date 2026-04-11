@@ -41,7 +41,7 @@ def plot_possible_demons_breakdown(simulations: list[GrimoireManager], players: 
 
 if __name__ == "__main__":
     game: Game = {
-        'players': 5
+        'players': 13
     }
     n = 100
     seed = 41

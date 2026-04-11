@@ -77,40 +77,7 @@ class GrimoireManager():
         return valid_worlds, conflicting_worlds
     
     def remove_duplicates(self):
-        unique_grims: list[Grimoire] = []
-        for i, grim in enumerate(self.grims):
-            if self._is_grim_unique(grim, i):
-                unique_grims.append(grim)
-        self.grims = unique_grims
-
-    def _is_grim_unique(self, grim: Grimoire, i: int):
-        for other in self.grims[i+1:]:
-            if self._are_grims_duplicates(grim, other):
-                return False
-        return True
-    
-    @staticmethod
-    def _are_grims_duplicates(g1: Grimoire, g2: Grimoire) -> bool:
-        return GrimoireManager._are_pages_duplicates(g1.pages[-1], g2.pages[-1]) and g1 == g2
-
-    @staticmethod
-    def _are_pages_duplicates(p1: GrimoirePage, p2: GrimoirePage) -> bool:
-        for i in range(len(p1.characters)):
-            if p1.characters[i] != p2.characters[i]:
-                return False
-        for m in p1.minion_types:
-            if m not in p2.minion_types:
-                return False
-        for m in p2.minion_types:
-            if m not in p1.minion_types:
-                return False
-        for x1, x2 in zip(p1.poisoned, p2.poisoned):
-            if x1 != x2:
-                return False
-        for r1, r2 in zip(p1.red_herring, p2.red_herring):
-            if r1 != r2:
-                return False
-        return True
+        self.grims = list(set(self.grims))
     
     def add_slayer_kill(self, target: int, night: int):
         new_grims: list[Grimoire] = []

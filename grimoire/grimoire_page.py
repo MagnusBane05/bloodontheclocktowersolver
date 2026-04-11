@@ -51,6 +51,24 @@ class GrimoirePage:
         page.red_herring_moved = self.red_herring_moved
         return page
         
+    def __eq__(self, other): # type: ignore
+        if not isinstance(other, GrimoirePage):
+            return False
+        return (
+            self.characters == other.characters and
+            set(self.minion_types) == set(other.minion_types) and
+            self.poisoned == other.poisoned and
+            self.red_herring == other.red_herring
+        )
+    
+    def __hash__(self):
+        return hash((
+            tuple(self.characters),
+            frozenset(self.minion_types),
+            tuple(self.poisoned),
+            tuple(self.red_herring),
+        ))
+    
     def remove_minion_type(self) -> None:
         if len(self.minion_types) == 0:
             raise Exception("You are trying to remove a minion from a phase with no minions.")
@@ -72,8 +90,8 @@ class GrimoirePage:
 
         minion_types = self.minion_types
         characters = self.characters
-        alive_players = list(compress(range(num_players), [not x for x in self.dead]))
-        alive_characters = list(compress(characters, [not x for x in self.dead]))
+        alive_players = [i for i in range(num_players) if not self.dead[i]]
+        alive_characters = [characters[i] for i in alive_players]
 
         # assign evil roles to player if all good players are accounted for
         good_player_count = ROLE_BREAKDOWNS[num_players]['townsfolk'] + ROLE_BREAKDOWNS[num_players]['outsiders']
