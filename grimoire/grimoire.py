@@ -618,14 +618,6 @@ class Grimoire:
         return True
 
     @staticmethod
-    def _num_characters_of_type(phase: GrimoirePage, character_type: list[Role]):
-        n = 0
-        for character in phase.characters:
-            if character in character_type:
-                n += 1
-        return n
-    
-    @staticmethod
     def pass_through_pages(world: Grimoire) -> bool:
         for i in range(1, len(world.pages)):
             prev_phase = world.pages[i-1]
