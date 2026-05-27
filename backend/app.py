@@ -9,15 +9,15 @@ from flask_cors import CORS
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from grimoire import GrimoireManager, Grimoire, Game
-from grimoire.role import Role, ROLE_BREAKDOWNS, ANY_OTHER_ROLES, MINIONS, TOWNSFOLK
+from grimoire.role import Role, ROLE_BREAKDOWNS, MINIONS, TOWNSFOLK, CHARACTER_STRINGS, EVIL_ROLES, GOOD_ROLES
 from grimoire.info import Info
 
 app = Flask(__name__)
 CORS(app)
 
 # Role enum to string mapping
-ROLE_TO_STRING = {role: role.name for role in Role if role not in ANY_OTHER_ROLES}
-STRING_TO_ROLE = {role.name: role for role in Role}
+ROLE_TO_STRING = {key: value for key, value in CHARACTER_STRINGS.items()}
+STRING_TO_ROLE = {value: key for key, value in CHARACTER_STRINGS.items()}
 
 def serialize_grimoire(grimoire: Grimoire) -> dict[str, typing.Any]:
     """Convert a Grimoire object to a JSON-serializable dictionary."""
@@ -86,6 +86,8 @@ def get_metadata():
         "supportedPlayerCounts": list(ROLE_BREAKDOWNS.keys()),
         "minionRoles": [ROLE_TO_STRING[m] for m in MINIONS],
         "townsfolkRoles": [ROLE_TO_STRING[t] for t in TOWNSFOLK],
+        "evilRoles": [ROLE_TO_STRING[r] for r in EVIL_ROLES],
+        "goodRoles": [ROLE_TO_STRING[r] for r in GOOD_ROLES],
     })
 
 @app.route("/api/solve", methods=["POST"])
@@ -97,7 +99,6 @@ def solve():
         players = payload.get("players")
         infos = payload.get("infos", [])
         death_info = payload.get("deathInfo")
-        nights = payload.get("nights")
         
         # Validate input
         if not players or players not in ROLE_BREAKDOWNS:
@@ -120,16 +121,18 @@ def solve():
             "killed_by_demon": death_info.get("killed_by_demon", []),
         }
         
-        # If nights not provided, infer from death info
-        if nights is None:
-            max_night = 1
-            for _, night in death_info.get("executed", []):
-                max_night = max(max_night, night)
-            for _, night in death_info.get("killed_by_demon", []):
-                max_night = max(max_night, night)
-            if death_info.get("slayer_shot"):
-                max_night = max(max_night, death_info["slayer_shot"][1])
-            nights = max_night
+        # Infer nights from info
+        max_night = 1
+        for _, night in death_info.get("executed", []):
+            max_night = max(max_night, night)
+        for _, night in death_info.get("killed_by_demon", []):
+            max_night = max(max_night, night)
+        if death_info.get("slayer_shot"):
+            max_night = max(max_night, death_info["slayer_shot"][1])
+        for info in parsed_infos:
+            if info["kind"] in ['undertaker', 'empath', 'fortune teller']:
+                max_night = max(max_night, info["night"])
+        nights = max_night
         
         # Run the solver
         game: Game = {"players": players}

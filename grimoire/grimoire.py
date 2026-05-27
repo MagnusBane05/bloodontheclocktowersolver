@@ -226,6 +226,10 @@ class Grimoire:
         # Make sure the minions match the minion types
         if not Grimoire._validate_minion_types(new_phase):
             return False
+        
+        # Combine no outsiders and make sure Baron still works
+        if not Grimoire._combine_no_outsiders(new_phase, p1, p2):
+            return False
 
         # Combine and validate chef numbers
         if new_phase.night == 1 and not Grimoire._combine_chef_number(new_phase, p1, p2, num_players):
@@ -460,6 +464,11 @@ class Grimoire:
             except ValueError:
                 return False
         return True
+    
+    @staticmethod
+    def _combine_no_outsiders(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage):
+        new_phase.no_outsiders = p1.no_outsiders or p2.no_outsiders
+        return not (new_phase.no_outsiders and Role.BARON in new_phase.minion_types)
 
     @staticmethod
     def _combine_chef_number(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):

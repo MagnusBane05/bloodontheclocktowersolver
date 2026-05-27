@@ -1,3 +1,4 @@
+import { Info } from '../../types';
 import { InfoFormEntry } from './types';
 
 export const defaultInfoKinds = [
@@ -24,18 +25,12 @@ export const parseDeathList = (input: string): Array<[number, number]> =>
       return [player, night] as [number, number];
     });
 
-export const parseSlayerShot = (input: string): [number, number] | null => {
-  if (!input.trim()) return null;
-  const [player, night] = input.trim().split(',').map(Number);
-  return [player, night];
-};
-
 export const getAlivePlayersAtNight = (
   players: number,
   night: number | null,
   executed: string,
   demonKills: string,
-  slayerShot: string,
+  slayerShot: [number, number] | null,
 ): number[] => {
   if (night === undefined || night === null || Number.isNaN(night)) {
     return Array.from({ length: players }, (_, i) => i);
@@ -43,14 +38,13 @@ export const getAlivePlayersAtNight = (
 
   const deadPlayers = new Set<number>();
   parseDeathList(executed).forEach(([player, deathNight]) => {
-    if (deathNight <= night) deadPlayers.add(player);
+    if (deathNight < night) deadPlayers.add(player);
   });
   parseDeathList(demonKills).forEach(([player, deathNight]) => {
     if (deathNight <= night) deadPlayers.add(player);
   });
-  const slayer = parseSlayerShot(slayerShot);
-  if (slayer && !Number.isNaN(slayer[0]) && slayer[1] <= night) {
-    deadPlayers.add(slayer[0]);
+  if (slayerShot && !Number.isNaN(slayerShot[0]) && slayerShot[1] <= night) {
+    deadPlayers.add(slayerShot[0]);
   }
 
   return Array.from({ length: players }, (_, i) => i).filter((player) => !deadPlayers.has(player));
@@ -72,7 +66,7 @@ export const computeEmpathNeighbours = (
   players: number,
   executed: string,
   demonKills: string,
-  slayerShot: string,
+  slayerShot: [number, number] | null,
 ): { left: number | null; right: number | null } => {
   if (
     empath === undefined ||
@@ -299,4 +293,135 @@ export const validateInfo = (
   }
 
   return errors;
+};
+
+export const serializeDeathList = (entries: Array<[number, number]>): string =>
+  entries.map(([player, night]) => `${player},${night}`).join('\n');
+
+export const getInfoKindForClaimRole = (character: string | null): Info['kind'] | null => {
+  if (!character) {
+    return null;
+  }
+
+  switch (character.trim().toLowerCase()) {
+    case 'investigator':
+      return 'investigator';
+    case 'washerwoman':
+      return 'washerwoman';
+    case 'librarian':
+      return 'librarian';
+    case 'chef':
+      return 'chef';
+    case 'fortune teller':
+      return 'fortune teller';
+    case 'empath':
+      return 'empath';
+    case 'undertaker':
+      return 'undertaker';
+    case 'ravenkeeper':
+      return 'ravenkeeper';
+    case 'virgin':
+      return 'virgin';
+    case 'slayer':
+      return 'slayer';
+    default:
+      return null;
+  }
+};
+
+export const createInfoEntryForClaimRole = (kind: Info['kind'], player: number): InfoFormEntry | null => {
+  switch (kind) {
+    case 'investigator':
+      return {
+        kind: 'investigator',
+        investigator: player,
+        first_player: null,
+        second_player: null,
+        minion: null,
+      } as InfoFormEntry;
+    case 'washerwoman':
+      return {
+        kind: 'washerwoman',
+        washerwoman: player,
+        first_player: null,
+        second_player: null,
+        townsfolk: null,
+      } as InfoFormEntry;
+    case 'librarian':
+      return {
+        kind: 'librarian',
+        librarian: player,
+        first_player: null,
+        second_player: null,
+        token: null,
+      } as InfoFormEntry;
+    case 'chef':
+      return {
+        kind: 'chef',
+        chef: player,
+        number: null,
+      } as InfoFormEntry;
+    case 'fortune teller':
+      return {
+        kind: 'fortune teller',
+        fortune_teller: player,
+        pings: [[[null, null], null, false]],
+      } as InfoFormEntry;
+    case 'empath':
+      return {
+        kind: 'empath',
+        empath: player,
+        empathRows: [[null, null]],
+      } as InfoFormEntry;
+    case 'undertaker':
+      return {
+        kind: 'undertaker',
+        undertaker: player,
+        undertakerRows: [[null, null]],
+      } as InfoFormEntry;
+    case 'ravenkeeper':
+      return {
+        kind: 'ravenkeeper',
+        ravenkeeper: player,
+        chosen: null,
+        token: null,
+        night: null,
+      } as InfoFormEntry;
+    case 'virgin':
+      return {
+        kind: 'virgin',
+        virgin: player,
+        nominator: null,
+        executed: false,
+        night: null,
+      } as InfoFormEntry;
+    case 'slayer':
+      return {
+        kind: 'slayer',
+        slayer: player,
+        target: null,
+        successful: false,
+        night: null,
+      } as InfoFormEntry;
+    default:
+      return null;
+  }
+};
+
+export const deriveSlayerShotFromInfos = (infos: InfoFormEntry[]): [number, number] | null => {
+  const successfulSlayerInfo = infos.find((info) => info.kind === 'slayer' && (info as any).successful) as any;
+
+  if (
+    !successfulSlayerInfo ||
+    successfulSlayerInfo.target === undefined ||
+    successfulSlayerInfo.target === null ||
+    Number.isNaN(successfulSlayerInfo.target) ||
+    successfulSlayerInfo.night === undefined ||
+    successfulSlayerInfo.night === null ||
+    Number.isNaN(successfulSlayerInfo.night)
+  ) {
+    return null;
+  }
+
+  return [successfulSlayerInfo.target, successfulSlayerInfo.night];
 };

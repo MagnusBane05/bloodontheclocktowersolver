@@ -698,7 +698,7 @@ class TestGrimoire(unittest.TestCase):
     #     night2.chef_number = 2
     #     self.assertFalse(Grimoire.pass_through_pages(world)) # pyright: ignore[reportPrivateUsage]
 
-    def test_comine_poisoned(self):
+    def test_combine_poisoned(self):
 
         # one poisoning should be okay
         phase1 = GrimoirePage()
@@ -749,8 +749,41 @@ class TestGrimoire(unittest.TestCase):
         result = Grimoire._combine_poisoned(new_phase, phase1, phase2, 5) # pyright: ignore[reportPrivateUsage]
         self.assertFalse(result)
 
-    def test_killed_by_slayer(self):
-        pass
+    def test_combine_no_outsiders(self):
+        # default scenario - neither phase has no outsiders
+        phase1 = GrimoirePage()
+        phase2 = GrimoirePage()
+        new_phase = GrimoirePage()
+        result = Grimoire._combine_no_outsiders(new_phase, phase1, phase2) # pyright: ignore[reportPrivateUsage]
+        self.assertTrue(result)
+        self.assertFalse(new_phase.no_outsiders)
+
+        # one phase has no outsiders
+        phase1 = GrimoirePage()
+        phase2 = GrimoirePage()
+        new_phase = GrimoirePage()
+        phase1.no_outsiders = True
+        result = Grimoire._combine_no_outsiders(new_phase, phase1, phase2) # pyright: ignore[reportPrivateUsage]
+        self.assertTrue(result)
+        self.assertTrue(new_phase.no_outsiders)
+
+        # neither phase has no outsiders and there is a baron
+        phase1 = GrimoirePage()
+        phase2 = GrimoirePage()
+        new_phase = GrimoirePage()
+        new_phase.add_minion_type(Role.BARON)
+        result = Grimoire._combine_no_outsiders(new_phase, phase1, phase2) # pyright: ignore[reportPrivateUsage]
+        self.assertTrue(result)
+        self.assertFalse(new_phase.no_outsiders)
+
+        # one phase has no outsiders and there is a baron
+        phase1 = GrimoirePage()
+        phase2 = GrimoirePage()
+        new_phase = GrimoirePage()
+        phase1.no_outsiders = True
+        new_phase.add_minion_type(Role.BARON)
+        result = Grimoire._combine_no_outsiders(new_phase, phase1, phase2) # pyright: ignore[reportPrivateUsage]
+        self.assertFalse(result)
 
 if __name__ == '__main__':
     _ = unittest.main()

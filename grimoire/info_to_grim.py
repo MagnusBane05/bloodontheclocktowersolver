@@ -1,6 +1,6 @@
 from .info import *
 from .grimoire import Grimoire
-from .role import Role, OUTSIDERS, ROLE_BREAKDOWNS, EVIL_CHARACTERS, GOOD_CHARACTERS
+from .role import Role, TOWNSFOLK, OUTSIDERS, ROLE_BREAKDOWNS, EVIL_CHARACTERS, GOOD_CHARACTERS
 from .game import Game
 from .nightOrderPosition import NightOrderPosition
 
@@ -12,13 +12,15 @@ def _create_drunk_evil_poisoned_worlds(
         night_order_position: NightOrderPosition = NightOrderPosition.AFTER_IMP
         ) -> list[Grimoire]:
     
+    assert(token in TOWNSFOLK)
+    
     worlds: list[Grimoire] = []
 
     world1 = Grimoire(game['players'])
-    if night == 1:
-        phase1 = world1.pages[0]
-    else:
-        phase1 = world1.add_page(night, night_order_position)
+    # if night == 1:
+    phase1 = world1.pages[0]
+    # else:
+    #     phase1 = world1.add_page(night, night_order_position)
     phase1.characters[player] = Role.DRUNK
     phase1.drunk_token = token
     if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
@@ -52,7 +54,7 @@ def _create_worlds_from_claim(game: Game, claim: Claim) -> list[Grimoire]:
     worlds: list[Grimoire] = []
 
     # World where the player is the Drunk
-    if character not in OUTSIDERS:
+    if character in TOWNSFOLK:
         world_drunk = Grimoire(game['players'])
         phase_drunk = world_drunk.pages[0]
         phase_drunk.characters[player] = Role.DRUNK
@@ -649,7 +651,7 @@ def _create_worlds_from_slayer_info(game: Game, info: SlayerInfo):
     successful = info['successful']
     night = info['night']
 
-    worlds = _create_drunk_evil_poisoned_worlds(game, slayer, Role.SLAYER, night)
+    worlds: list[Grimoire] = []
 
     if successful:
         # World where the slayer killed the Imp
@@ -662,7 +664,7 @@ def _create_worlds_from_slayer_info(game: Game, info: SlayerInfo):
         phase1.characters[target] = Role.IMP
         worlds.append(world1)
 
-        # World where the slayer killed the Recluse (registering as evil)
+        # World where the slayer killed the Recluse (registering as the demon)
         world2 = Grimoire(game['players'])
         if night == 1:
             phase2 = world2.pages[0]
@@ -675,6 +677,9 @@ def _create_worlds_from_slayer_info(game: Game, info: SlayerInfo):
         worlds.append(world2)
 
     else:
+        
+        worlds = _create_drunk_evil_poisoned_worlds(game, slayer, Role.SLAYER, night)
+
         # World where the slayer's shot hit a non-demon
         world3 = Grimoire(game['players'])
         if night == 1:

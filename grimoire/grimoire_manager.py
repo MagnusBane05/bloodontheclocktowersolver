@@ -122,6 +122,9 @@ class GrimoireManager():
 
             assert(not page.dead[executee])
 
+            if page.characters[executee] == Role.SAINT and not page.poisoned[executee]:
+                continue
+
             page.dead[executee] = True
             page.executee = executee
 

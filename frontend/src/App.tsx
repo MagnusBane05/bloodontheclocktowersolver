@@ -39,7 +39,7 @@ function App(): JSX.Element {
       <div className="max-w-6xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 text-shadow">Blood on the Clocktower Solver</h1>
-          <p className="text-lg opacity-90">Enter game information to find possible grimoires</p>
+          <p className="text-lg opacity-90">Enter information to find possible worlds</p>
         </header>
 
         <main className="space-y-8">

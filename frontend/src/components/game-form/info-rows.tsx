@@ -1,10 +1,15 @@
 import { SelectField, NumberField, CheckboxField } from './fields';
+import { PlayerSelectButton } from './PlayerSelectButton';
 import type { SelectOption, EmpathRow, UndertakerRow } from './types';
 
 export interface PingRowProps {
   index: number;
+  infosIndex: number;
   value: [[number | null, number | null], number | null, boolean];
-  playerOptions: SelectOption[];
+  activePlayerSelectModal: string | null;
+  onPlayerSelectClick: (modalId: string, label: string) => void;
+  evilRoleNames: Set<string>;
+  goodRoleNames: Set<string>;
   onPlayer1Change: (value: number | null) => void;
   onPlayer2Change: (value: number | null) => void;
   onNightChange: (value: number | null) => void;
@@ -15,10 +20,14 @@ export interface PingRowProps {
 
 export function PingRow({
   index,
+  infosIndex,
   value,
-  playerOptions,
-  onPlayer1Change,
-  onPlayer2Change,
+  activePlayerSelectModal: _activePlayerSelectModal,
+  onPlayerSelectClick,
+  evilRoleNames: _evilRoleNames,
+  goodRoleNames: _goodRoleNames,
+  onPlayer1Change: _onPlayer1Change,
+  onPlayer2Change: _onPlayer2Change,
   onNightChange,
   onPingChange,
   onRemove,
@@ -27,22 +36,16 @@ export function PingRow({
   return (
     <div className="grid gap-3 md:grid-cols-[1fr_auto]">
       <div className="grid gap-3 md:grid-cols-3">
-        <SelectField
-          id={`ping-${index}-player1`}
+        <PlayerSelectButton
           label="Player 1"
           value={value[0][0] ?? null}
-          options={playerOptions}
-          placeholder="Select player..."
-          onChange={(value) => onPlayer1Change(value as number | null)}
+          onClick={() => onPlayerSelectClick(`ping-${infosIndex}-${index}-player1`, 'Select Player 1')}
           error={error?.player1}
         />
-        <SelectField
-          id={`ping-${index}-player2`}
+        <PlayerSelectButton
           label="Player 2"
           value={value[0][1] ?? null}
-          options={playerOptions}
-          placeholder="Select player..."
-          onChange={(value) => onPlayer2Change(value as number | null)}
+          onClick={() => onPlayerSelectClick(`ping-${infosIndex}-${index}-player2`, 'Select Player 2')}
           error={error?.player2}
         />
         <NumberField

@@ -1,4 +1,5 @@
 import { SelectField, NumberField, CheckboxField } from './fields';
+import { PlayerSelectButton } from './PlayerSelectButton';
 import { PingRow, EmpathRow, UndertakerRow } from './info-rows';
 import { SelectOption, EmpathRow as EmpathRowType, UndertakerRow as UndertakerRowType, InfoFormEntry } from './types';
 
@@ -6,26 +7,32 @@ interface InfoFieldsProps {
   info: InfoFormEntry;
   index: number;
   fieldErrors: Record<string, string>;
-  playerOptions: SelectOption[];
   roleOptions: SelectOption[];
   minionOptions: SelectOption[];
   townsfolkOptions: SelectOption[];
   updateInfo: (index: number, field: string, value: any) => void;
   computeEmpathNeighbours: (empath: number | null, night: number | null) => { left: number | null; right: number | null };
   getBodyFromPreviousNight: (night: number | null) => number | null;
+  activePlayerSelectModal: string | null;
+  onPlayerSelectClick: (modalId: string, label: string) => void;
+  evilRoleNames: Set<string>;
+  goodRoleNames: Set<string>;
 }
 
 export function InfoFields({
   info,
   index,
   fieldErrors,
-  playerOptions,
   roleOptions,
   minionOptions,
   townsfolkOptions,
   updateInfo,
   computeEmpathNeighbours,
   getBodyFromPreviousNight,
+  activePlayerSelectModal,
+  onPlayerSelectClick,
+  evilRoleNames,
+  goodRoleNames,
 }: InfoFieldsProps): JSX.Element | null {
   const infoAny = info as any;
 
@@ -37,13 +44,10 @@ export function InfoFields({
     case 'claim':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-claim-player`}
+          <PlayerSelectButton
             label="Player:"
             value={infoAny.player ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'player', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-player`, 'Select Player')}
             error={fieldErrors.player}
           />
           <SelectField
@@ -61,31 +65,22 @@ export function InfoFields({
     case 'investigator':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-investigator-player`}
+          <PlayerSelectButton
             label="Investigator Player:"
             value={infoAny.investigator ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'investigator', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-investigator`, 'Select Investigator')}
             error={fieldErrors.investigator}
           />
-          <SelectField
-            id={`info-${index}-first-player`}
+          <PlayerSelectButton
             label="First Player:"
             value={infoAny.first_player ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'first_player', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
-          <SelectField
-            id={`info-${index}-second-player`}
+          <PlayerSelectButton
             label="Second Player:"
             value={infoAny.second_player ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'second_player', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-second_player`, 'Select Second Player')}
             error={fieldErrors.second_player}
           />
           <SelectField
@@ -102,31 +97,22 @@ export function InfoFields({
     case 'washerwoman':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-washerwoman-player`}
+          <PlayerSelectButton
             label="Washerwoman Player:"
             value={infoAny.washerwoman ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'washerwoman', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-washerwoman`, 'Select Washerwoman')}
             error={fieldErrors.washerwoman}
           />
-          <SelectField
-            id={`info-${index}-washerwoman-first-player`}
+          <PlayerSelectButton
             label="First Player:"
             value={infoAny.first_player ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'first_player', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
-          <SelectField
-            id={`info-${index}-washerwoman-second-player`}
+          <PlayerSelectButton
             label="Second Player:"
             value={infoAny.second_player ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'second_player', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-second_player`, 'Select Second Player')}
             error={fieldErrors.second_player}
           />
           <SelectField
@@ -143,31 +129,22 @@ export function InfoFields({
     case 'librarian':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-librarian-player`}
+          <PlayerSelectButton
             label="Librarian Player:"
             value={infoAny.librarian ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'librarian', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-librarian`, 'Select Librarian')}
             error={fieldErrors.librarian}
           />
-          <SelectField
-            id={`info-${index}-librarian-first-player`}
+          <PlayerSelectButton
             label="First Player (optional):"
             value={infoAny.first_player ?? null}
-            options={[{ value: '', label: 'None' }, ...playerOptions]}
-            placeholder="None"
-            onChange={(value) => updateInfo(index, 'first_player', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-librarian-first_player`, 'Select First Player (or cancel)')}
             error={fieldErrors.first_player}
           />
-          <SelectField
-            id={`info-${index}-librarian-second-player`}
+          <PlayerSelectButton
             label="Second Player (optional):"
             value={infoAny.second_player ?? null}
-            options={[{ value: '', label: 'None' }, ...playerOptions]}
-            placeholder="None"
-            onChange={(value) => updateInfo(index, 'second_player', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-librarian-second_player`, 'Select Second Player (or cancel)')}
             error={fieldErrors.second_player}
           />
           <SelectField
@@ -185,13 +162,10 @@ export function InfoFields({
     case 'chef':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-chef-player`}
+          <PlayerSelectButton
             label="Chef Player:"
             value={infoAny.chef ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'chef', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-chef`, 'Select Chef')}
             error={fieldErrors.chef}
           />
           <NumberField
@@ -207,13 +181,10 @@ export function InfoFields({
     case 'fortune teller':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-fortune-teller`}
+          <PlayerSelectButton
             label="Fortune Teller Player:"
             value={infoAny.fortune_teller ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'fortune_teller', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-fortune_teller`, 'Select Fortune Teller')}
             error={fieldErrors.fortune_teller}
           />
           <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
@@ -237,8 +208,12 @@ export function InfoFields({
                 <PingRow
                   key={pingIndex}
                   index={pingIndex}
+                  infosIndex={index}
                   value={ping}
-                  playerOptions={playerOptions}
+                  activePlayerSelectModal={activePlayerSelectModal}
+                  onPlayerSelectClick={onPlayerSelectClick}
+                  evilRoleNames={evilRoleNames}
+                  goodRoleNames={goodRoleNames}
                   onPlayer1Change={(value) =>
                     updateInfo(
                       index,
@@ -304,13 +279,10 @@ export function InfoFields({
       return (
         <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
           <div className="space-y-2">
-            <SelectField
-              id={`info-${index}-empath`}
+            <PlayerSelectButton
               label="Empath Player:"
               value={infoAny.empath ?? null}
-              options={playerOptions}
-              placeholder="Select player..."
-              onChange={(value) => updateInfo(index, 'empath', value)}
+              onClick={() => onPlayerSelectClick(`info-${index}-empath`, 'Select Empath')}
               error={fieldErrors.empath}
             />
           </div>
@@ -381,13 +353,10 @@ export function InfoFields({
       return (
         <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
           <div className="space-y-2">
-            <SelectField
-              id={`info-${index}-undertaker`}
+            <PlayerSelectButton
               label="Undertaker Player:"
               value={infoAny.undertaker ?? null}
-              options={playerOptions}
-              placeholder="Select player..."
-              onChange={(value) => updateInfo(index, 'undertaker', value)}
+              onClick={() => onPlayerSelectClick(`info-${index}-undertaker`, 'Select Undertaker')}
               error={fieldErrors.undertaker}
             />
           </div>
@@ -454,22 +423,16 @@ export function InfoFields({
     case 'ravenkeeper':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-ravenkeeper`}
+          <PlayerSelectButton
             label="Ravenkeeper Player:"
             value={infoAny.ravenkeeper ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'ravenkeeper', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-ravenkeeper`, 'Select Ravenkeeper')}
             error={fieldErrors.ravenkeeper}
           />
-          <SelectField
-            id={`info-${index}-chosen`}
+          <PlayerSelectButton
             label="Chosen Player:"
             value={infoAny.chosen ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'chosen', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-chosen`, 'Select Chosen Player')}
             error={fieldErrors.chosen}
           />
           <SelectField
@@ -495,22 +458,16 @@ export function InfoFields({
     case 'virgin':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-virgin`}
+          <PlayerSelectButton
             label="Virgin Player:"
             value={infoAny.virgin ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'virgin', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-virgin`, 'Select Virgin')}
             error={fieldErrors.virgin}
           />
-          <SelectField
-            id={`info-${index}-nominator`}
+          <PlayerSelectButton
             label="Nominator:"
             value={infoAny.nominator ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'nominator', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-nominator`, 'Select Nominator')}
             error={fieldErrors.nominator}
           />
           <CheckboxField
@@ -533,22 +490,16 @@ export function InfoFields({
     case 'slayer':
       return (
         <div className="space-y-2">
-          <SelectField
-            id={`info-${index}-slayer`}
+          <PlayerSelectButton
             label="Slayer Player:"
             value={infoAny.slayer ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'slayer', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-slayer`, 'Select Slayer')}
             error={fieldErrors.slayer}
           />
-          <SelectField
-            id={`info-${index}-target`}
+          <PlayerSelectButton
             label="Target Player:"
             value={infoAny.target ?? null}
-            options={playerOptions}
-            placeholder="Select player..."
-            onChange={(value) => updateInfo(index, 'target', value)}
+            onClick={() => onPlayerSelectClick(`info-${index}-target`, 'Select Target')}
             error={fieldErrors.target}
           />
           <CheckboxField

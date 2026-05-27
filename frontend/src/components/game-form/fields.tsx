@@ -11,9 +11,11 @@ interface FieldProps {
 export function Field({ label, htmlFor, children, error }: FieldProps): JSX.Element {
   return (
     <div className="space-y-2">
-      <label htmlFor={htmlFor} className="block text-sm font-medium">
-        {label}
-      </label>
+      {label && (
+        <label htmlFor={htmlFor} className="block text-sm font-medium">
+          {label}
+        </label>
+      )}
       {children}
       {error && <p className="text-sm text-red-300">{error}</p>}
     </div>
@@ -50,7 +52,7 @@ export function SelectField({
         onChange={(e) =>
           onChange(e.target.value === '' ? null : isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value))
         }
-        className={`w-full p-2 bg-gray-600 border border-gray-500 rounded-md text-white ${
+        className={`w-full p-2 bg-gray-600 border border-gray-500 rounded-md text-white capitalize ${
           disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
       >

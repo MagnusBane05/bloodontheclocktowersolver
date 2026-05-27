@@ -85,11 +85,13 @@ ANY_OTHER_ROLES = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Rol
 ANY_OTHER_ROLES_SET = set(ANY_OTHER_ROLES)
 
 CHARACTER_STRINGS = {
-    Role.ANY_OTHER: "any other character",
-    Role.ANY_OTHER_EVIL: "any other Evil character",
-    Role.ANY_OTHER_GOOD: "any other Good character",
-    Role.ANY_OTHER_MINION: "any other minion",
-    Role.NON_DEMON: "any non demon character",
+    Role.ANY_OTHER: "Unknown",
+    Role.ANY_OTHER_EVIL: "Unknown Evil",
+    Role.ANY_OTHER_GOOD: "Unknown Good",
+    Role.ANY_OTHER_MINION: "Unknown Minion",
+    Role.ANY_OTHER_TOWNSFOLK: "Unknown Townsfolk",
+    Role.ANY_OTHER_OUTSIDER: "Unknown Outsider",
+    Role.NON_DEMON: "Non Demon",
     Role.WASHERWOMAN: "Washerwoman", 
     Role.LIBRARIAN: "Librarian", 
     Role.INVESTIGATOR: "Investigator", 
