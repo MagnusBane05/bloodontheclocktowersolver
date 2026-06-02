@@ -9,6 +9,7 @@ interface PlayerSelectModalProps {
   onCancel: () => void;
   evilRoleNames: Set<string>;
   goodRoleNames: Set<string>;
+  playerNames?: string[];
 }
 
 export function PlayerSelectModal({
@@ -18,6 +19,7 @@ export function PlayerSelectModal({
   onCancel,
   evilRoleNames,
   goodRoleNames,
+  playerNames,
 }: PlayerSelectModalProps): JSX.Element {
   // Handle Escape key
   useEffect(() => {
@@ -45,6 +47,7 @@ export function PlayerSelectModal({
         <div className="relative w-full max-w-md mx-auto aspect-square rounded-full border border-gray-600 bg-gray-900/80">
           <PlayerCircleRing
             count={playerCount}
+            playerNames={playerNames}
             onPlayerSelect={onSelect}
             evilRoleNames={evilRoleNames}
             goodRoleNames={goodRoleNames}

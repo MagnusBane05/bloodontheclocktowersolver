@@ -6,6 +6,7 @@ import type { SolveResponse, GrimoireSolution, GrimoirePage } from './types';
 interface ResultsDisplayProps {
   results: SolveResponse | null;
   error: string | null;
+  playerNames: string[];
 }
 
 interface FilterEntry {
@@ -14,7 +15,7 @@ interface FilterEntry {
   alignment: string;
 }
 
-export function ResultsDisplay({ results, error }: ResultsDisplayProps): JSX.Element {
+export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayProps): JSX.Element {
   const [roles, setRoles] = useState<string[]>([]);
   const [evilRoleNames, setEvilRoleNames] = useState<Set<string>>(new Set());
   const [goodRoleNames, setGoodRoleNames] = useState<Set<string>>(new Set());
@@ -274,7 +275,7 @@ export function ResultsDisplay({ results, error }: ResultsDisplayProps): JSX.Ele
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredSolutions.map((solution, idx) => (
-          <SolutionCard key={idx} solution={solution} index={idx} evilRoleNames={evilRoleNames} goodRoleNames={goodRoleNames} />
+          <SolutionCard key={idx} solution={solution} index={idx} evilRoleNames={evilRoleNames} goodRoleNames={goodRoleNames} playerNames={playerNames} />
         ))}
       </div>
     </div>
@@ -286,9 +287,10 @@ interface SolutionCardProps {
   index: number;
   evilRoleNames: Set<string>;
   goodRoleNames: Set<string>;
+  playerNames: string[];
 }
 
-function SolutionCard({ solution, index, evilRoleNames, goodRoleNames }: SolutionCardProps): JSX.Element {
+function SolutionCard({ solution, index, evilRoleNames, goodRoleNames, playerNames }: SolutionCardProps): JSX.Element {
   const [currentPageIndex, setCurrentPageIndex] = useState(() => Math.max(solution.pages.length - 1, 0));
 
   useEffect(() => {
@@ -301,7 +303,7 @@ function SolutionCard({ solution, index, evilRoleNames, goodRoleNames }: Solutio
     <div className="bg-gray-700 rounded-lg p-4 shadow-lg">
       <h3 className="text-lg font-semibold mb-4 text-center text-white">Solution {index + 1}</h3>
       <div className="space-y-4">
-        <GrimoirePage page={page} evilRoleNames={evilRoleNames} goodRoleNames={goodRoleNames} />
+        <GrimoirePage page={page} evilRoleNames={evilRoleNames} goodRoleNames={goodRoleNames} playerNames={playerNames} />
         <div className="flex items-center justify-center gap-2">
           <button
             type="button"
@@ -334,14 +336,16 @@ interface GrimoirePageProps {
   page: GrimoirePage;
   evilRoleNames: Set<string>;
   goodRoleNames: Set<string>;
+  playerNames: string[];
 }
 
-function GrimoirePage({ page, evilRoleNames, goodRoleNames }: GrimoirePageProps): JSX.Element {
+function GrimoirePage({ page, evilRoleNames, goodRoleNames, playerNames }: GrimoirePageProps): JSX.Element {
   return (
     <div className="bg-yellow-100 border-4 border-yellow-800 rounded-md p-4">
       <h4 className="text-center font-bold text-lg mb-4 text-yellow-900">Night {page.night}</h4>
       <PlayerCircleRing
         count={page.characters.length}
+        playerNames={playerNames}
         playerRoles={page.characters}
         deadFlags={page.dead}
         evilRoleNames={evilRoleNames}

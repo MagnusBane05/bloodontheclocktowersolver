@@ -70,6 +70,7 @@ function getPlayerStyles(
 
 interface PlayerCircleProps {
   player: number;
+  playerName?: string;
   role?: string;
   displayRole?: string;
   dead?: boolean;
@@ -81,10 +82,13 @@ interface PlayerCircleProps {
   className?: string;
   style?: CSSProperties;
   size?: number;
+  editableName?: boolean;
+  onNameChange?: (name: string) => void;
 }
 
 function PlayerCircle({
   player,
+  playerName,
   role,
   displayRole,
   dead = false,
@@ -96,8 +100,11 @@ function PlayerCircle({
   className = '',
   style,
   size = 74,
+  editableName = false,
+  onNameChange,
 }: PlayerCircleProps): JSX.Element {
-  const label = displayRole ?? (role ? titleCaseRole(role) : null);
+  const nameLabel = playerName ?? `Player ${player}`;
+  const subLabel = displayRole ?? (role ? titleCaseRole(role) : null);
   const styles = getPlayerStyles(role ?? '', dead, evilRoleNames, goodRoleNames);
 
   return (
@@ -118,9 +125,20 @@ function PlayerCircle({
         ...style,
       }}
     >
-      <span className="font-bold">{player}</span>
-      {label && (
-        <span className="mt-1 text-[10px] leading-tight max-w-[60px] break-words">{label}</span>
+      {editableName ? (
+        <input
+          id={`player-name-input-${player}`}
+          value={nameLabel}
+          onChange={(event) => onNameChange?.(event.target.value)}
+          onClick={(event) => event.stopPropagation()}
+          className="font-bold text-sm w-[76px] bg-transparent px-0 py-0 text-white text-center whitespace-normal break-words focus:outline-none focus:ring-0"
+          style={{ outline: 'none', border: 'none' }}
+        />
+      ) : (
+        <span className="font-bold text-sm break-words">{nameLabel}</span>
+      )}
+      {subLabel && (
+        <span className="mt-1 text-[10px] leading-tight max-w-[60px] break-words">{subLabel}</span>
       )}
     </button>
   );
@@ -128,11 +146,14 @@ function PlayerCircle({
 
 interface PlayerCircleRingProps {
   count: number;
+  playerNames?: string[];
   playerRoles?: string[];
   deadFlags?: boolean[];
   playerClaims?: Record<number, string[]>;
   selectedPlayer?: number | null;
   onPlayerSelect?: (player: number) => void;
+  onPlayerNameChange?: (player: number, name: string) => void;
+  editablePlayerNames?: boolean;
   onPlayerContextMenu?: (player: number, e: React.MouseEvent) => void;
   evilRoleNames: Set<string>;
   goodRoleNames: Set<string>;
@@ -154,11 +175,14 @@ function getClaimDisplayRole(claims: Record<number, string[]> | undefined, index
 
 export function PlayerCircleRing({
   count,
+  playerNames,
   playerRoles = [],
   deadFlags = [],
   playerClaims,
   selectedPlayer = null,
   onPlayerSelect,
+  onPlayerNameChange,
+  editablePlayerNames = false,
   onPlayerContextMenu,
   evilRoleNames,
   goodRoleNames,
@@ -168,6 +192,8 @@ export function PlayerCircleRing({
   playerSize = 74,
   centerContent,
 }: PlayerCircleRingProps): JSX.Element {
+  const showEditableNames = editablePlayerNames && typeof onPlayerNameChange === 'function';
+
   return (
     <div className={className} style={{ width: size, height: size, position: 'relative' }}>
       <CircleLayout
@@ -180,26 +206,44 @@ export function PlayerCircleRing({
           const role = claimLabels.length > 0 ? claimLabels[0] : playerRoles[index];
           const displayRole = getClaimDisplayRole(playerClaims, index);
           const dead = deadFlags[index] ?? false;
+          const name = playerNames?.[index] ?? `Player ${index + 1}`;
 
           return (
-            <PlayerCircle
+            <div
               key={index}
-              player={index}
-              role={role}
-              displayRole={displayRole}
-              dead={dead}
-              selected={selectedPlayer === index}
-              onClick={onPlayerSelect ? () => onPlayerSelect(index) : undefined}
-              onContextMenu={onPlayerContextMenu ? (e) => {
-                e.preventDefault();
-                onPlayerContextMenu(index, e);
-              } : undefined}
-              evilRoleNames={evilRoleNames}
-              goodRoleNames={goodRoleNames}
-              className="absolute"
-              style={style}
-              size={playerSize}
-            />
+              style={{
+                position: 'absolute',
+                left: style.left,
+                top: style.top,
+                transform: style.transform,
+                width: playerSize,
+                height: playerSize,
+                pointerEvents: 'auto',
+              }}
+            >
+              <div className="relative mx-auto" style={{ width: playerSize, height: playerSize }}>
+                <PlayerCircle
+                  player={index}
+                  playerName={name}
+                  role={role}
+                  displayRole={displayRole}
+                  dead={dead}
+                  selected={selectedPlayer === index}
+                  onClick={onPlayerSelect ? () => onPlayerSelect(index) : undefined}
+                  onContextMenu={onPlayerContextMenu ? (e) => {
+                    e.preventDefault();
+                    onPlayerContextMenu(index, e);
+                  } : undefined}
+                  evilRoleNames={evilRoleNames}
+                  goodRoleNames={goodRoleNames}
+                  className=""
+                  style={{ width: playerSize, height: playerSize }}
+                  size={playerSize}
+                  editableName={showEditableNames}
+                  onNameChange={showEditableNames ? (value) => onPlayerNameChange(index, value) : undefined}
+                />
+              </div>
+            </div>
           );
         }}
       />

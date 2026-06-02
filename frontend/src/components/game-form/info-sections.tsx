@@ -17,6 +17,7 @@ interface InfoFieldsProps {
   onPlayerSelectClick: (modalId: string, label: string) => void;
   evilRoleNames: Set<string>;
   goodRoleNames: Set<string>;
+  playerNames?: string[];
 }
 
 export function InfoFields({
@@ -33,6 +34,7 @@ export function InfoFields({
   onPlayerSelectClick,
   evilRoleNames,
   goodRoleNames,
+  playerNames,
 }: InfoFieldsProps): JSX.Element | null {
   const infoAny = info as any;
 
@@ -47,6 +49,7 @@ export function InfoFields({
           <PlayerSelectButton
             label="Player:"
             value={infoAny.player ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-player`, 'Select Player')}
             error={fieldErrors.player}
           />
@@ -68,18 +71,21 @@ export function InfoFields({
           <PlayerSelectButton
             label="Investigator Player:"
             value={infoAny.investigator ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-investigator`, 'Select Investigator')}
             error={fieldErrors.investigator}
           />
           <PlayerSelectButton
             label="First Player:"
             value={infoAny.first_player ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
           <PlayerSelectButton
             label="Second Player:"
             value={infoAny.second_player ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-second_player`, 'Select Second Player')}
             error={fieldErrors.second_player}
           />
@@ -100,18 +106,21 @@ export function InfoFields({
           <PlayerSelectButton
             label="Washerwoman Player:"
             value={infoAny.washerwoman ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-washerwoman`, 'Select Washerwoman')}
             error={fieldErrors.washerwoman}
           />
           <PlayerSelectButton
             label="First Player:"
             value={infoAny.first_player ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
           <PlayerSelectButton
             label="Second Player:"
             value={infoAny.second_player ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-second_player`, 'Select Second Player')}
             error={fieldErrors.second_player}
           />
@@ -132,18 +141,21 @@ export function InfoFields({
           <PlayerSelectButton
             label="Librarian Player:"
             value={infoAny.librarian ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-librarian`, 'Select Librarian')}
             error={fieldErrors.librarian}
           />
           <PlayerSelectButton
             label="First Player (optional):"
             value={infoAny.first_player ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-librarian-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
           <PlayerSelectButton
             label="Second Player (optional):"
             value={infoAny.second_player ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-librarian-second_player`, 'Select Second Player')}
             error={fieldErrors.second_player}
           />
@@ -165,6 +177,7 @@ export function InfoFields({
           <PlayerSelectButton
             label="Chef Player:"
             value={infoAny.chef ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-chef`, 'Select Chef')}
             error={fieldErrors.chef}
           />
@@ -184,6 +197,7 @@ export function InfoFields({
           <PlayerSelectButton
             label="Fortune Teller Player:"
             value={infoAny.fortune_teller ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-fortune_teller`, 'Select Fortune Teller')}
             error={fieldErrors.fortune_teller}
           />
@@ -282,6 +296,7 @@ export function InfoFields({
             <PlayerSelectButton
               label="Empath Player:"
               value={infoAny.empath ?? null}
+              playerNames={playerNames}
               onClick={() => onPlayerSelectClick(`info-${index}-empath`, 'Select Empath')}
               error={fieldErrors.empath}
             />
@@ -356,6 +371,7 @@ export function InfoFields({
             <PlayerSelectButton
               label="Undertaker Player:"
               value={infoAny.undertaker ?? null}
+              playerNames={playerNames}
               onClick={() => onPlayerSelectClick(`info-${index}-undertaker`, 'Select Undertaker')}
               error={fieldErrors.undertaker}
             />
@@ -426,12 +442,14 @@ export function InfoFields({
           <PlayerSelectButton
             label="Ravenkeeper Player:"
             value={infoAny.ravenkeeper ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-ravenkeeper`, 'Select Ravenkeeper')}
             error={fieldErrors.ravenkeeper}
           />
           <PlayerSelectButton
             label="Chosen Player:"
             value={infoAny.chosen ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-chosen`, 'Select Chosen Player')}
             error={fieldErrors.chosen}
           />
@@ -461,12 +479,14 @@ export function InfoFields({
           <PlayerSelectButton
             label="Virgin Player:"
             value={infoAny.virgin ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-virgin`, 'Select Virgin')}
             error={fieldErrors.virgin}
           />
           <PlayerSelectButton
             label="Nominator:"
             value={infoAny.nominator ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-nominator`, 'Select Nominator')}
             error={fieldErrors.nominator}
           />
@@ -493,12 +513,14 @@ export function InfoFields({
           <PlayerSelectButton
             label="Slayer Player:"
             value={infoAny.slayer ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-slayer`, 'Select Slayer')}
             error={fieldErrors.slayer}
           />
           <PlayerSelectButton
             label="Target Player:"
             value={infoAny.target ?? null}
+            playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-target`, 'Select Target')}
             error={fieldErrors.target}
           />

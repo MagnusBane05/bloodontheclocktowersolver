@@ -12,6 +12,7 @@ interface ClaimModalProps {
   onClear: () => void;
   onClose: () => void;
   infoKindExists: boolean;
+  playerNames: string[];
 }
 
 export function ClaimModal({
@@ -24,9 +25,12 @@ export function ClaimModal({
   onClear,
   onClose,
   infoKindExists,
+  playerNames,
 }: ClaimModalProps): JSX.Element {
   const canAddClaim = value !== null;
   const canAddClaimAndInfo = canAddClaim && infoKindExists;
+
+  const playerName = playerNames[player] ?? `Player ${player + 1}`;
 
   return (
     <div
@@ -37,7 +41,7 @@ export function ClaimModal({
         className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <ModalHeader content={"Player " + player + " claim"} onClose={onClose} />
+        <ModalHeader content={`${playerName} claim`} onClose={onClose} />
 
         <div className="space-y-4">
           <SelectField

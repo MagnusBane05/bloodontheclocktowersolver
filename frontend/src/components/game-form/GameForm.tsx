@@ -1,7 +1,7 @@
+import { useEffect } from 'react';
 import { SolveRequest } from '../../types';
 import { PlayerCircleRing } from '../PlayerCircleRing';
-import { NumberField, SelectField } from './fields';
-import { InfoFields } from './info-sections';
+import { NumberField } from './fields';
 import { DeathModal } from './DeathModal';
 import { ClaimModal } from './ClaimModal';
 import { PlayerSelectModal } from './PlayerSelectModal';
@@ -38,7 +38,17 @@ const getInfoKindForClaimRole = (character: string | null) => {
   }
 };
 
-export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveRequest) => void; loading: boolean }): JSX.Element {
+export function GameForm({
+  onSubmit,
+  loading,
+  playerNames,
+  onPlayerNamesChange,
+}: {
+  onSubmit: (request: SolveRequest) => void;
+  loading: boolean;
+  playerNames: string[];
+  onPlayerNamesChange: (names: string[]) => void;
+}): JSX.Element {
   const {
     players,
     setPlayers,
@@ -83,6 +93,31 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
     setDeathModalDayNight,
   } = useGameForm(onSubmit);
 
+  const normalizePlayerNames = (names: string[], count: number) =>
+    Array.from({ length: count }, (_, index) => names[index] ?? `Player ${index + 1}`);
+
+  useEffect(() => {
+    const normalized = normalizePlayerNames(playerNames, players);
+    const nameMismatch =
+      normalized.length !== playerNames.length ||
+      normalized.some((name, index) => name !== playerNames[index]);
+
+    if (nameMismatch) {
+      onPlayerNamesChange(normalized);
+    }
+  }, [playerNames, players, onPlayerNamesChange]);
+
+  const handlePlayersChange = (value: number) => {
+    setPlayers(value);
+    onPlayerNamesChange(normalizePlayerNames(playerNames, value));
+  };
+
+  const handlePlayerNameChange = (index: number, value: string) => {
+    onPlayerNamesChange(
+      playerNames.map((name, currentIndex) => (currentIndex === index ? value : name)),
+    );
+  };
+
   return (
     <div>
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -103,7 +138,7 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
                       value={players}
                       min={5}
                       max={15}
-                      onChange={(value) => setPlayers(value ?? 5)}
+                      onChange={(value) => handlePlayersChange(value ?? 5)}
                     />
                   </div>
                 </div>
@@ -111,10 +146,13 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
                   <div className="relative aspect-square w-full rounded-full border border-gray-600 bg-gray-900/80">
                     <PlayerCircleRing
                       count={players}
+                      playerNames={playerNames}
                       playerClaims={playerClaimMap}
                       deadFlags={deadFlags}
                       selectedPlayer={selectedClaimPlayer}
                       onPlayerSelect={setSelectedClaimPlayer}
+                      onPlayerNameChange={handlePlayerNameChange}
+                      editablePlayerNames
                       onPlayerContextMenu={handlePlayerContextMenu}
                       evilRoleNames={evilRoleNames}
                       goodRoleNames={goodRoleNames}
@@ -136,6 +174,7 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
                     onClear={handleClearClaim}
                     onClose={handleCloseClaimModal}
                     infoKindExists={!!getInfoKindForClaimRole(selectedClaimCharacter)}
+                    playerNames={playerNames}
                   />
                 )}
                 {selectedDeathPlayer !== null && (
@@ -149,6 +188,7 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
                     onConfirm={handleDeathConfirm}
                     onClear={handleClearDeath}
                     onClose={handleCloseDeathModal}
+                    playerNames={playerNames}
                   />
                 )}
                 {activePlayerSelectModal !== null && (
@@ -159,6 +199,7 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
                     onCancel={handleClosePlayerSelectModal}
                     evilRoleNames={evilRoleNames}
                     goodRoleNames={goodRoleNames}
+                    playerNames={playerNames}
                   />
                 )}
               </div>
@@ -187,6 +228,7 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
                     onPlayerSelectClick={handlePlayerSelectClick}
                     evilRoleNames={evilRoleNames}
                     goodRoleNames={goodRoleNames}
+                    playerNames={playerNames}
                   />
                 ))}
                 <div className="flex flex-col gap-3 sm:flex-row">

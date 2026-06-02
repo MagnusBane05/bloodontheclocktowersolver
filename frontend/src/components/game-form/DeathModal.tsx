@@ -11,6 +11,7 @@ interface DeathModalProps {
   onConfirm: () => void;
   onClear: () => void;
   onClose: () => void;
+  playerNames: string[];
 }
 
 export function DeathModal({
@@ -23,6 +24,7 @@ export function DeathModal({
   onConfirm,
   onClear,
   onClose,
+  playerNames,
 }: DeathModalProps): JSX.Element {
   const isValid = deathType !== null && dayNight !== null && dayNight > 0;
   const isExecution = deathType === 'execution';
@@ -42,6 +44,8 @@ export function DeathModal({
     }
   };
 
+  const playerName = playerNames[player] ?? `Player ${player + 1}`;
+
   return (
     <div
       className="fixed inset-0 z-30 flex items-center justify-center bg-black/50"
@@ -51,7 +55,7 @@ export function DeathModal({
         className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <ModalHeader content={"Player " + player + " death"} onClose={onClose} />
+        <ModalHeader content={`${playerName} death`} onClose={onClose} />
         <div className="space-y-4">
           {/* Death Type Dropdown */}
           <div className="space-y-2">

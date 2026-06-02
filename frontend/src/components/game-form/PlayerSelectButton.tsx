@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Field } from './fields';
 
 interface PlayerSelectButtonProps {
   label: string;
   value: number | null;
+  playerNames?: string[];
   onClick: () => void;
   error?: string;
   disabled?: boolean;
@@ -11,10 +13,17 @@ interface PlayerSelectButtonProps {
 export function PlayerSelectButton({
   label,
   value,
+  playerNames,
   onClick,
   error,
   disabled = false,
 }: PlayerSelectButtonProps): JSX.Element {
+
+  const playerLabel =
+    value !== null
+      ? playerNames?.[value] ?? `Player ${value}`
+      : 'Select player...';
+
   return (
     <Field label={label} error={error}>
       <button
@@ -27,7 +36,7 @@ export function PlayerSelectButton({
             : 'bg-blue-600 hover:bg-blue-700 text-white'
         }`}
       >
-        {value !== null ? `Player ${value}` : 'Select player...'}
+        {playerLabel}
       </button>
     </Field>
   );

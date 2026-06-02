@@ -7,6 +7,9 @@ function App(): JSX.Element {
   const [results, setResults] = useState<SolveResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [playerNames, setPlayerNames] = useState<string[]>(() =>
+    Array.from({ length: 5 }, (_, index) => `Player ${index + 1}`),
+  );
 
   const handleSolve = async (request: SolveRequest) => {
     setLoading(true);
@@ -44,11 +47,16 @@ function App(): JSX.Element {
 
         <main className="space-y-8">
           <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-            <GameForm onSubmit={handleSolve} loading={loading} />
+            <GameForm
+              onSubmit={handleSolve}
+              loading={loading}
+              playerNames={playerNames}
+              onPlayerNamesChange={setPlayerNames}
+            />
           </div>
 
           <div className="bg-gray-800 rounded-lg p-6 shadow-lg">
-            <ResultsDisplay results={results} error={error} />
+            <ResultsDisplay results={results} error={error} playerNames={playerNames} />
           </div>
         </main>
       </div>

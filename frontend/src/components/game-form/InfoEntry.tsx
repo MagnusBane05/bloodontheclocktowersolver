@@ -22,6 +22,7 @@ interface InfoEntryProps {
   onPlayerSelectClick: (modalId: string, label: string) => void;
   evilRoleNames: Set<string>;
   goodRoleNames: Set<string>;
+  playerNames?: string[];
 }
 
 export function InfoEntry({
@@ -40,6 +41,7 @@ export function InfoEntry({
   onPlayerSelectClick,
   evilRoleNames,
   goodRoleNames,
+  playerNames,
 }: InfoEntryProps): JSX.Element | null {
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
@@ -112,6 +114,7 @@ export function InfoEntry({
             onPlayerSelectClick={onPlayerSelectClick}
             evilRoleNames={evilRoleNames}
             goodRoleNames={goodRoleNames}
+            playerNames={playerNames}
           />
         </div>
       </div>
