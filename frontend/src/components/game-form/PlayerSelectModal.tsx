@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { PlayerCircleRing } from '../PlayerCircleRing';
+import { ModalHeader } from './ModalHeader';
 
 interface PlayerSelectModalProps {
   playerCount: number;
@@ -39,9 +40,7 @@ export function PlayerSelectModal({
         className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-2xl w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-white mb-4">
-          {selectionLabel}
-        </h2>
+        <ModalHeader content={selectionLabel} onClose={onCancel} />
 
         <div className="relative w-full max-w-md mx-auto aspect-square rounded-full border border-gray-600 bg-gray-900/80">
           <PlayerCircleRing
@@ -61,16 +60,6 @@ export function PlayerSelectModal({
               </div>
             }
           />
-        </div>
-
-        <div className="mt-6 flex justify-center">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md transition"
-          >
-            Cancel
-          </button>
         </div>
       </div>
     </div>

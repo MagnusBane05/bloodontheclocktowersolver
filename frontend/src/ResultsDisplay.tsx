@@ -42,6 +42,55 @@ export function ResultsDisplay({ results, error }: ResultsDisplayProps): JSX.Ele
   const playerCount = results?.solutions?.[0]?.pages?.[0]?.characters.length ?? 0;
   const playerOptions = Array.from({ length: playerCount }, (_, i) => ({ value: i, label: `${i}` }));
 
+  const uniqueSolutions = useMemo(() => {
+    if (!results) {
+      return [];
+    }
+
+    let uniqueSolutionsList: GrimoireSolution[] = []
+
+    const comparePages = (a: GrimoirePage, b: GrimoirePage) => {
+      if (a.characters.length != b.characters.length) {
+        return false;
+      }
+      for (let i=0; i<a.characters.length; i++) {
+        if (a.characters[i] != b.characters[i]) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    const compareSolutions = (a: GrimoireSolution, b: GrimoireSolution) => {
+      if (a.pages.length != b.pages.length) {
+        return false;
+      }
+      for (let i=0; i<a.pages.length; i++) {
+        if (!comparePages(a.pages[i], b.pages[i])) {
+          return false
+        }
+      }
+      return true;
+    }
+
+    const isSolutionInRemaining = (solution: GrimoireSolution, i: number) => {
+      for (let j=i+1; j<results.solutions.length; j++) {
+        if (compareSolutions(solution, results.solutions[j])) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    for (let i=0; i<results.solutionCount; i++) {
+      if (!isSolutionInRemaining(results.solutions[i], i)) {
+        uniqueSolutionsList.push(results.solutions[i]);
+      }
+    }
+
+    return uniqueSolutionsList;
+  }, [results])
+
   const filteredSolutions = useMemo(() => {
     if (!results) {
       return [];
@@ -53,10 +102,10 @@ export function ResultsDisplay({ results, error }: ResultsDisplayProps): JSX.Ele
     );
 
     if (activeFilters.length === 0) {
-      return results.solutions;
+      return uniqueSolutions;
     }
 
-    return results.solutions.filter((solution) => {
+    return uniqueSolutions.filter((solution) => {
       const page = solution.pages[0];
       return activeFilters.every((filter) => {
         const playerIndex = filter.player;
@@ -83,7 +132,7 @@ export function ResultsDisplay({ results, error }: ResultsDisplayProps): JSX.Ele
         return true;
       });
     });
-  }, [results, filters, evilRoleNames, goodRoleNames]);
+  }, [uniqueSolutions, filters, evilRoleNames, goodRoleNames]);
 
   const clearFilters = () => {
     setFilters([{ player: '', role: '', alignment: '' }]);
@@ -126,13 +175,13 @@ export function ResultsDisplay({ results, error }: ResultsDisplayProps): JSX.Ele
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">
           Solutions Found: {filteredSolutions.length}
-          {filteredSolutions.length !== results.solutionCount && (
-            <span className="text-gray-300">{' '} (filtered from {results.solutionCount})</span>
+          {filteredSolutions.length !== uniqueSolutions.length && (
+            <span className="text-gray-300">{' '} (filtered from {uniqueSolutions.length})</span>
           )}
         </h2>
       </div>
 
-      {results.solutionCount > 0 &&
+      {uniqueSolutions.length > 0 &&
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-sm">
           <h3 className="text-lg font-semibold text-white mb-3">Filter Solutions</h3>
           <div className="space-y-4">
@@ -219,7 +268,7 @@ export function ResultsDisplay({ results, error }: ResultsDisplayProps): JSX.Ele
         </div>
       }
 
-      {results.solutionCount == 0 && 
+      {uniqueSolutions.length == 0 && 
         <div>No solutions found. Please make sure all information was input correctly. If you believe we're missing a solution, please contact us at</div>
       }
 

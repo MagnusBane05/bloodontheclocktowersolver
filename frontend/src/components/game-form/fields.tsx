@@ -72,12 +72,13 @@ interface NumberFieldProps {
   label: string;
   value?: number | null;
   min?: number;
+  max?: number;
   placeholder?: string;
   onChange: (value: number | null) => void;
   error?: string;
 }
 
-export function NumberField({ id, label, value, min, placeholder, onChange, error }: NumberFieldProps): JSX.Element {
+export function NumberField({ id, label, value, min, max, placeholder, onChange, error }: NumberFieldProps): JSX.Element {
   return (
     <Field label={label} htmlFor={id} error={error}>
       <input
@@ -85,6 +86,7 @@ export function NumberField({ id, label, value, min, placeholder, onChange, erro
         type="number"
         value={value ?? ''}
         min={min}
+        max={max}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}
         className="w-full p-2 bg-gray-600 border border-gray-500 rounded-md text-white"

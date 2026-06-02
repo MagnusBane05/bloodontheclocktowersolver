@@ -132,7 +132,6 @@ export interface SolveResponse {
 export interface MetadataResponse {
   roles: string[];
   infoKinds: string[];
-  supportedPlayerCounts: number[];
   minionRoles: string[];
   townsfolkRoles: string[];
 }

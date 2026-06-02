@@ -83,7 +83,6 @@ def get_metadata():
             "claim", "investigator", "washerwoman", "librarian", "chef",
             "fortune teller", "empath", "undertaker", "ravenkeeper", "virgin", "slayer"
         ],
-        "supportedPlayerCounts": list(ROLE_BREAKDOWNS.keys()),
         "minionRoles": [ROLE_TO_STRING[m] for m in MINIONS],
         "townsfolkRoles": [ROLE_TO_STRING[t] for t in TOWNSFOLK],
         "evilRoles": [ROLE_TO_STRING[r] for r in EVIL_ROLES],

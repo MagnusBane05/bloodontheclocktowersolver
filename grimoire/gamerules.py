@@ -174,7 +174,7 @@ def can_player_be_recluse(player: Role):
             player == Role.ANY_OTHER_GOOD or player == Role.ANY_OTHER)
 
 def can_player_be_demon(player: Role):
-    return player not in {Role.NON_DEMON} | GOOD_CHARACTERS_SET | MINIONS_SET
+    return player not in {Role.NON_DEMON} | GOOD_ROLES_SET | MINIONS_SET
 
 def is_minion_type_possible(minion: Role, minion_types: list[Role]):
     return minion in minion_types or Role.ANY_OTHER_MINION in minion_types

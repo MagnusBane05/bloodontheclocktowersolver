@@ -606,13 +606,19 @@ def _create_worlds_from_virgin_nominated(game: Game, info: VirginInfo):
 
     if executed:
         world1 = Grimoire(game['players'])
-        phase1 = world1.add_page(night, NightOrderPosition.AFTER_EXECUTION)
+        if night == 1:
+            phase1 = world1.pages[0]
+        else:
+            phase1 = world1.add_page(night, NightOrderPosition.AFTER_IMP)
         phase1.characters[nominator] = Role.ANY_OTHER_TOWNSFOLK
         phase1.characters[virgin] = Role.VIRGIN
         worlds.append(world1)
         
         world2 = Grimoire(game['players'])
-        phase2 = world2.add_page(night, NightOrderPosition.AFTER_EXECUTION)
+        if night == 1:
+            phase2 = world2.pages[0]
+        else:
+            phase2 = world2.add_page(night, NightOrderPosition.AFTER_IMP)
         phase2.characters[virgin] = Role.VIRGIN
         if virgin != nominator:
             phase2.characters[nominator] = Role.SPY

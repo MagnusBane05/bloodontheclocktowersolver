@@ -138,13 +138,13 @@ export function InfoFields({
           <PlayerSelectButton
             label="First Player (optional):"
             value={infoAny.first_player ?? null}
-            onClick={() => onPlayerSelectClick(`info-${index}-librarian-first_player`, 'Select First Player (or cancel)')}
+            onClick={() => onPlayerSelectClick(`info-${index}-librarian-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
           <PlayerSelectButton
             label="Second Player (optional):"
             value={infoAny.second_player ?? null}
-            onClick={() => onPlayerSelectClick(`info-${index}-librarian-second_player`, 'Select Second Player (or cancel)')}
+            onClick={() => onPlayerSelectClick(`info-${index}-librarian-second_player`, 'Select Second Player')}
             error={fieldErrors.second_player}
           />
           <SelectField
@@ -479,7 +479,7 @@ export function InfoFields({
           />
           <NumberField
             id={`info-${index}-virgin-night`}
-            label="Night:"
+            label="Day:"
             value={infoAny.night ?? null}
             min={1}
             onChange={(value) => updateInfo(index, 'night', value)}
@@ -511,7 +511,7 @@ export function InfoFields({
           />
           <NumberField
             id={`info-${index}-slayer-night`}
-            label="Night:"
+            label="Day:"
             value={infoAny.night ?? null}
             min={1}
             onChange={(value) => updateInfo(index, 'night', value)}

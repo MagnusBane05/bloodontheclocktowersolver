@@ -1,12 +1,12 @@
 import { SolveRequest } from '../../types';
 import { PlayerCircleRing } from '../PlayerCircleRing';
-import { SelectField } from './fields';
+import { NumberField, SelectField } from './fields';
 import { InfoFields } from './info-sections';
 import { DeathModal } from './DeathModal';
 import { ClaimModal } from './ClaimModal';
 import { PlayerSelectModal } from './PlayerSelectModal';
 import { useGameForm } from './useGameForm';
-
+import { InfoEntry } from './InfoEntry';
 const getInfoKindForClaimRole = (character: string | null) => {
   if (!character) {
     return null;
@@ -97,21 +97,14 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
                     <p className="text-sm text-gray-300">Right click to set their death (execution or demon kill).</p>
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="playerCount" className="block text-sm font-medium">
-                      Number of Players
-                    </label>
-                    <select
-                      id="playerCount"
+                    <NumberField
+                      id={`player-count`}
+                      label="Number of players"
                       value={players}
-                      onChange={(e) => setPlayers(parseInt(e.target.value, 10))}
-                      required
-                      className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white"
-                    >
-                      <option value="">Select...</option>
-                      <option value="5">5 Players</option>
-                      <option value="6">6 Players</option>
-                      <option value="13">13 Players</option>
-                    </select>
+                      min={5}
+                      max={15}
+                      onChange={(value) => setPlayers(value ?? 5)}
+                    />
                   </div>
                 </div>
                 <div className="mx-auto w-full max-w-md">
@@ -176,47 +169,26 @@ export function GameForm({ onSubmit, loading }: { onSubmit: (request: SolveReque
             <div className="rounded-xl border border-gray-600 bg-gray-800 p-5 shadow-sm">
               <h3 className="text-lg font-semibold">Info List</h3>
               <div className="space-y-4">
-                {infos.map((info, index) =>
-                  info.kind === 'claim' ? null : (
-                    <div key={index} className="flex items-start space-x-4 p-4 bg-gray-700 rounded-md">
-                      <div className="flex-1 space-y-4">
-                        <div className="flex flex-row justify-between items-end">
-                          <SelectField
-                            id={`info-${index}-kind`}
-                            label="Info Type:"
-                            value={info.kind || null}
-                            options={allInfoKinds.map((kind) => ({ value: kind, label: kind }))}
-                            placeholder="Select..."
-                            onChange={(value) => updateInfo(index, 'kind', value)}
-                            error={infoErrors[index]?.kind}
-                          />
-                          <button
-                            type="button"
-                            className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
-                            onClick={() => removeInfo(index)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <InfoFields
-                          info={info}
-                          index={index}
-                          fieldErrors={infoErrors[index] || {}}
-                          roleOptions={claimRoleOptions}
-                          minionOptions={minionOptions}
-                          townsfolkOptions={townsfolkOptions}
-                          updateInfo={updateInfo}
-                          computeEmpathNeighbours={computeEmpathNeighboursLocal}
-                          getBodyFromPreviousNight={getBodyFromPreviousNightLocal}
-                          activePlayerSelectModal={activePlayerSelectModal}
-                          onPlayerSelectClick={handlePlayerSelectClick}
-                          evilRoleNames={evilRoleNames}
-                          goodRoleNames={goodRoleNames}
-                        />
-                      </div>
-                    </div>
-                  ),
-                )}
+                {infos.map((info, index) => (
+                  <InfoEntry
+                    key={index}
+                    info={info}
+                    index={index}
+                    allInfoKinds={allInfoKinds}
+                    infoErrors={infoErrors}
+                    claimRoleOptions={claimRoleOptions}
+                    minionOptions={minionOptions}
+                    townsfolkOptions={townsfolkOptions}
+                    updateInfo={updateInfo}
+                    removeInfo={removeInfo}
+                    computeEmpathNeighbours={computeEmpathNeighboursLocal}
+                    getBodyFromPreviousNight={getBodyFromPreviousNightLocal}
+                    activePlayerSelectModal={activePlayerSelectModal}
+                    onPlayerSelectClick={handlePlayerSelectClick}
+                    evilRoleNames={evilRoleNames}
+                    goodRoleNames={goodRoleNames}
+                  />
+                ))}
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     type="button"

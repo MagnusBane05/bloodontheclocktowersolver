@@ -33,29 +33,71 @@ class Role(Enum):
 
 ROLE_BREAKDOWNS = {
     5: {
+        'townsfolk': 3,
+        'outsiders': 0,
         'minions': 1,
         'demons': 1,
-        'townsfolk': 3,
-        'outsiders': 0
     },
     6: {
+        'townsfolk': 3,
+        'outsiders': 1,
         'minions': 1,
         'demons': 1,
-        'townsfolk': 3,
-        'outsiders': 1
+    },
+    7: {
+        'townsfolk': 5,
+        'outsiders': 0,
+        'minions': 1,
+        'demons': 1,
+    },
+    8: {
+        'townsfolk': 5,
+        'outsiders': 1,
+        'minions': 1,
+        'demons': 1,
+    },
+    9: {
+        'townsfolk': 5,
+        'outsiders': 2,
+        'minions': 1,
+        'demons': 1,
     },
     10: {
+        'townsfolk': 7,
+        'outsiders': 0,
         'minions': 2,
         'demons': 1,
+    },
+    11: {
         'townsfolk': 7,
-        'outsiders': 0
+        'outsiders': 1,
+        'minions': 2,
+        'demons': 1,
+    },
+    12: {
+        'townsfolk': 7,
+        'outsiders': 2,
+        'minions': 2,
+        'demons': 1,
     },
     13: {
+        'townsfolk': 9,
+        'outsiders': 0,
         'minions': 3,
         'demons': 1,
+    },
+    14: {
         'townsfolk': 9,
-        'outsiders': 0
-    }
+        'outsiders': 1,
+        'minions': 3,
+        'demons': 1,
+    },
+    15: {
+        'townsfolk': 9,
+        'outsiders': 2,
+        'minions': 3,
+        'demons': 1,
+    },
 }
 
 EVIL_CHARACTERS = [Role.POISONER, Role.SPY, Role.BARON, Role.SCARLET_WOMAN, Role.IMP]
@@ -81,6 +123,7 @@ ALL_CHARACTERS = GOOD_CHARACTERS + EVIL_CHARACTERS
 EVIL_ROLES = EVIL_CHARACTERS + [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]
 EVIL_ROLES_SET = set(EVIL_ROLES)
 GOOD_ROLES = GOOD_CHARACTERS + [Role.ANY_OTHER_GOOD, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_OUTSIDER]
+GOOD_ROLES_SET = set(GOOD_ROLES)
 ANY_OTHER_ROLES = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_MINION, Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_TOWNSFOLK, Role.NON_DEMON]
 ANY_OTHER_ROLES_SET = set(ANY_OTHER_ROLES)
 

@@ -1,4 +1,5 @@
 import { SelectField } from './fields';
+import { ModalHeader } from './ModalHeader';
 import { SelectOption } from './types';
 
 interface ClaimModalProps {
@@ -36,9 +37,7 @@ export function ClaimModal({
         className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-white mb-4">
-          Player {player} Claim
-        </h2>
+        <ModalHeader content={"Player " + player + " claim"} onClose={onClose} />
 
         <div className="space-y-4">
           <SelectField
@@ -58,13 +57,6 @@ export function ClaimModal({
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md transition"
-          >
-            Cancel
-          </button>
           <button
             type="button"
             onClick={onClear}

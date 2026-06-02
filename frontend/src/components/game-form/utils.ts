@@ -1,4 +1,4 @@
-import { Info } from '../../types';
+import { Info, SlayerInfo, VirginInfo } from '../../types';
 import { InfoFormEntry } from './types';
 
 export const defaultInfoKinds = [
@@ -43,7 +43,7 @@ export const getAlivePlayersAtNight = (
   parseDeathList(demonKills).forEach(([player, deathNight]) => {
     if (deathNight <= night) deadPlayers.add(player);
   });
-  if (slayerShot && !Number.isNaN(slayerShot[0]) && slayerShot[1] <= night) {
+  if (slayerShot && !Number.isNaN(slayerShot[0]) && slayerShot[1] < night) {
     deadPlayers.add(slayerShot[0]);
   }
 
@@ -409,7 +409,7 @@ export const createInfoEntryForClaimRole = (kind: Info['kind'], player: number):
 };
 
 export const deriveSlayerShotFromInfos = (infos: InfoFormEntry[]): [number, number] | null => {
-  const successfulSlayerInfo = infos.find((info) => info.kind === 'slayer' && (info as any).successful) as any;
+  const successfulSlayerInfo = infos.find((info) => info.kind === 'slayer' && (info as any).successful) as SlayerInfo;
 
   if (
     !successfulSlayerInfo ||
@@ -425,3 +425,21 @@ export const deriveSlayerShotFromInfos = (infos: InfoFormEntry[]): [number, numb
 
   return [successfulSlayerInfo.target, successfulSlayerInfo.night];
 };
+
+export const deriveVirginExecutionFromInfos = (infos: InfoFormEntry[]): [number, number] | null => {
+  const successfulVirginNomination = infos.find((info) => info.kind === 'virgin' && (info as any).executed) as VirginInfo;
+
+  if (
+    !successfulVirginNomination ||
+    successfulVirginNomination.nominator === undefined ||
+    successfulVirginNomination.nominator === null ||
+    Number.isNaN(successfulVirginNomination.nominator) ||
+    successfulVirginNomination.night === undefined ||
+    successfulVirginNomination.night === null ||
+    Number.isNaN(successfulVirginNomination.night)
+  ) {
+    return null;
+  }
+
+  return [successfulVirginNomination.nominator, successfulVirginNomination.night];
+}

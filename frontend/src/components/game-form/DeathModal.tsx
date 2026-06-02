@@ -1,4 +1,5 @@
 import React from 'react';
+import { ModalHeader } from './ModalHeader';
 
 interface DeathModalProps {
   player: number;
@@ -50,10 +51,7 @@ export function DeathModal({
         className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-white mb-4">
-          Player {player} Death
-        </h2>
-
+        <ModalHeader content={"Player " + player + " death"} onClose={onClose} />
         <div className="space-y-4">
           {/* Death Type Dropdown */}
           <div className="space-y-2">
@@ -101,14 +99,7 @@ export function DeathModal({
         </div>
 
         {/* Buttons */}
-        <div className="mt-6 flex gap-3 justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md transition"
-          >
-            Cancel
-          </button>
+        <div className="mt-6 flex gap-3 justify-center">
           <button
             type="button"
             onClick={onClear}

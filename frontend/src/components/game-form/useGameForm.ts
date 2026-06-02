@@ -5,6 +5,7 @@ import {
   createInfoEntryForClaimRole,
   defaultInfoKinds,
   deriveSlayerShotFromInfos,
+  deriveVirginExecutionFromInfos,
   getBodyFromPreviousNight,
   getInfoKindForClaimRole,
   parseDeathList,
@@ -269,9 +270,6 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
         return !(infoAny.kind === 'claim' && infoAny.player === selectedClaimPlayer);
       }),
     );
-
-    setSelectedClaimPlayer(null);
-    setSelectedClaimCharacter(null);
   };
 
   const handleAddClaimAndInfo = (character: string | null) => {
@@ -300,6 +298,22 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
   };
 
   const slayerShot = useMemo(() => deriveSlayerShotFromInfos(infos), [infos]);
+  const virginExecution = useMemo(() => deriveVirginExecutionFromInfos(infos), [infos]);
+
+  useEffect(() => {
+    if (!virginExecution || Number.isNaN(virginExecution[0])) {
+      return;
+    }
+
+    const entries = parseDeathList(executed);
+    const exists = entries.some(
+      ([player, night]) => player === virginExecution[0] && night === virginExecution[1],
+    );
+    if (!exists) {
+      entries.push(virginExecution);
+      setExecuted(serializeDeathList(entries));
+    }
+  }, [virginExecution]);
 
   const deadFlags = useMemo(() => {
     const deadPlayers = new Set<number>();
@@ -477,7 +491,6 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
       serializeDeathList(parseDeathList(currentDemonKills).filter(([p]) => p !== selectedDeathPlayer) as [number, number][]),
     );
 
-    setSelectedDeathPlayer(null);
     setDeathModalType(null);
     setDeathModalDayNight(null);
   };
