@@ -127,9 +127,10 @@ export function GameForm({
               <div className="relative">
                 <div className="flex justify-between mb-2">
                   <div>
-                    <h3 className="text-lg font-semibold">Graphical Claim Input</h3>
+                    <h3 className="text-lg font-semibold">Claim Input</h3>
                     <p className="text-sm text-gray-300">Click a player in the circle to pick a role.</p>
                     <p className="text-sm text-gray-300">Right click to set their death (execution or demon kill).</p>
+                    <p className="text-sm text-gray-300">Click on a player's name to edit it.</p>
                   </div>
                   <div className="space-y-2">
                     <NumberField
@@ -200,6 +201,8 @@ export function GameForm({
                     evilRoleNames={evilRoleNames}
                     goodRoleNames={goodRoleNames}
                     playerNames={playerNames}
+                    playerClaims={playerClaimMap}
+                    deadFlags={deadFlags}
                   />
                 )}
               </div>
@@ -208,7 +211,7 @@ export function GameForm({
 
           <div className="space-y-4">
             <div className="rounded-xl border border-gray-600 bg-gray-800 p-5 shadow-sm">
-              <h3 className="text-lg font-semibold">Info List</h3>
+              <h3 className="text-lg font-semibold mb-2">Info List</h3>
               <div className="space-y-4">
                 {infos.map((info, index) => (
                   <InfoEntry
@@ -234,7 +237,7 @@ export function GameForm({
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     type="button"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
                     onClick={addInfo}
                   >
                     Add Info

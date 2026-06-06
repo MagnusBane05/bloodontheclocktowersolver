@@ -193,7 +193,7 @@ export function InfoFields({
       );
     case 'fortune teller':
       return (
-        <div className="space-y-2">
+        <div className="space-y-4">
           <PlayerSelectButton
             label="Fortune Teller Player:"
             value={infoAny.fortune_teller ?? null}
@@ -202,21 +202,6 @@ export function InfoFields({
             error={fieldErrors.fortune_teller}
           />
           <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium text-white">Pings</h4>
-              <button
-                type="button"
-                className="rounded-md bg-blue-600 px-3 py-2 text-white hover:bg-blue-700"
-                onClick={() =>
-                  updateInfo(index, 'pings', [
-                    ...(infoAny.pings ?? []),
-                    [[null, null], null, false],
-                  ] as any)
-                }
-              >
-                Add Ping
-              </button>
-            </div>
             {(infoAny.pings ?? []).map(
               (ping: [[number | null, number | null], number | null, boolean], pingIndex: number) => (
                 <PingRow
@@ -224,6 +209,7 @@ export function InfoFields({
                   index={pingIndex}
                   infosIndex={index}
                   value={ping}
+                  playerNames={playerNames}
                   activePlayerSelectModal={activePlayerSelectModal}
                   onPlayerSelectClick={onPlayerSelectClick}
                   evilRoleNames={evilRoleNames}
@@ -284,6 +270,18 @@ export function InfoFields({
                 />
               ),
             )}
+            <button
+              type="button"
+              className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-white"
+              onClick={() =>
+                updateInfo(index, 'pings', [
+                  ...(infoAny.pings ?? []),
+                  [[null, null], null, false],
+                ] as any)
+              }
+            >
+              Add Night
+            </button>
             {fieldErrors.pings && <p className="text-sm text-red-300">{fieldErrors.pings}</p>}
           </div>
         </div>
@@ -291,40 +289,33 @@ export function InfoFields({
     case 'empath': {
       const empathRows: EmpathRowType[] = infoAny.empathRows ?? [[null, null]];
       return (
-        <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
-          <div className="space-y-2">
-            <PlayerSelectButton
-              label="Empath Player:"
-              value={infoAny.empath ?? null}
-              playerNames={playerNames}
-              onClick={() => onPlayerSelectClick(`info-${index}-empath`, 'Select Empath')}
-              error={fieldErrors.empath}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-white">Empath Nights</h4>
-            <button
-              type="button"
-              className="rounded-md bg-blue-600 px-3 py-2 text-white hover:bg-blue-700"
-              onClick={() =>
-                updateInfo(index, 'empathRows', [
-                  ...(infoAny.empathRows ?? []),
-                  [null, null],
-                ] as EmpathRowType[])
-              }
-            >
-              Add Night
-            </button>
-          </div>
-          <div className="space-y-3">
+        <div className="space-y-4">
+          <PlayerSelectButton
+            label="Empath Player:"
+            value={infoAny.empath ?? null}
+            playerNames={playerNames}
+            onClick={() => onPlayerSelectClick(`info-${index}-empath`, 'Select Empath')}
+            error={fieldErrors.empath}
+          />
+          <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
             {empathRows.map((row, rowIndex) => {
               const neighbours = computeEmpathNeighbours(infoAny.empath ?? null, row[0] ?? null);
+              const neighbourNames = (playerNames && neighbours.left && neighbours.right) ?
+                {
+                  left: playerNames[neighbours.left],
+                  right: playerNames[neighbours.right]
+                }
+                :
+                {
+                  left: null,
+                  right: null
+                };
               return (
                 <EmpathRow
                   key={rowIndex}
                   index={rowIndex}
                   value={row}
-                  neighbours={neighbours}
+                  neighbours={neighbourNames}
                   onNightChange={(value) =>
                     updateInfo(
                       index,
@@ -359,6 +350,18 @@ export function InfoFields({
               );
             })}
             {fieldErrors.empathRows && <p className="text-sm text-red-300">{fieldErrors.empathRows}</p>}
+            <button
+              type="button"
+              className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-white"
+              onClick={() =>
+                updateInfo(index, 'empathRows', [
+                  ...(infoAny.empathRows ?? []),
+                  [null, null],
+                ] as EmpathRowType[])
+              }
+            >
+              Add Night
+            </button>
           </div>
         </div>
       );
@@ -366,37 +369,21 @@ export function InfoFields({
     case 'undertaker': {
       const undertakerRows: UndertakerRowType[] = infoAny.undertakerRows ?? [[null, null]];
       return (
-        <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
-          <div className="space-y-2">
-            <PlayerSelectButton
-              label="Undertaker Player:"
-              value={infoAny.undertaker ?? null}
-              playerNames={playerNames}
-              onClick={() => onPlayerSelectClick(`info-${index}-undertaker`, 'Select Undertaker')}
-              error={fieldErrors.undertaker}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-white">Undertaker Nights</h4>
-            <button
-              type="button"
-              className="rounded-md bg-blue-600 px-3 py-2 text-white hover:bg-blue-700"
-              onClick={() =>
-                updateInfo(index, 'undertakerRows', [
-                  ...(infoAny.undertakerRows ?? []),
-                  [null, null],
-                ] as UndertakerRowType[])
-              }
-            >
-              Add Night
-            </button>
-          </div>
-          <div className="space-y-3">
+        <div className="space-y-4">
+          <PlayerSelectButton
+            label="Undertaker Player:"
+            value={infoAny.undertaker ?? null}
+            playerNames={playerNames}
+            onClick={() => onPlayerSelectClick(`info-${index}-undertaker`, 'Select Undertaker')}
+            error={fieldErrors.undertaker}
+          />
+          <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
             {undertakerRows.map((row, rowIndex) => (
               <UndertakerRow
                 key={rowIndex}
                 index={rowIndex}
                 value={row}
+                playerNames={playerNames}
                 tokenOptions={roleOptions}
                 body={getBodyFromPreviousNight(row[0] ?? null)}
                 onNightChange={(value) =>
@@ -432,6 +419,18 @@ export function InfoFields({
               />
             ))}
             {fieldErrors.undertakerRows && <p className="text-sm text-red-300">{fieldErrors.undertakerRows}</p>}
+            <button
+              type="button"
+              className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-white"
+              onClick={() =>
+                updateInfo(index, 'undertakerRows', [
+                  ...(infoAny.undertakerRows ?? []),
+                  [null, null],
+                ] as UndertakerRowType[])
+              }
+            >
+              Add Night
+            </button>
           </div>
         </div>
       );

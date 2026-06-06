@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DeathInfo, Info, MetadataResponse, SolveRequest } from '../../types';
+import { DeathInfo, Info, MetadataResponse, SolveRequest, VirginInfo } from '../../types';
 import {
   computeEmpathNeighbours,
   createInfoEntryForClaimRole,
@@ -16,7 +16,7 @@ import { InfoErrors, InfoFormEntry } from './types';
 
 interface UseGameFormResult {
   players: number;
-  executed: string;
+  allExecutions: string;
   demonKills: string;
   infos: InfoFormEntry[];
   roles: string[];
@@ -300,25 +300,25 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
   const slayerShot = useMemo(() => deriveSlayerShotFromInfos(infos), [infos]);
   const virginExecution = useMemo(() => deriveVirginExecutionFromInfos(infos), [infos]);
 
-  useEffect(() => {
-    if (!virginExecution || Number.isNaN(virginExecution[0])) {
-      return;
+  const allExecutions = useMemo(() => {
+    if (!virginExecution) {
+      return executed;
     }
-
     const entries = parseDeathList(executed);
     const exists = entries.some(
       ([player, night]) => player === virginExecution[0] && night === virginExecution[1],
     );
     if (!exists) {
       entries.push(virginExecution);
-      setExecuted(serializeDeathList(entries));
+      return serializeDeathList(entries);
     }
-  }, [virginExecution]);
+    return executed;
+  }, [virginExecution, executed]);
 
   const deadFlags = useMemo(() => {
     const deadPlayers = new Set<number>();
 
-    parseDeathList(executed).forEach(([player]) => {
+    parseDeathList(allExecutions).forEach(([player]) => {
       if (typeof player === 'number' && !Number.isNaN(player)) {
         deadPlayers.add(player);
       }
@@ -335,12 +335,12 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     }
 
     return Array.from({ length: players }, (_, i) => deadPlayers.has(i));
-  }, [executed, demonKills, players, slayerShot]);
+  }, [allExecutions, demonKills, players, slayerShot]);
 
   const computeEmpathNeighboursLocal = (empath: number | null, night: number | null) =>
-    computeEmpathNeighbours(empath, night, players, executed, demonKills, slayerShot);
+    computeEmpathNeighbours(empath, night, players, allExecutions, demonKills, slayerShot);
 
-  const getBodyFromPreviousNightLocal = (night: number | null) => getBodyFromPreviousNight(executed, night);
+  const getBodyFromPreviousNightLocal = (night: number | null) => getBodyFromPreviousNight(allExecutions, night);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -362,7 +362,7 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     setInfoErrors({});
 
     const deathInfo: DeathInfo = {
-      executed: parseDeathList(executed),
+      executed: parseDeathList(allExecutions),
       killed_by_demon: parseDeathList(demonKills),
       slayer_shot: slayerShot,
     };
@@ -429,7 +429,7 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
   };
 
   const getExistingDeath = (player: number) => {
-    const executedRow = parseDeathList(executed).find(([p]) => p === player);
+    const executedRow = parseDeathList(allExecutions).find(([p]) => p === player);
     if (executedRow) {
       return { type: 'execution' as const, dayNight: executedRow[1] };
     }
@@ -457,7 +457,7 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     }
 
     if (deathModalType === 'execution') {
-      const existingEntries = parseDeathList(executed);
+      const existingEntries = parseDeathList(allExecutions);
       const filtered = existingEntries.filter(([p]) => p !== selectedDeathPlayer);
       const newList: [number, number][] = [...filtered, [selectedDeathPlayer, deathModalDayNight]];
       setExecuted(serializeDeathList(newList));
@@ -490,6 +490,18 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     setDemonKills((currentDemonKills) =>
       serializeDeathList(parseDeathList(currentDemonKills).filter(([p]) => p !== selectedDeathPlayer) as [number, number][]),
     );
+
+    if (virginExecution 
+      && virginExecution[0] === selectedDeathPlayer
+      && virginExecution[1] === deathModalDayNight) {
+        const virginInfoIndex = infos.findIndex((info) => info.kind === 'virgin'
+          && (info as any).nominator === virginExecution[0]
+          && (info as any).night === virginExecution[1]
+        );
+        if (virginInfoIndex) {
+          updateInfo(virginInfoIndex, 'executed', false);
+        }
+    }
 
     setDeathModalType(null);
     setDeathModalDayNight(null);
@@ -608,7 +620,7 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
 
   return {
     players,
-    executed,
+    allExecutions,
     demonKills,
     infos,
     roles,

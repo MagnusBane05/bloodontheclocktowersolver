@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Field } from './fields';
 
 interface PlayerSelectButtonProps {
@@ -21,7 +20,7 @@ export function PlayerSelectButton({
 
   const playerLabel =
     value !== null
-      ? playerNames?.[value] ?? `Player ${value}`
+      ? playerNames?.[value] ?? `Player ${value + 1}`
       : 'Select player...';
 
   return (
@@ -30,10 +29,10 @@ export function PlayerSelectButton({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className={`w-full p-2 rounded-md transition text-left font-medium ${
+        className={`w-full min-h-[42px] p-2 rounded-md transition text-left font-medium ${
           disabled
             ? 'opacity-50 cursor-not-allowed bg-gray-600 text-gray-400'
-            : 'bg-blue-600 hover:bg-blue-700 text-white'
+            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
         }`}
       >
         {playerLabel}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { SelectOption } from './types';
+import { Toggle } from '../Toggle';
 
 interface FieldProps {
   label?: string;
@@ -52,7 +53,7 @@ export function SelectField({
         onChange={(e) =>
           onChange(e.target.value === '' ? null : isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value))
         }
-        className={`w-full p-2 bg-gray-600 border border-gray-500 rounded-md text-white capitalize ${
+        className={`w-full min-h-[42px] p-2 bg-gray-600 border border-gray-500 rounded-md text-white capitalize ${
           disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
       >
@@ -89,7 +90,7 @@ export function NumberField({ id, label, value, min, max, placeholder, onChange,
         max={max}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}
-        className="w-full p-2 bg-gray-600 border border-gray-500 rounded-md text-white"
+        className="w-full min-w-12 p-2 bg-gray-600 border border-gray-500 rounded-md text-white"
       />
     </Field>
   );
@@ -98,7 +99,7 @@ export function NumberField({ id, label, value, min, max, placeholder, onChange,
 interface CheckboxFieldProps {
   id: string;
   label: string;
-  checked?: boolean;
+  checked: boolean;
   onChange: (value: boolean) => void;
   error?: string;
 }
@@ -106,16 +107,33 @@ interface CheckboxFieldProps {
 export function CheckboxField({ id, label, checked, onChange, error }: CheckboxFieldProps): JSX.Element {
   return (
     <Field htmlFor={id} error={error}>
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center gap-2">
         <input
           id={id}
           type="checkbox"
           checked={checked ?? false}
           onChange={(e) => onChange(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-500"
+          className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-500 focus:ring-indigo-500"
+        />
+        <label htmlFor={id} className="text-sm text-white cursor-pointer select-none">
+          {label}
+        </label>
+      </div>
+    </Field>
+  );
+}
+
+export function ToggleField({ id, label, checked, onChange, error }: CheckboxFieldProps): JSX.Element {
+  return (
+    <Field htmlFor={id} error={error}>
+      <label htmlFor={id} className="inline-flex items-center gap-2 cursor-pointer select-none">
+        <Toggle 
+          checked={checked ?? false}
+          onChange={onChange}
+          id={id}
         />
         <span className="text-sm text-white">{label}</span>
-      </div>
+      </label>
     </Field>
   );
 }

@@ -90,8 +90,8 @@ export const computeEmpathNeighbours = (
     return { left: null, right: null };
   }
 
-  const left = sortedPlayers[(empathIndex - 1 + sortedPlayers.length) % sortedPlayers.length];
-  const right = sortedPlayers[(empathIndex + 1) % sortedPlayers.length];
+  const right = sortedPlayers[(empathIndex - 1 + sortedPlayers.length) % sortedPlayers.length];
+  const left = sortedPlayers[(empathIndex + 1) % sortedPlayers.length];
   return { left, right };
 };
 
@@ -171,20 +171,20 @@ export const validateInfo = (
         errors.fortune_teller = 'Please select the fortune teller player.';
       }
       if (!Array.isArray(infoAny.pings) || infoAny.pings.length === 0) {
-        errors.pings = 'Add at least one ping row.';
+        errors.pings = 'Add at least one night row.';
       } else {
         infoAny.pings.forEach((ping: any, pingIndex: number) => {
           if (!Array.isArray(ping[0]) || ping[0][0] === undefined || ping[0][0] === null || Number.isNaN(ping[0][0])) {
-            errors[`pings-${pingIndex}-player1`] = `Ping ${pingIndex + 1}: select player 1.`;
+            errors[`pings-${pingIndex}-player1`] = `Select player 1.`;
           }
           if (!Array.isArray(ping[0]) || ping[0][1] === undefined || ping[0][1] === null || Number.isNaN(ping[0][1])) {
-            errors[`pings-${pingIndex}-player2`] = `Ping ${pingIndex + 1}: select player 2.`;
+            errors[`pings-${pingIndex}-player2`] = `Select player 2.`;
           }
           if (ping[1] === undefined || ping[1] === null || Number.isNaN(ping[1])) {
-            errors[`pings-${pingIndex}-night`] = `Ping ${pingIndex + 1}: enter a night.`;
+            errors[`pings-${pingIndex}-night`] = `Enter a night.`;
           }
           if (typeof ping[2] !== 'boolean') {
-            errors[`pings-${pingIndex}-hot`] = `Ping ${pingIndex + 1}: specify whether they were pinged.`;
+            errors[`pings-${pingIndex}-hot`] = `Specify whether they were the demon.`;
           }
         });
       }

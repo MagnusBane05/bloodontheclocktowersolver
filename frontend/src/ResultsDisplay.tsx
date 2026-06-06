@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PlayerCircleRing } from './components/PlayerCircleRing';
 import { getAlignment, titleCaseRole } from './components/PlayerCircle';
 import type { SolveResponse, GrimoireSolution, GrimoirePage } from './types';
+import { Toggle } from './components/Toggle';
 
 interface ResultsDisplayProps {
   results: SolveResponse | null;
@@ -13,13 +14,14 @@ interface FilterEntry {
   player: number | '';
   role: string;
   alignment: string;
+  not: boolean;
 }
 
 export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayProps): JSX.Element {
   const [roles, setRoles] = useState<string[]>([]);
   const [evilRoleNames, setEvilRoleNames] = useState<Set<string>>(new Set());
   const [goodRoleNames, setGoodRoleNames] = useState<Set<string>>(new Set());
-  const [filters, setFilters] = useState<FilterEntry[]>([{ player: '', role: '', alignment: '' }]);
+  const [filters, setFilters] = useState<FilterEntry[]>([{ player: '', role: '', alignment: '', not: false }]);
 
   useEffect(() => {
     fetch('/api/metadata')
@@ -37,7 +39,7 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
   }, []);
 
   useEffect(() => {
-    setFilters([{ player: '', role: '', alignment: '' }]);
+    setFilters([{ player: '', role: '', alignment: '', not: false }]);
   }, [results]);
 
   const playerCount = results?.solutions?.[0]?.pages?.[0]?.characters.length ?? 0;
@@ -119,27 +121,20 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
           return false;
         }
 
-        if (filter.role.trim() !== '' && role !== filter.role) {
-          return false;
-        }
+        const matchesRole = filter.role.trim() === '' || role === filter.role;
+        const matchesAlignment = filter.alignment.trim() === '' || getAlignment(role, evilRoleNames, goodRoleNames) === filter.alignment;
+        const matches = matchesRole && matchesAlignment;
 
-        if (filter.alignment.trim() !== '') {
-          const alignment = getAlignment(role, evilRoleNames, goodRoleNames);
-          if (alignment !== filter.alignment) {
-            return false;
-          }
-        }
-
-        return true;
+        return filter.not ? !matches : matches;
       });
     });
   }, [uniqueSolutions, filters, evilRoleNames, goodRoleNames]);
 
   const clearFilters = () => {
-    setFilters([{ player: '', role: '', alignment: '' }]);
+    setFilters([{ player: '', role: '', alignment: '', not: false }]);
   };
 
-  const updateFilter = (index: number, field: keyof FilterEntry, value: string | number | '') => {
+  const updateFilter = (index: number, field: keyof FilterEntry, value: string | number | '' | boolean) => {
     setFilters((currentFilters) => {
       const next = [...currentFilters];
       next[index] = { ...next[index], [field]: value };
@@ -148,7 +143,7 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
   };
 
   const addFilter = () => {
-    setFilters((currentFilters) => [...currentFilters, { player: '', role: '', alignment: '' }]);
+    setFilters((currentFilters) => [...currentFilters, { player: '', role: '', alignment: '', not: false }]);
   };
 
   const removeFilter = (index: number) => {
@@ -187,8 +182,8 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
           <h3 className="text-lg font-semibold text-white mb-3">Filter Solutions</h3>
           <div className="space-y-4">
             {filters.map((filter, index) => (
-              <div key={index} className="grid gap-4 md:grid-cols-3 items-end bg-gray-900 rounded-md p-4 border border-gray-700">
-                <div>
+              <div key={index} className="flex gap-4 justify-between items-end bg-gray-900 rounded-md p-4 border border-gray-700">
+                <div className='w-full'>
                   <label className="block text-sm font-medium text-gray-200">Player</label>
                   <select
                     className="mt-1 w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white"
@@ -200,12 +195,23 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
                   >
                     <option value="">Select player...</option>
                     {playerOptions.map((option) => (
-                      <option key={option.value} value={option.value}>Player {option.label}</option>
+                      <option key={option.value} value={option.value}>{playerNames?.[option.value] ?? `Player ${option.value}`}</option>
                     ))}
                   </select>
                 </div>
 
-                <div>
+                <div className='flex flex-col gap-1'>
+                  <label className="block text-sm font-medium text-gray-200">NOT</label>
+                  <div className='mt-2'>
+                    <Toggle 
+                      checked={filter.not ?? false}
+                      onChange={(b) => updateFilter(index, 'not', b)}
+                      id={`filter-not-${index}`}
+                    />
+                  </div>
+                </div>
+
+                <div className='w-full'>
                   <label className="block text-sm font-medium text-gray-200">Role</label>
                   <select
                     className="mt-1 w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white"
@@ -219,7 +225,7 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
                   </select>
                 </div>
 
-                <div>
+                <div className='w-full'>
                   <label className="block text-sm font-medium text-gray-200">Alignment</label>
                   <div className="flex items-center gap-2">
                     <select
@@ -231,15 +237,18 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
                       <option value="good">Good</option>
                       <option value="evil">Evil</option>
                     </select>
-                    <button
-                      type="button"
-                      onClick={() => removeFilter(index)}
-                      className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-md bg-red-600 hover:bg-red-700 text-white"
-                      aria-label="Remove filter"
-                    >
-                      ×
-                    </button>
                   </div>
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => removeFilter(index)}
+                    className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-md bg-red-600 hover:bg-red-700 text-white"
+                    aria-label="Remove filter"
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
             ))}
@@ -256,7 +265,7 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
               <button
                 type="button"
                 onClick={clearFilters}
-                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
               >
                 Clear filters
               </button>

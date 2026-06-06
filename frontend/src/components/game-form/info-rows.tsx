@@ -1,4 +1,5 @@
-import { SelectField, NumberField, CheckboxField } from './fields';
+import { CloseButton } from './CloseButton';
+import { SelectField, NumberField, ToggleField } from './fields';
 import { PlayerSelectButton } from './PlayerSelectButton';
 import type { SelectOption, EmpathRow, UndertakerRow } from './types';
 
@@ -6,6 +7,7 @@ export interface PingRowProps {
   index: number;
   infosIndex: number;
   value: [[number | null, number | null], number | null, boolean];
+  playerNames?: string[];
   activePlayerSelectModal: string | null;
   onPlayerSelectClick: (modalId: string, label: string) => void;
   evilRoleNames: Set<string>;
@@ -22,6 +24,7 @@ export function PingRow({
   index,
   infosIndex,
   value,
+  playerNames,
   activePlayerSelectModal: _activePlayerSelectModal,
   onPlayerSelectClick,
   evilRoleNames: _evilRoleNames,
@@ -34,17 +37,19 @@ export function PingRow({
   error,
 }: PingRowProps): JSX.Element {
   return (
-    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+    <div className="grid gap-3 md:grid-cols-[1fr_auto] border-b border-gray-600 pb-2">
       <div className="grid gap-3 md:grid-cols-3">
         <PlayerSelectButton
           label="Player 1"
           value={value[0][0] ?? null}
+          playerNames={playerNames}
           onClick={() => onPlayerSelectClick(`ping-${infosIndex}-${index}-player1`, 'Select Player 1')}
           error={error?.player1}
         />
         <PlayerSelectButton
           label="Player 2"
           value={value[0][1] ?? null}
+          playerNames={playerNames}
           onClick={() => onPlayerSelectClick(`ping-${infosIndex}-${index}-player2`, 'Select Player 2')}
           error={error?.player2}
         />
@@ -57,21 +62,15 @@ export function PingRow({
           error={error?.night}
         />
       </div>
-      <div className="flex flex-col items-start gap-3 md:items-start">
-        <CheckboxField
+      <div className="flex flex-col items-start gap-3 md:items-end">
+        <CloseButton onClose={onRemove} />
+        <ToggleField
           id={`ping-${index}-hot`}
-          label="Pinged?"
+          label="Demon?"
           checked={value[2] ?? false}
           onChange={onPingChange}
           error={error?.hot}
         />
-        <button
-          type="button"
-          className="rounded-md bg-red-600 px-3 py-2 text-white hover:bg-red-700"
-          onClick={onRemove}
-        >
-          Remove
-        </button>
       </div>
     </div>
   );
@@ -83,14 +82,14 @@ export interface EmpathRowProps {
   onNightChange: (value: number | null) => void;
   onNumberChange: (value: number | null) => void;
   onRemove: () => void;
-  neighbours: { left: number | null; right: number | null };
+  neighbours: { left: string | null; right: string | null };
   error?: Record<string, string>;
 }
 
 export function EmpathRow({ index, value, onNightChange, onNumberChange, onRemove, neighbours, error }: EmpathRowProps): JSX.Element {
   return (
-    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-      <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid grid-cols-3 gap-3 border-b border-gray-600 pb-2">
+      <div className='flex gap-3'>
         <NumberField
           id={`empath-${index}-night`}
           label="Night"
@@ -107,23 +106,19 @@ export function EmpathRow({ index, value, onNightChange, onNumberChange, onRemov
           onChange={onNumberChange}
           error={error?.number}
         />
-        <div className="space-y-2">
-          <label className="block text-sm font-medium">Neighbours</label>
-          <div className="grid gap-2 md:grid-cols-2">
-            <div className="p-2 bg-gray-700 border border-gray-500 rounded-md text-white">L: {neighbours.left !== null ? neighbours.left : 'N/A'}</div>
-            <div className="p-2 bg-gray-700 border border-gray-500 rounded-md text-white">R: {neighbours.right !== null ? neighbours.right : 'N/A'}</div>
-          </div>
-          {error?.neighbours && <p className="text-sm text-red-300">{error.neighbours}</p>}
-        </div>
       </div>
-      <div className="flex flex-col items-start gap-3 md:items-start">
-        <button
-          type="button"
-          className="rounded-md bg-red-600 px-3 py-2 text-white hover:bg-red-700"
-          onClick={onRemove}
-        >
-          Remove
-        </button>
+      <div className="flex-2 space-y-2 col-span-2">
+        <div className="flex justify-between items-start">
+          <label className="block text-sm font-medium">Neighbours</label>
+          <div className='-my-1'>
+            <CloseButton onClose={onRemove} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-2 bg-gray-700 border border-gray-500 rounded-md text-white">L: {neighbours.left !== null ? neighbours.left : 'N/A'}</div>
+          <div className="p-2 bg-gray-700 border border-gray-500 rounded-md text-white">R: {neighbours.right !== null ? neighbours.right : 'N/A'}</div>
+        </div>
+        {error?.neighbours && <p className="text-sm text-red-300">{error.neighbours}</p>}
       </div>
     </div>
   );
@@ -138,6 +133,7 @@ export interface UndertakerRowProps {
   onTokenChange: (value: string | null) => void;
   onRemove: () => void;
   error?: Record<string, string>;
+  playerNames?: string[];
 }
 
 export function UndertakerRow({
@@ -149,10 +145,11 @@ export function UndertakerRow({
   onTokenChange,
   onRemove,
   error,
+  playerNames,
 }: UndertakerRowProps): JSX.Element {
   return (
-    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-      <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid grid-cols-5 gap-3 border-b border-gray-600 pb-2">
+      <div className='flex-none'>
         <NumberField
           id={`undertaker-${index}-night`}
           label="Night"
@@ -161,6 +158,8 @@ export function UndertakerRow({
           onChange={onNightChange}
           error={error?.night}
         />
+      </div>
+      <div className='flex-1 col-span-2'>
         <SelectField
           id={`undertaker-${index}-token`}
           label="Token"
@@ -171,20 +170,16 @@ export function UndertakerRow({
           error={error?.token}
           disabled={tokenOptions.length === 0}
         />
-        <div className="space-y-2">
-          <label className="block text-sm font-medium">Body</label>
-          <div className="p-2 bg-gray-700 border border-gray-500 rounded-md text-white">{body !== null ? body : 'N/A'}</div>
-          {error?.body && <p className="text-sm text-red-300">{error.body}</p>}
-        </div>
       </div>
-      <div className="flex flex-col items-start gap-3 md:items-start">
-        <button
-          type="button"
-          className="rounded-md bg-red-600 px-3 py-2 text-white hover:bg-red-700"
-          onClick={onRemove}
-        >
-          Remove
-        </button>
+      <div className="space-y-2 flex-1 col-span-2">
+        <div className="flex justify-between items-start">
+          <label className="block text-sm font-medium">Body</label>
+          <div className='-my-1'>
+            <CloseButton onClose={onRemove} />
+          </div>
+        </div>
+        <div className="p-2 bg-gray-700 border border-gray-500 rounded-md text-white">{body !== null ? (playerNames ? playerNames[body] : `Player ${body + 1}`) : 'N/A'}</div>
+        {error?.body && <p className="text-sm text-red-300">{error.body}</p>}
       </div>
     </div>
   );

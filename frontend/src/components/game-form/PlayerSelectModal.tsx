@@ -10,6 +10,8 @@ interface PlayerSelectModalProps {
   evilRoleNames: Set<string>;
   goodRoleNames: Set<string>;
   playerNames?: string[];
+  deadFlags?: boolean[];
+  playerClaims?: Record<number, string[]>;
 }
 
 export function PlayerSelectModal({
@@ -20,6 +22,8 @@ export function PlayerSelectModal({
   evilRoleNames,
   goodRoleNames,
   playerNames,
+  deadFlags = [],
+  playerClaims,
 }: PlayerSelectModalProps): JSX.Element {
   // Handle Escape key
   useEffect(() => {
@@ -48,13 +52,14 @@ export function PlayerSelectModal({
           <PlayerCircleRing
             count={playerCount}
             playerNames={playerNames}
+            playerClaims={playerClaims}
+            deadFlags={deadFlags}
             onPlayerSelect={onSelect}
             evilRoleNames={evilRoleNames}
             goodRoleNames={goodRoleNames}
             size="100%"
             className="h-full w-full"
             innerRingClassName="absolute inset-0 rounded-full border border-white/30"
-            playerSize={60}
             centerContent={
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-center">

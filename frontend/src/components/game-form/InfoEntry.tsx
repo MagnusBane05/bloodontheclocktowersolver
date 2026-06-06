@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { SelectField } from './fields';
 import { InfoFields } from './info-sections';
 import { InfoErrors, InfoFormEntry, SelectOption } from './types';
+import { CloseButton } from './CloseButton';
 
 interface InfoEntryProps {
   info: InfoFormEntry;
@@ -79,14 +80,7 @@ export function InfoEntry({
           </div>
           <p className={`truncate text-xs ${hasErrors ? 'text-red-300' : 'text-gray-400'}`}>{summaryText}</p>
         </div>
-
-        <button
-          type="button"
-          className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-red-700"
-          onClick={() => removeInfo(index)}
-        >
-          Remove
-        </button>
+        <CloseButton onClose={() => removeInfo(index)} />
       </div>
 
       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-[1200px] opacity-100'}`}>

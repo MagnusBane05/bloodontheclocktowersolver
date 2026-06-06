@@ -79,7 +79,7 @@ export function ClaimModal({
             disabled={!canAddClaim}
             className={`px-4 py-2 rounded-md transition ${
               canAddClaim
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
                 : 'bg-gray-600 text-gray-400 cursor-not-allowed'
             }`}
           >
