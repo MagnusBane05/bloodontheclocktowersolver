@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 import typing
@@ -32,6 +33,7 @@ def serialize_grimoire(grimoire: Grimoire) -> dict[str, typing.Any]:
             "drunkToken": ROLE_TO_STRING.get(page.drunk_token) if page.drunk_token else None,
             "minionTypes": [ROLE_TO_STRING.get(m, str(m)) for m in page.minion_types],
             "noOutsiders": page.no_outsiders,
+            "poisoned": page.poisoned
         }
         pages.append(page_data)
     
@@ -155,4 +157,5 @@ def index():
     return jsonify({"message": "Blood on the Clocktower Solver API"}), 200
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    host = os.environ.get("APP_HOST", "127.0.0.1")
+    app.run(debug=True, host=host, port=5000)

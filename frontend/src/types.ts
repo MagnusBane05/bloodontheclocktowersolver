@@ -118,6 +118,7 @@ export interface GrimoirePage {
   drunkToken: string | null;
   minionTypes: string[];
   noOutsiders: boolean;
+  poisoned: boolean[];
 }
 
 export interface GrimoireSolution {

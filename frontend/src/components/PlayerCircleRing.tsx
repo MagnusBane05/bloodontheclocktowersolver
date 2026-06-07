@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { getAlignment, titleCaseRole } from './PlayerCircle';
+import VialIcon from '../assets/vial.svg?react';
 
 interface CircleLayoutProps {
   count: number;
@@ -7,7 +8,7 @@ interface CircleLayoutProps {
   className?: string;
   style?: CSSProperties;
   innerRingClassName?: string;
-  renderPlayer: (index: number, style: CSSProperties) => ReactNode;
+  renderPlayer: (index: number, style: CSSProperties, angle: number) => ReactNode;
   centerContent?: ReactNode;
 }
 
@@ -29,12 +30,16 @@ function CircleLayout({
         const angle = ((-90 + (360 * index) / count) * Math.PI) / 180;
         const x = 50 + Math.cos(angle) * ringRadiusPercent;
         const y = 50 + Math.sin(angle) * ringRadiusPercent;
-        return renderPlayer(index, {
-          position: 'absolute',
-          left: `${x}%`,
-          top: `${y}%`,
-          transform: 'translate(-50%, -50%)',
-        });
+        return renderPlayer(
+          index,
+          {
+            position: 'absolute',
+            left: `${x}%`,
+            top: `${y}%`,
+            transform: 'translate(-50%, -50%)',
+          },
+          angle,
+        );
       })}
       {centerContent}
     </div>
@@ -162,6 +167,7 @@ interface PlayerCircleRingProps {
   innerRingClassName?: string;
   playerSize?: number;
   centerContent?: ReactNode;
+  poisoned?: boolean[];
 }
 
 function getClaimDisplayRole(claims: Record<number, string[]> | undefined, index: number): string | undefined {
@@ -191,6 +197,7 @@ export function PlayerCircleRing({
   innerRingClassName = 'absolute inset-0 rounded-full border border-white/30',
   playerSize = 74,
   centerContent,
+  poisoned,
 }: PlayerCircleRingProps): JSX.Element {
   const showEditableNames = editablePlayerNames && typeof onPlayerNameChange === 'function';
 
@@ -201,16 +208,20 @@ export function PlayerCircleRing({
         size="100%"
         className="h-full w-full"
         innerRingClassName={innerRingClassName}
-        renderPlayer={(index, style) => {
+        renderPlayer={(index, style, angle) => {
           const claimLabels = playerClaims?.[index] ?? [];
           const role = claimLabels.length > 0 ? claimLabels[0] : playerRoles[index];
           const displayRole = getClaimDisplayRole(playerClaims, index);
           const dead = deadFlags[index] ?? false;
           const name = playerNames?.[index] ?? `Player ${index + 1}`;
+          const showPoisonIndicator = poisoned?.[index];
+          const poisonRadiusPercent = 19;
+          const poisonX = 50 + Math.cos(angle) * poisonRadiusPercent;
+          const poisonY = 50 + Math.sin(angle) * poisonRadiusPercent;
 
-          return (
+          return [
             <div
-              key={index}
+              key={`player-${index}`}
               style={{
                 position: 'absolute',
                 left: style.left,
@@ -243,8 +254,24 @@ export function PlayerCircleRing({
                   onNameChange={showEditableNames ? (value) => onPlayerNameChange(index, value) : undefined}
                 />
               </div>
-            </div>
-          );
+            </div>,
+            showPoisonIndicator ? (
+              <div
+                key={`poison-${index}`}
+                className="absolute flex items-center justify-center rounded-full border border-gray-600 shadow-md"
+                style={{
+                  left: `${poisonX}%`,
+                  top: `${poisonY}%`,
+                  transform: 'translate(-50%, -50%)',
+                  width: 22,
+                  height: 22,
+                  pointerEvents: 'none',
+                }}
+              >
+                <VialIcon width={14} height={14} fill="#dc2626" />
+              </div>
+            ) : null,
+          ];
         }}
       />
       {centerContent}

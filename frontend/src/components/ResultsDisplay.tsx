@@ -359,6 +359,7 @@ function GrimoirePage({ page, evilRoleNames, goodRoleNames, playerNames }: Grimo
         className="mx-auto"
         innerRingClassName="absolute inset-0 rounded-full border border-gray-800"
         playerSize={74}
+        poisoned={page.poisoned}
       />
     </div>
   );
