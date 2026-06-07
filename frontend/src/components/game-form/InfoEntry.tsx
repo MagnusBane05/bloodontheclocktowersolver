@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { SelectField } from './fields';
 import { InfoFields } from './info-sections';
 import { InfoErrors, InfoFormEntry, SelectOption } from './types';
-import { CloseButton } from './CloseButton';
+import { CloseButton } from '../CloseButton';
+import { TrashButton } from '../TrashButton';
 
 interface InfoEntryProps {
   info: InfoFormEntry;
@@ -59,8 +60,8 @@ export function InfoEntry({
 
   return info.kind === 'claim' ? null : (
     <div
-      className={`overflow-hidden rounded-xl border bg-gray-800 shadow-sm transition-shadow duration-200 hover:shadow-md ${
-        hasErrors ? 'border-red-500' : 'border-gray-600'
+      className={`overflow-hidden rounded-xl border bg-gray-800 transition-shadow duration-200 hover:shadow-md ${
+        hasErrors ? 'border-red-500' : 'border-gray-700'
       }`}
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3">
@@ -80,7 +81,9 @@ export function InfoEntry({
           </div>
           <p className={`truncate text-xs ${hasErrors ? 'text-red-300' : 'text-gray-400'}`}>{summaryText}</p>
         </div>
-        <CloseButton onClose={() => removeInfo(index)} />
+        <TrashButton 
+          onClick={() => removeInfo(index)}
+        />
       </div>
 
       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${collapsed ? 'max-h-0 opacity-0' : 'max-h-[1200px] opacity-100'}`}>

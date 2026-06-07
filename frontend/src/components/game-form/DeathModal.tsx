@@ -1,5 +1,6 @@
 import React from 'react';
 import { ModalHeader } from './ModalHeader';
+import { Button } from '../Button';
 
 interface DeathModalProps {
   player: number;
@@ -104,30 +105,22 @@ export function DeathModal({
 
         {/* Buttons */}
         <div className="mt-6 flex gap-3 justify-center">
-          <button
+          <Button
             type="button"
             onClick={onClear}
             disabled={deathType === null && dayNight === null}
-            className={`px-4 py-2 rounded-md transition ${
-              deathType !== null || dayNight !== null
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
+            style="remove"
           >
             Clear
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={handleConfirm}
             disabled={!isValid}
-            className={`px-4 py-2 rounded-md transition ${
-              isValid
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
+            style="primary"
           >
             Confirm
-          </button>
+          </Button>
         </div>
       </div>
     </div>

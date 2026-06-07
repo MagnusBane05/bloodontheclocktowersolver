@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { GameForm } from './components/game-form/GameForm';
-import { ResultsDisplay } from './ResultsDisplay';
+import { ResultsDisplay } from './components/ResultsDisplay';
 import { SolveRequest, SolveResponse } from './types';
 
 function App(): JSX.Element {

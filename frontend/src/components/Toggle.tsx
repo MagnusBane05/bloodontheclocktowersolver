@@ -1,9 +1,9 @@
 export function Toggle ({checked, onChange, id}: {checked: boolean; onChange: (b: boolean) => void; id: string}) {
   return (
     <span
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ring-gray-600 ${
         checked ? 'bg-indigo-600' : 'bg-gray-700'
-      } ring-1 ring-inset ring-gray-500 hover:ring-gray-400`}
+      } ring-1 ring-inset ring-gray-700 hover:ring-gray-500`}
     >
       <input
         id={id}

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PlayerCircleRing } from './components/PlayerCircleRing';
-import { getAlignment, titleCaseRole } from './components/PlayerCircle';
-import type { SolveResponse, GrimoireSolution, GrimoirePage } from './types';
-import { Toggle } from './components/Toggle';
+import { PlayerCircleRing } from './PlayerCircleRing';
+import { getAlignment, titleCaseRole } from './PlayerCircle';
+import type { SolveResponse, GrimoireSolution, GrimoirePage } from '../types';
+import { Toggle } from './Toggle';
+import { TrashButton } from './TrashButton';
+import { Button } from './Button';
 
 interface ResultsDisplayProps {
   results: SolveResponse | null;
@@ -179,10 +181,28 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
 
       {uniqueSolutions.length > 0 &&
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-white mb-3">Filter Solutions</h3>
+          <div className='flex justify-between items-center'>
+            <h3 className="text-lg font-semibold text-white mb-3">Filter Solutions</h3>
+            <div className="flex flex-col gap-3 sm:flex-row pb-4">
+              <Button
+                type="button"
+                onClick={addFilter}
+                style="primary"
+              >
+                <span className='pi pi-plus mr-2 text-sm'/>Add filter
+              </Button>
+              <Button
+                type="button"
+                onClick={clearFilters}
+                style='remove'
+              >
+                <span className='pi pi-trash mr-2' />Clear filters
+              </Button>
+            </div>
+          </div>
           <div className="space-y-4">
             {filters.map((filter, index) => (
-              <div key={index} className="flex gap-4 justify-between items-end bg-gray-900 rounded-md p-4 border border-gray-700">
+              <div key={index} className="flex gap-4 justify-between items-end bg-gray-800 rounded-md p-4 border border-gray-700">
                 <div className='w-full'>
                   <label className="block text-sm font-medium text-gray-200">Player</label>
                   <select
@@ -239,37 +259,13 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
                     </select>
                   </div>
                 </div>
-
-                <div>
-                  <button
-                    type="button"
+                <div className='pb-2'>
+                  <TrashButton
                     onClick={() => removeFilter(index)}
-                    className="mt-1 inline-flex h-10 w-10 items-center justify-center rounded-md bg-red-600 hover:bg-red-700 text-white"
-                    aria-label="Remove filter"
-                  >
-                    ×
-                  </button>
+                  />
                 </div>
               </div>
             ))}
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={addFilter}
-                className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md"
-              >
-                Add filter
-              </button>
-
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
-              >
-                Clear filters
-              </button>
-            </div>
 
             <p className="text-sm text-gray-300">
               Add multiple player-based filters. Each row is combined with AND: all active filters must match a solution.
@@ -309,7 +305,7 @@ function SolutionCard({ solution, index, evilRoleNames, goodRoleNames, playerNam
   const page = solution.pages[currentPageIndex];
 
   return (
-    <div className="bg-gray-700 rounded-lg p-4 shadow-lg">
+    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg shadow-black/50">
       <h3 className="text-lg font-semibold mb-4 text-center text-white">Solution {index + 1}</h3>
       <div className="space-y-4">
         <GrimoirePage page={page} evilRoleNames={evilRoleNames} goodRoleNames={goodRoleNames} playerNames={playerNames} />
@@ -321,7 +317,7 @@ function SolutionCard({ solution, index, evilRoleNames, goodRoleNames, playerNam
             className="w-10 h-10 rounded-full bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center"
             aria-label="Previous page"
           >
-            ←
+            <span className='pi pi-chevron-left'/>
           </button>
           <div className="text-sm text-gray-300 text-center min-w-[110px]">
             Page {currentPageIndex + 1} / {solution.pages.length}
@@ -333,7 +329,7 @@ function SolutionCard({ solution, index, evilRoleNames, goodRoleNames, playerNam
             className="w-10 h-10 rounded-full bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center"
             aria-label="Next page"
           >
-            →
+            <span className='pi pi-chevron-right'/>
           </button>
         </div>
       </div>
@@ -350,8 +346,8 @@ interface GrimoirePageProps {
 
 function GrimoirePage({ page, evilRoleNames, goodRoleNames, playerNames }: GrimoirePageProps): JSX.Element {
   return (
-    <div className="bg-yellow-100 border-4 border-yellow-800 rounded-md p-4">
-      <h4 className="text-center font-bold text-lg mb-4 text-yellow-900">Night {page.night}</h4>
+    <div className="bg-gray-900 border border-gray-700 rounded-md p-4">
+      <h4 className="text-center font-bold text-lg mb-4">Night {page.night}</h4>
       <PlayerCircleRing
         count={page.characters.length}
         playerNames={playerNames}
@@ -361,7 +357,7 @@ function GrimoirePage({ page, evilRoleNames, goodRoleNames, playerNames }: Grimo
         goodRoleNames={goodRoleNames}
         size={280}
         className="mx-auto"
-        innerRingClassName="absolute inset-0 rounded-full border border-yellow-800/30"
+        innerRingClassName="absolute inset-0 rounded-full border border-gray-800"
         playerSize={74}
       />
     </div>

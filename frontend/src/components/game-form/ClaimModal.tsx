@@ -1,3 +1,4 @@
+import { Button } from '../Button';
 import { SelectField } from './fields';
 import { ModalHeader } from './ModalHeader';
 import { SelectOption } from './types';
@@ -61,42 +62,30 @@ export function ClaimModal({
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button
+          <Button
             type="button"
+            style='remove'
             onClick={onClear}
             disabled={!value}
-            className={`px-4 py-2 rounded-md transition ${
-              value
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
           >
             Clear
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={onAddClaim}
             disabled={!canAddClaim}
-            className={`px-4 py-2 rounded-md transition ${
-              canAddClaim
-                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
+            style='secondary'
           >
             Add Claim
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={onAddClaimAndInfo}
             disabled={!canAddClaimAndInfo}
-            className={`px-4 py-2 rounded-md transition ${
-              canAddClaimAndInfo
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            }`}
+            style='primary'
           >
             Add Claim and Info
-          </button>
+          </Button>
         </div>
       </div>
     </div>

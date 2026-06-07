@@ -1,5 +1,5 @@
-import { SelectField, NumberField, CheckboxField } from './fields';
-import { PlayerSelectButton } from './PlayerSelectButton';
+import { Button } from '../Button';
+import { SelectField, NumberField, CheckboxField, ButtonField } from './fields';
 import { PingRow, EmpathRow, UndertakerRow } from './info-rows';
 import { SelectOption, EmpathRow as EmpathRowType, UndertakerRow as UndertakerRowType, InfoFormEntry } from './types';
 
@@ -46,7 +46,7 @@ export function InfoFields({
     case 'claim':
       return (
         <div className="space-y-2">
-          <PlayerSelectButton
+          <ButtonField
             label="Player:"
             value={infoAny.player ?? null}
             playerNames={playerNames}
@@ -68,21 +68,21 @@ export function InfoFields({
     case 'investigator':
       return (
         <div className="space-y-2">
-          <PlayerSelectButton
+          <ButtonField
             label="Investigator Player:"
             value={infoAny.investigator ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-investigator`, 'Select Investigator')}
             error={fieldErrors.investigator}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="First Player:"
             value={infoAny.first_player ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="Second Player:"
             value={infoAny.second_player ?? null}
             playerNames={playerNames}
@@ -103,21 +103,21 @@ export function InfoFields({
     case 'washerwoman':
       return (
         <div className="space-y-2">
-          <PlayerSelectButton
+          <ButtonField
             label="Washerwoman Player:"
             value={infoAny.washerwoman ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-washerwoman`, 'Select Washerwoman')}
             error={fieldErrors.washerwoman}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="First Player:"
             value={infoAny.first_player ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="Second Player:"
             value={infoAny.second_player ?? null}
             playerNames={playerNames}
@@ -138,21 +138,21 @@ export function InfoFields({
     case 'librarian':
       return (
         <div className="space-y-2">
-          <PlayerSelectButton
+          <ButtonField
             label="Librarian Player:"
             value={infoAny.librarian ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-librarian`, 'Select Librarian')}
             error={fieldErrors.librarian}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="First Player (optional):"
             value={infoAny.first_player ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-librarian-first_player`, 'Select First Player')}
             error={fieldErrors.first_player}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="Second Player (optional):"
             value={infoAny.second_player ?? null}
             playerNames={playerNames}
@@ -174,7 +174,7 @@ export function InfoFields({
     case 'chef':
       return (
         <div className="space-y-2">
-          <PlayerSelectButton
+          <ButtonField
             label="Chef Player:"
             value={infoAny.chef ?? null}
             playerNames={playerNames}
@@ -194,14 +194,14 @@ export function InfoFields({
     case 'fortune teller':
       return (
         <div className="space-y-4">
-          <PlayerSelectButton
+          <ButtonField
             label="Fortune Teller Player:"
             value={infoAny.fortune_teller ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-fortune_teller`, 'Select Fortune Teller')}
             error={fieldErrors.fortune_teller}
           />
-          <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
+          <div className="space-y-3 rounded-md border border-gray-700 p-4">
             {(infoAny.pings ?? []).map(
               (ping: [[number | null, number | null], number | null, boolean], pingIndex: number) => (
                 <PingRow
@@ -270,9 +270,9 @@ export function InfoFields({
                 />
               ),
             )}
-            <button
+            <Button
               type="button"
-              className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-white"
+              style='primary'
               onClick={() =>
                 updateInfo(index, 'pings', [
                   ...(infoAny.pings ?? []),
@@ -281,7 +281,7 @@ export function InfoFields({
               }
             >
               Add Night
-            </button>
+            </Button>
             {fieldErrors.pings && <p className="text-sm text-red-300">{fieldErrors.pings}</p>}
           </div>
         </div>
@@ -290,7 +290,7 @@ export function InfoFields({
       const empathRows: EmpathRowType[] = infoAny.empathRows ?? [[null, null]];
       return (
         <div className="space-y-4">
-          <PlayerSelectButton
+          <ButtonField
             label="Empath Player:"
             value={infoAny.empath ?? null}
             playerNames={playerNames}
@@ -300,7 +300,7 @@ export function InfoFields({
           <div className="space-y-3 rounded-md border border-gray-600 bg-gray-800 p-4">
             {empathRows.map((row, rowIndex) => {
               const neighbours = computeEmpathNeighbours(infoAny.empath ?? null, row[0] ?? null);
-              const neighbourNames = (playerNames && neighbours.left && neighbours.right) ?
+              const neighbourNames = (playerNames && neighbours.left != null && neighbours.right != null) ?
                 {
                   left: playerNames[neighbours.left],
                   right: playerNames[neighbours.right]
@@ -350,9 +350,9 @@ export function InfoFields({
               );
             })}
             {fieldErrors.empathRows && <p className="text-sm text-red-300">{fieldErrors.empathRows}</p>}
-            <button
+            <Button
               type="button"
-              className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-white"
+              style='primary'
               onClick={() =>
                 updateInfo(index, 'empathRows', [
                   ...(infoAny.empathRows ?? []),
@@ -361,7 +361,7 @@ export function InfoFields({
               }
             >
               Add Night
-            </button>
+            </Button>
           </div>
         </div>
       );
@@ -370,7 +370,7 @@ export function InfoFields({
       const undertakerRows: UndertakerRowType[] = infoAny.undertakerRows ?? [[null, null]];
       return (
         <div className="space-y-4">
-          <PlayerSelectButton
+          <ButtonField
             label="Undertaker Player:"
             value={infoAny.undertaker ?? null}
             playerNames={playerNames}
@@ -419,9 +419,9 @@ export function InfoFields({
               />
             ))}
             {fieldErrors.undertakerRows && <p className="text-sm text-red-300">{fieldErrors.undertakerRows}</p>}
-            <button
+            <Button
               type="button"
-              className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-white"
+              style="primary"
               onClick={() =>
                 updateInfo(index, 'undertakerRows', [
                   ...(infoAny.undertakerRows ?? []),
@@ -430,7 +430,7 @@ export function InfoFields({
               }
             >
               Add Night
-            </button>
+            </Button>
           </div>
         </div>
       );
@@ -438,14 +438,14 @@ export function InfoFields({
     case 'ravenkeeper':
       return (
         <div className="space-y-2">
-          <PlayerSelectButton
+          <ButtonField
             label="Ravenkeeper Player:"
             value={infoAny.ravenkeeper ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-ravenkeeper`, 'Select Ravenkeeper')}
             error={fieldErrors.ravenkeeper}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="Chosen Player:"
             value={infoAny.chosen ?? null}
             playerNames={playerNames}
@@ -475,14 +475,14 @@ export function InfoFields({
     case 'virgin':
       return (
         <div className="space-y-2">
-          <PlayerSelectButton
+          <ButtonField
             label="Virgin Player:"
             value={infoAny.virgin ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-virgin`, 'Select Virgin')}
             error={fieldErrors.virgin}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="Nominator:"
             value={infoAny.nominator ?? null}
             playerNames={playerNames}
@@ -509,14 +509,14 @@ export function InfoFields({
     case 'slayer':
       return (
         <div className="space-y-2">
-          <PlayerSelectButton
+          <ButtonField
             label="Slayer Player:"
             value={infoAny.slayer ?? null}
             playerNames={playerNames}
             onClick={() => onPlayerSelectClick(`info-${index}-slayer`, 'Select Slayer')}
             error={fieldErrors.slayer}
           />
-          <PlayerSelectButton
+          <ButtonField
             label="Target Player:"
             value={infoAny.target ?? null}
             playerNames={playerNames}

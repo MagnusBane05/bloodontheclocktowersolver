@@ -1,4 +1,4 @@
-import { CloseButton } from "./CloseButton";
+import { CloseButton } from "../CloseButton";
 
 export function ModalHeader({content, onClose}: {content: string, onClose?: () => void}) {
     return (

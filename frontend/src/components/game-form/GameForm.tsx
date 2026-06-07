@@ -7,6 +7,7 @@ import { ClaimModal } from './ClaimModal';
 import { PlayerSelectModal } from './PlayerSelectModal';
 import { useGameForm } from './useGameForm';
 import { InfoEntry } from './InfoEntry';
+import { Button } from '../Button';
 const getInfoKindForClaimRole = (character: string | null) => {
   if (!character) {
     return null;
@@ -123,11 +124,11 @@ export function GameForm({
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
           <div className="space-y-4">
-            <div className="rounded-xl border border-gray-600 bg-gray-800 p-5 shadow-sm">
+            <div className="rounded-xl border border-gray-700 p-5 shadow-xl shadow-black/30">
               <div className="relative">
                 <div className="flex justify-between mb-2">
                   <div>
-                    <h3 className="text-lg font-semibold">Claim Input</h3>
+                    <h3 className="text-2xl font-semibold">Claim Input</h3>
                     <p className="text-sm text-gray-300">Click a player in the circle to pick a role.</p>
                     <p className="text-sm text-gray-300">Right click to set their death (execution or demon kill).</p>
                     <p className="text-sm text-gray-300">Click on a player's name to edit it.</p>
@@ -210,8 +211,24 @@ export function GameForm({
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-xl border border-gray-600 bg-gray-800 p-5 shadow-sm">
-              <h3 className="text-lg font-semibold mb-2">Info List</h3>
+            <div className="rounded-xl border border-gray-700 p-5 shadow-xl shadow-black/30">
+              <div className='flex justify-between items-center mb-4'>
+                <h3 className="text-2xl font-semibold">Info List</h3>
+                <div className='flex gap-2'>
+                  <Button
+                    style="primary"
+                    onClick={addInfo}
+                  >
+                    <span className='pi pi-plus text-sm mr-1' />Add
+                  </Button>
+                  <Button
+                    style="remove"
+                    onClick={clearInfo}
+                  >
+                    <span className='pi pi-trash mr-1'/>Clear all
+                  </Button>
+                </div>
+              </div>
               <div className="space-y-4">
                 {infos.map((info, index) => (
                   <InfoEntry
@@ -234,34 +251,20 @@ export function GameForm({
                     playerNames={playerNames}
                   />
                 ))}
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
-                    onClick={addInfo}
-                  >
-                    Add Info
-                  </button>
-                  <button
-                    type="button"
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
-                    onClick={clearInfo}
-                  >
-                    Clear all info
-                  </button>
-                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <button
-          type="submit"
-          className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-md disabled:opacity-50"
-          disabled={loading}
-        >
-          {loading ? 'Solving...' : 'Solve'}
-        </button>
+        <div className='shadow-lg shadow-black/50'>
+          <Button
+            style="primary"
+            type="submit"
+            disabled={loading}
+            size='full'
+          >
+            {loading ? 'Solving...' : 'Solve'}
+          </Button>
+        </div>
       </form>
     </div>
   );
