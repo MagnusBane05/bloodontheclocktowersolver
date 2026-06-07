@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { SelectField } from './fields';
 import { InfoFields } from './info-sections';
 import { InfoErrors, InfoFormEntry, SelectOption } from './types';
-import { CloseButton } from '../CloseButton';
 import { TrashButton } from '../TrashButton';
 
 interface InfoEntryProps {

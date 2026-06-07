@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DeathInfo, Info, MetadataResponse, SolveRequest, VirginInfo } from '../../types';
+import { DeathInfo, Info, MetadataResponse, SolveRequest } from '../../types';
 import {
   computeEmpathNeighbours,
   createInfoEntryForClaimRole,

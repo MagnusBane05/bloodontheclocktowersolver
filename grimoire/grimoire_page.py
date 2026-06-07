@@ -1,3 +1,4 @@
+from __future__ import annotations
 from . import gamerules
 from itertools import compress
 from .role import *

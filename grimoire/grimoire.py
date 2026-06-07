@@ -1,3 +1,4 @@
+from __future__ import annotations
 import bisect
 from collections import Counter
 from typing import override
