@@ -119,7 +119,8 @@ function PlayerCircle({
       onContextMenu={onContextMenu}
       className={`flex flex-col items-center justify-center rounded-full border shadow-md text-center p-2 text-white transition ${
         selected ? 'ring-2 ring-blue-400' : 'border-white/40'
-      } ${className}`}
+      } ${onClick ? ' hover:opacity-80 cursor-pointer' : 'cursor-default'}
+      ${className}`}
       style={{
         width: size,
         height: size,
@@ -136,7 +137,7 @@ function PlayerCircle({
           value={nameLabel}
           onChange={(event) => onNameChange?.(event.target.value)}
           onClick={(event) => event.stopPropagation()}
-          className="font-bold text-sm w-[76px] bg-transparent px-0 py-0 text-white text-center whitespace-normal break-words focus:outline-none focus:ring-0"
+          className="pointer-events-auto font-bold text-sm w-[76px] bg-transparent px-0 py-0 text-white text-center whitespace-normal break-words focus:italic rounded-md"
           style={{ outline: 'none', border: 'none' }}
         />
       ) : (

@@ -182,7 +182,7 @@ export function ResultsDisplay({ results, error, playerNames }: ResultsDisplayPr
       {uniqueSolutions.length > 0 &&
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 shadow-sm">
           <div className='flex justify-between items-center'>
-            <h3 className="text-lg font-semibold text-white mb-3">Filter Solutions</h3>
+            <h3 className="text-xl font-semibold text-white mb-3">Social reads (filters)</h3>
             <div className="flex flex-col gap-3 sm:flex-row pb-4">
               <Button
                 type="button"
