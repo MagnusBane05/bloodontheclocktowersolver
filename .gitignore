@@ -221,3 +221,5 @@ pnpm-debug.log*
 .DS_Store
 .env.local
 .env.*.local
+
+program.prof
