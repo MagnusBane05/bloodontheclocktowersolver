@@ -593,11 +593,12 @@ class Grimoire:
         # return false if no room for poisoner
         if any(new_phase.poisoned) and Role.POISONER not in new_phase.minion_types and Role.ANY_OTHER_MINION not in new_phase.minion_types:
             return False
-        # return false if known poisoner or all minions are dead
+        # return false if known poisoner is dead
         dead_characters = [c for i, c in enumerate(new_phase.characters) if new_phase.dead[i]]
         if any(new_phase.poisoned) and Role.POISONER in dead_characters:
             return False
-        if any(new_phase.poisoned) and len([c for c in dead_characters if c == Role.ANY_OTHER_MINION]) == ROLE_BREAKDOWNS[num_players]['minions']:
+        # false if all minions are dead (check evil roles, not just minions, in case of start passes)
+        if any(new_phase.poisoned) and len([c for c in dead_characters if c in EVIL_ROLES]) == ROLE_BREAKDOWNS[num_players]['minions']:
             return False
 
         return True

@@ -77,7 +77,7 @@ def simulate_single_game(players: int, preset: list[Role] | None, seed: int | No
         night_start_page = grim.get_page(night, NightOrderPosition.AFTER_IMP)
 
         # If poisoner is still alive, choose a poisoned target
-        if Role.POISONER in characters and Role.POISONER not in compress(night_start_page.characters, night_start_page.dead):
+        if Role.POISONER in night_start_page.characters and Role.POISONER not in compress(night_start_page.characters, night_start_page.dead):
             targets = [i for i,x in enumerate(night_start_page.characters) if x != Role.IMP and x not in MINIONS]
             night_start_page.poisoned[random.choice(targets)] = True
 
@@ -277,9 +277,13 @@ def handle_demon_kill(page: GrimoirePage, info_list: list[Info], bluffs: list[Ro
             new_imp = random.choice(old_minions)[0]
             page.characters[new_imp] = Role.IMP
             page.character_changed[new_imp] = True
+        # If imp starpassed to Spy and spy was Red Herring, move Red Herring
         elif old_characters[new_imp] == Role.SPY and old_red_herring[new_imp]:
             new_red_herring = random.choice(gamerules.get_valid_red_herrings(page.characters))
             page.red_herring[new_red_herring] = True
+        # If imp starpassed to Poisoner, remove poisonings
+        if old_characters[new_imp] == Role.POISONER:
+            page.clear_poisoned()
 
     # If poisoner was killed by demon, remove poisoned
     if page.characters[death_target] == Role.POISONER:
