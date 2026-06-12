@@ -56,8 +56,12 @@ export function InfoEntry({
     : info.kind
     ? 'Tap the chevron to collapse or expand details'
     : 'Select an info type to configure';
+  const displayInfo = 
+    info.kind === 'claim' || 
+    info.kind === 'character type claim' || 
+    info.kind === 'alignment claim';
 
-  return info.kind === 'claim' ? null : (
+  return displayInfo ? null : (
     <div
       className={`overflow-hidden rounded-xl border bg-gray-800 transition-shadow duration-200 hover:shadow-md ${
         hasErrors ? 'border-red-500' : 'border-gray-700'

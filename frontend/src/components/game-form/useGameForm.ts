@@ -2,12 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { DeathInfo, Info, MetadataResponse, SolveRequest } from '../../types';
 import {
   computeEmpathNeighbours,
-  createInfoEntryForClaimRole,
   defaultInfoKinds,
   deriveSlayerShotFromInfos,
   deriveVirginExecutionFromInfos,
   getBodyFromPreviousNight,
-  getInfoKindForClaimRole,
   parseDeathList,
   serializeDeathList,
   validateInfo,
@@ -22,13 +20,12 @@ interface UseGameFormResult {
   roles: string[];
   infoKinds: string[];
   claimRoleOptions: Array<{ value: string; label: string }>;
+  characterTypeOptions: Array<{ value: string; label: string }>;
   minionOptions: Array<{ value: string; label: string }>;
   townsfolkOptions: Array<{ value: string; label: string }>;
   allInfoKinds: string[];
   evilRoleNames: Set<string>;
   goodRoleNames: Set<string>;
-  selectedClaimPlayer: number | null;
-  selectedClaimCharacter: string | null;
   infoErrors: InfoErrors;
   selectedDeathPlayer: number | null;
   deathModalType: 'execution' | 'demon_kill' | null;
@@ -42,10 +39,6 @@ interface UseGameFormResult {
   setPlayers: (players: number) => void;
   setExecuted: (value: string) => void;
   setDemonKills: (value: string) => void;
-  handleAddClaim: (character: string | null) => void;
-  handleAddClaimAndInfo: (character: string | null) => void;
-  handleClearClaim: () => void;
-  handleCloseClaimModal: () => void;
   handlePlayerContextMenu: (player: number, e: React.MouseEvent) => void;
   handleDeathConfirm: () => void;
   handleCloseDeathModal: () => void;
@@ -54,12 +47,10 @@ interface UseGameFormResult {
   handleClosePlayerSelectModal: () => void;
   handlePlayerSelectConfirm: (player: number) => void;
   handleSubmit: (event: React.FormEvent) => void;
-  addInfo: () => void;
+  addInfo: (info: InfoFormEntry | null) => void;
   clearInfo: () => void;
   updateInfo: (index: number, field: string, value: any) => void;
   removeInfo: (index: number) => void;
-  setSelectedClaimPlayer: (player: number | null) => void;
-  setSelectedClaimCharacter: (character: string | null) => void;
   setDeathModalType: (type: 'execution' | 'demon_kill' | null) => void;
   setDeathModalDayNight: (dayNight: number | null) => void;
 }
@@ -166,13 +157,12 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
   const [demonKills, setDemonKills] = useState<string>('');
   const [infos, setInfos] = useState<InfoFormEntry[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
+  const [characterTypes, setCharacterTypes] = useState<string[]>([]);
   const [infoKinds, setInfoKinds] = useState<string[]>([]);
   const [minionRoles, setMinionRoles] = useState<string[]>([]);
   const [townsfolkRoles, setTownsfolkRoles] = useState<string[]>([]);
   const [evilRoleNames, setEvilRoleNames] = useState<Set<string>>(new Set());
   const [goodRoleNames, setGoodRoleNames] = useState<Set<string>>(new Set());
-  const [selectedClaimPlayer, setSelectedClaimPlayer] = useState<number | null>(null);
-  const [selectedClaimCharacter, setSelectedClaimCharacter] = useState<string | null>(null);
   const [infoErrors, setInfoErrors] = useState<InfoErrors>({});
   const [selectedDeathPlayer, setSelectedDeathPlayer] = useState<number | null>(null);
   const [deathModalType, setDeathModalType] = useState<'execution' | 'demon_kill' | null>(null);
@@ -188,6 +178,7 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
         setInfoKinds(data.infoKinds);
         setMinionRoles(data.minionRoles);
         setTownsfolkRoles(data.townsfolkRoles);
+        setCharacterTypes(data.characterTypes);
         setEvilRoleNames(new Set(data.evilRoles ?? []));
         setGoodRoleNames(new Set(data.goodRoles ?? []));
       })
@@ -200,6 +191,15 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
         .filter((role) => !/unknown/i.test(role) && !/^non\s*demon$/i.test(role))
         .map((role) => ({ value: role, label: role })),
     [roles],
+  );
+
+  const characterTypeOptions = useMemo(
+    () =>
+      characterTypes.map((characterType) => ({
+        value: characterType, 
+        label: characterType.replace("Unknown", "").replace("Imp", "Demon").trim()
+      })),
+    [characterTypes]
   );
 
   const minionOptions = useMemo(
@@ -218,84 +218,6 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
   );
 
   const playerClaimMap = useMemo(() => buildPlayerClaimMap(infos), [infos]);
-
-  useEffect(() => {
-    if (selectedClaimPlayer === null) {
-      setSelectedClaimCharacter(null);
-      return;
-    }
-
-    const existingClaim = infos.find((info) => {
-      const infoAny = info as any;
-      return infoAny.kind === 'claim' && infoAny.player === selectedClaimPlayer;
-    }) as any;
-
-    setSelectedClaimCharacter(existingClaim?.character ?? null);
-  }, [selectedClaimPlayer, infos]);
-
-  const handleAddClaim = (character: string | null) => {
-    if (selectedClaimPlayer === null || !character) {
-      return;
-    }
-
-    setInfos((currentInfos) => [
-      ...currentInfos.filter((info) => {
-        const infoAny = info as any;
-        return !(infoAny.kind === 'claim' && infoAny.player === selectedClaimPlayer);
-      }),
-      {
-        kind: 'claim',
-        player: selectedClaimPlayer,
-        character,
-      } as InfoFormEntry,
-    ]);
-
-    setSelectedClaimPlayer(null);
-    setSelectedClaimCharacter(null);
-  };
-
-  const handleCloseClaimModal = () => {
-    setSelectedClaimPlayer(null);
-    setSelectedClaimCharacter(null);
-  };
-
-  const handleClearClaim = () => {
-    if (selectedClaimPlayer === null) {
-      return;
-    }
-
-    setInfos((currentInfos) =>
-      currentInfos.filter((info) => {
-        const infoAny = info as any;
-        return !(infoAny.kind === 'claim' && infoAny.player === selectedClaimPlayer);
-      }),
-    );
-  };
-
-  const handleAddClaimAndInfo = (character: string | null) => {
-    if (selectedClaimPlayer === null || !character) {
-      return;
-    }
-
-    const infoKind = getInfoKindForClaimRole(character);
-    const infoEntry = infoKind ? createInfoEntryForClaimRole(infoKind, selectedClaimPlayer) : null;
-
-    setInfos((currentInfos) => [
-      ...currentInfos.filter((info) => {
-        const infoAny = info as any;
-        return !(infoAny.kind === 'claim' && infoAny.player === selectedClaimPlayer);
-      }),
-      {
-        kind: 'claim',
-        player: selectedClaimPlayer,
-        character,
-      } as InfoFormEntry,
-      ...(infoEntry ? [infoEntry] : []),
-    ]);
-
-    setSelectedClaimPlayer(null);
-    setSelectedClaimCharacter(null);
-  };
 
   const slayerShot = useMemo(() => deriveSlayerShotFromInfos(infos), [infos]);
   const virginExecution = useMemo(() => deriveVirginExecutionFromInfos(infos), [infos]);
@@ -414,18 +336,6 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     };
 
     onSubmit(request);
-  };
-
-  const addInfo = () => {
-    setInfos((currentInfos) => [...currentInfos, { kind: '' }] as InfoFormEntry[]);
-  };
-
-  const clearInfo = () => {
-    setInfos([]);
-    setInfoErrors({});
-    setSelectedClaimPlayer(null);
-    setExecuted('');
-    setDemonKills('');
   };
 
   const getExistingDeath = (player: number) => {
@@ -565,6 +475,14 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     handleClosePlayerSelectModal();
   };
 
+  const addInfo = (newInfo: InfoFormEntry | null) => {
+    if (!newInfo) {
+      setInfos((currentInfos) => [...currentInfos, { kind: '' }] as InfoFormEntry[]);
+    } else {
+      setInfos((currentInfos) => [...currentInfos, newInfo]);
+    }
+  };
+
   const updateInfo = (index: number, field: string, value: any) => {
     setInfos((currentInfos) => {
       const nextInfos = [...currentInfos];
@@ -618,6 +536,13 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     });
   };
 
+  const clearInfo = () => {
+    setInfos([]);
+    setInfoErrors({});
+    setExecuted('');
+    setDemonKills('');
+  };
+
   return {
     players,
     allExecutions,
@@ -626,13 +551,12 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     roles,
     infoKinds,
     claimRoleOptions,
+    characterTypeOptions,
     minionOptions,
     townsfolkOptions,
     allInfoKinds,
     evilRoleNames,
     goodRoleNames,
-    selectedClaimPlayer,
-    selectedClaimCharacter,
     infoErrors,
     selectedDeathPlayer,
     deathModalType,
@@ -646,14 +570,8 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     setPlayers,
     setExecuted,
     setDemonKills,
-    setSelectedClaimPlayer,
-    setSelectedClaimCharacter,
     setDeathModalType,
     setDeathModalDayNight,
-    handleAddClaim,
-    handleAddClaimAndInfo,
-    handleClearClaim,
-    handleCloseClaimModal,
     handlePlayerContextMenu,
     handleDeathConfirm,
     handleCloseDeathModal,

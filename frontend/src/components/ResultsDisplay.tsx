@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { PlayerCircleRing } from './PlayerCircleRing';
-import { getAlignment, titleCaseRole } from './PlayerCircle';
+import { getAlignment, titleCaseRole } from "./claim-circle/PlayerCircle";
 import type { SolveResponse, GrimoireSolution, GrimoirePage } from '../types';
 import { Toggle } from './Toggle';
 import { TrashButton } from './TrashButton';

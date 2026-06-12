@@ -1,43 +1,12 @@
 import { useEffect } from 'react';
 import { SolveRequest } from '../../types';
-import { PlayerCircleRing } from '../PlayerCircleRing';
 import { NumberField } from './fields';
-import { DeathModal } from './DeathModal';
-import { ClaimModal } from './ClaimModal';
+import { DeathModal } from '../claim-circle/DeathModal';
 import { PlayerSelectModal } from './PlayerSelectModal';
 import { useGameForm } from './useGameForm';
 import { InfoEntry } from './InfoEntry';
 import { Button } from '../Button';
-const getInfoKindForClaimRole = (character: string | null) => {
-  if (!character) {
-    return null;
-  }
-
-  switch (character.trim().toLowerCase()) {
-    case 'investigator':
-      return 'investigator';
-    case 'washerwoman':
-      return 'washerwoman';
-    case 'librarian':
-      return 'librarian';
-    case 'chef':
-      return 'chef';
-    case 'fortune teller':
-      return 'fortune teller';
-    case 'empath':
-      return 'empath';
-    case 'undertaker':
-      return 'undertaker';
-    case 'ravenkeeper':
-      return 'ravenkeeper';
-    case 'virgin':
-      return 'virgin';
-    case 'slayer':
-      return 'slayer';
-    default:
-      return null;
-  }
-};
+import { ClaimCircle } from '../claim-circle/ClaimCircle';
 
 export function GameForm({
   onSubmit,
@@ -55,13 +24,12 @@ export function GameForm({
     setPlayers,
     infos,
     claimRoleOptions,
+    characterTypeOptions,
     minionOptions,
     townsfolkOptions,
     allInfoKinds,
     evilRoleNames,
     goodRoleNames,
-    selectedClaimPlayer,
-    selectedClaimCharacter,
     infoErrors,
     selectedDeathPlayer,
     deathModalType,
@@ -72,10 +40,6 @@ export function GameForm({
     deadFlags,
     computeEmpathNeighboursLocal,
     getBodyFromPreviousNightLocal,
-    handleAddClaim,
-    handleAddClaimAndInfo,
-    handleClearClaim,
-    handleCloseClaimModal,
     handlePlayerContextMenu,
     handleDeathConfirm,
     handleCloseDeathModal,
@@ -88,8 +52,6 @@ export function GameForm({
     clearInfo,
     updateInfo,
     removeInfo,
-    setSelectedClaimPlayer,
-    setSelectedClaimCharacter,
     setDeathModalType,
     setDeathModalDayNight,
   } = useGameForm(onSubmit);
@@ -146,39 +108,24 @@ export function GameForm({
                 </div>
                 <div className="mx-auto w-full max-w-md">
                   <div className="relative aspect-square w-full rounded-full border border-gray-600 bg-gray-900/80">
-                    <PlayerCircleRing
-                      count={players}
+                    <ClaimCircle 
+                      onPlayerNameChange={handlePlayerNameChange}
+                      infos={infos}
+                      addInfo={addInfo}
+                      updateInfo={updateInfo}
+                      removeInfo={removeInfo}
+                      claimRoleOptions={claimRoleOptions}
+                      characterTypeOptions={characterTypeOptions}
+                      players={players}
                       playerNames={playerNames}
                       playerClaims={playerClaimMap}
                       deadFlags={deadFlags}
-                      selectedPlayer={selectedClaimPlayer}
-                      onPlayerSelect={setSelectedClaimPlayer}
-                      onPlayerNameChange={handlePlayerNameChange}
-                      editablePlayerNames
-                      onPlayerContextMenu={handlePlayerContextMenu}
+                      handlePlayerContextMenu={handlePlayerContextMenu}
                       evilRoleNames={evilRoleNames}
                       goodRoleNames={goodRoleNames}
-                      size="100%"
-                      className="h-full w-full"
-                      innerRingClassName="absolute inset-0 rounded-full border border-yellow-800/30"
-                      playerSize={74}
                     />
                   </div>
                 </div>
-                {selectedClaimPlayer !== null && (
-                  <ClaimModal
-                    player={selectedClaimPlayer}
-                    value={selectedClaimCharacter}
-                    options={claimRoleOptions}
-                    onChange={setSelectedClaimCharacter}
-                    onAddClaim={() => handleAddClaim(selectedClaimCharacter)}
-                    onAddClaimAndInfo={() => handleAddClaimAndInfo(selectedClaimCharacter)}
-                    onClear={handleClearClaim}
-                    onClose={handleCloseClaimModal}
-                    infoKindExists={!!getInfoKindForClaimRole(selectedClaimCharacter)}
-                    playerNames={playerNames}
-                  />
-                )}
                 {selectedDeathPlayer !== null && (
                   <DeathModal
                     player={selectedDeathPlayer}
@@ -217,7 +164,7 @@ export function GameForm({
                 <div className='flex gap-2'>
                   <Button
                     style="primary"
-                    onClick={addInfo}
+                    onClick={() => addInfo(null)}
                   >
                     <span className='pi pi-plus text-sm mr-1' />Add
                   </Button>

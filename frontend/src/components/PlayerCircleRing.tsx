@@ -1,57 +1,15 @@
-import type { CSSProperties, ReactNode } from 'react';
-import { getAlignment, titleCaseRole } from './PlayerCircle';
+import { ReactNode } from 'react';
+import { getAlignment } from "./claim-circle/PlayerCircle";
 import VialIcon from '../assets/vial.svg?react';
-
-interface CircleLayoutProps {
-  count: number;
-  size?: number | string;
-  className?: string;
-  style?: CSSProperties;
-  innerRingClassName?: string;
-  renderPlayer: (index: number, style: CSSProperties, angle: number) => ReactNode;
-  centerContent?: ReactNode;
-}
-
-function CircleLayout({
-  count,
-  size = 280,
-  className = '',
-  style,
-  innerRingClassName = 'absolute inset-0 rounded-full border border-white/30',
-  renderPlayer,
-  centerContent,
-}: CircleLayoutProps): JSX.Element {
-  const ringRadiusPercent = 37.5;
-
-  return (
-    <div className={className} style={{ width: size, height: size, position: 'relative', ...style }}>
-      <div className={innerRingClassName} />
-      {Array.from({ length: count }, (_, index) => {
-        const angle = ((-90 + (360 * index) / count) * Math.PI) / 180;
-        const x = 50 + Math.cos(angle) * ringRadiusPercent;
-        const y = 50 + Math.sin(angle) * ringRadiusPercent;
-        return renderPlayer(
-          index,
-          {
-            position: 'absolute',
-            left: `${x}%`,
-            top: `${y}%`,
-            transform: 'translate(-50%, -50%)',
-          },
-          angle,
-        );
-      })}
-      {centerContent}
-    </div>
-  );
-}
+import { PlayerCircle } from './claim-circle/PlayerCircle';
+import { CircleLayout } from './claim-circle/CircleLayout';
 
 function addAlpha(color: string, opacity: number) {
   const _opacity = Math.round(Math.min(Math.max(opacity ?? 1, 0), 1) * 255);
   return color + _opacity.toString(16).toUpperCase();
 }
 
-function getPlayerStyles(
+export function getPlayerStyles(
   role: string,
   dead: boolean,
   evilRoles: Set<string>,
@@ -71,83 +29,6 @@ function getPlayerStyles(
 
   const deadBackground = addAlpha(aliveStyle.backgroundColor, 0.35);
   return { backgroundColor: deadBackground, color: '#ffffff', filter: 'grayscale(40%)' };
-}
-
-interface PlayerCircleProps {
-  player: number;
-  playerName?: string;
-  role?: string;
-  displayRole?: string;
-  dead?: boolean;
-  selected?: boolean;
-  onClick?: () => void;
-  onContextMenu?: (e: React.MouseEvent) => void;
-  evilRoleNames: Set<string>;
-  goodRoleNames: Set<string>;
-  className?: string;
-  style?: CSSProperties;
-  size?: number;
-  editableName?: boolean;
-  onNameChange?: (name: string) => void;
-}
-
-function PlayerCircle({
-  player,
-  playerName,
-  role,
-  displayRole,
-  dead = false,
-  selected = false,
-  onClick,
-  onContextMenu,
-  evilRoleNames,
-  goodRoleNames,
-  className = '',
-  style,
-  size = 74,
-  editableName = false,
-  onNameChange,
-}: PlayerCircleProps): JSX.Element {
-  const nameLabel = playerName ?? `Player ${player}`;
-  const subLabel = displayRole ?? (role ? titleCaseRole(role) : null);
-  const styles = getPlayerStyles(role ?? '', dead, evilRoleNames, goodRoleNames);
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      className={`flex flex-col items-center justify-center rounded-full border shadow-md text-center p-2 text-white transition ${
-        selected ? 'ring-2 ring-blue-400' : 'border-white/40'
-      } ${onClick ? ' hover:opacity-80 cursor-pointer' : 'cursor-default'}
-      ${className}`}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: styles.backgroundColor,
-        color: styles.color,
-        filter: styles.filter,
-        borderColor: '#ffffff40',
-        ...style,
-      }}
-    >
-      {editableName ? (
-        <input
-          id={`player-name-input-${player}`}
-          value={nameLabel}
-          onChange={(event) => onNameChange?.(event.target.value)}
-          onClick={(event) => event.stopPropagation()}
-          className="pointer-events-auto font-bold text-sm w-[76px] bg-transparent px-0 py-0 text-white text-center whitespace-normal break-words focus:italic rounded-md"
-          style={{ outline: 'none', border: 'none' }}
-        />
-      ) : (
-        <span className="font-bold text-sm break-words">{nameLabel}</span>
-      )}
-      {subLabel && (
-        <span className="mt-1 text-[10px] leading-tight max-w-[60px] break-words">{subLabel}</span>
-      )}
-    </button>
-  );
 }
 
 interface PlayerCircleRingProps {
@@ -200,6 +81,7 @@ export function PlayerCircleRing({
   centerContent,
   poisoned,
 }: PlayerCircleRingProps): JSX.Element {
+  
   const showEditableNames = editablePlayerNames && typeof onPlayerNameChange === 'function';
 
   return (

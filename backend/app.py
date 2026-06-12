@@ -10,7 +10,7 @@ from flask_cors import CORS
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from grimoire import GrimoireManager, Grimoire, Game
-from grimoire.role import Role, ROLE_BREAKDOWNS, MINIONS, TOWNSFOLK, CHARACTER_STRINGS, EVIL_ROLES, GOOD_ROLES
+from grimoire.role import ROLE_CATEGORIES, Role, ROLE_BREAKDOWNS, MINIONS, TOWNSFOLK, CHARACTER_STRINGS, EVIL_ROLES, GOOD_ROLES
 from grimoire.info import Info
 
 app = Flask(__name__)
@@ -89,6 +89,7 @@ def get_metadata():
         "townsfolkRoles": [ROLE_TO_STRING[t] for t in TOWNSFOLK],
         "evilRoles": [ROLE_TO_STRING[r] for r in EVIL_ROLES],
         "goodRoles": [ROLE_TO_STRING[r] for r in GOOD_ROLES],
+        "characterTypes": [ROLE_TO_STRING[r] for r in ROLE_CATEGORIES],
     })
 
 @app.route("/api/solve", methods=["POST"])

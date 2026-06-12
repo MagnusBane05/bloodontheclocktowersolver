@@ -442,4 +442,4 @@ export const deriveVirginExecutionFromInfos = (infos: InfoFormEntry[]): [number,
   }
 
   return [successfulVirginNomination.nominator, successfulVirginNomination.night];
-}
+};

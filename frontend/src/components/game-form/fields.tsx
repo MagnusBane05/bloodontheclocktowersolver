@@ -25,7 +25,7 @@ export function Field({ label, htmlFor, children, error }: FieldProps): JSX.Elem
 
 interface SelectFieldProps {
   id: string;
-  label: string;
+  label?: string;
   value?: string | number | null;
   options: SelectOption[];
   placeholder: string;

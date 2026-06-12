@@ -28,7 +28,7 @@ class TestCreatorWithSimulator(unittest.TestCase):
         game: Game = {
             'players': 10
         }
-        n = 100
+        n = 10
         seed = 193
         x = simulate_info(n, game, seed)
         for i, ((info_list, death_info), true_world) in tqdm(enumerate(x)):

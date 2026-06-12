@@ -1,5 +1,5 @@
 import React from 'react';
-import { ModalHeader } from './ModalHeader';
+import { ModalHeader } from '../game-form/ModalHeader';
 import { Button } from '../Button';
 
 interface DeathModalProps {

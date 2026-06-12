@@ -135,4 +135,9 @@ export interface MetadataResponse {
   infoKinds: string[];
   minionRoles: string[];
   townsfolkRoles: string[];
+  characterTypes: string[];
+}
+
+export interface CharacterTypesResponse {
+  characterTypes: string[];
 }

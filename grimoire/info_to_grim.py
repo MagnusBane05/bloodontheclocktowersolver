@@ -83,35 +83,40 @@ def _create_worlds_from_investigator_info(game: Game, info: InvestigatorInfo):
     player = info['investigator']
     worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.INVESTIGATOR)
 
-    world3 = Grimoire(game['players'])
-    phase3 = world3.pages[0]
-    phase3.characters[info['first_player']] = info['minion']
-    phase3.characters[player] = Role.INVESTIGATOR
-    phase3.add_minion_type(info['minion'])
-    worlds.append(world3)
+    # disregard worlds where they saw themselves as an evil player
+    if info['first_player'] != player:
+        world3 = Grimoire(game['players'])
+        phase3 = world3.pages[0]
+        phase3.characters[info['first_player']] = info['minion']
+        phase3.characters[player] = Role.INVESTIGATOR
+        phase3.add_minion_type(info['minion'])
+        worlds.append(world3)
 
-    world4 = Grimoire(game['players'])
-    phase4 = world4.pages[0]
-    phase4.characters[info['second_player']] = info['minion']
-    phase4.characters[player] = Role.INVESTIGATOR
-    phase4.add_minion_type(info['minion'])
-    worlds.append(world4)
+    if info['second_player'] != player:
+        world4 = Grimoire(game['players'])
+        phase4 = world4.pages[0]
+        phase4.characters[info['second_player']] = info['minion']
+        phase4.characters[player] = Role.INVESTIGATOR
+        phase4.add_minion_type(info['minion'])
+        worlds.append(world4)
 
-    world5 = Grimoire(game['players'])
-    phase5 = world5.pages[0]
-    phase5.characters[info['first_player']] = Role.RECLUSE
-    phase5.characters[player] = Role.INVESTIGATOR
-    if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase5.characters[info['first_player']] == Role.RECLUSE: # have to add an extra check in the case where the investigator saw themselves!
-        phase5.add_minion_type(Role.BARON)
-    worlds.append(world5)
+    if info['first_player'] != player:
+        world5 = Grimoire(game['players'])
+        phase5 = world5.pages[0]
+        phase5.characters[info['first_player']] = Role.RECLUSE
+        phase5.characters[player] = Role.INVESTIGATOR
+        if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
+            phase5.add_minion_type(Role.BARON)
+        worlds.append(world5)
 
-    world6 = Grimoire(game['players'])
-    phase6 = world6.pages[0]
-    phase6.characters[info['second_player']] = Role.RECLUSE
-    phase6.characters[player] = Role.INVESTIGATOR
-    if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase6.characters[info['second_player']] == Role.RECLUSE:
-        phase6.add_minion_type(Role.BARON)
-    worlds.append(world6)
+    if info['second_player'] != player:
+        world6 = Grimoire(game['players'])
+        phase6 = world6.pages[0]
+        phase6.characters[info['second_player']] = Role.RECLUSE
+        phase6.characters[player] = Role.INVESTIGATOR
+        if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
+            phase6.add_minion_type(Role.BARON)
+        worlds.append(world6)
 
     return worlds
 
@@ -119,33 +124,36 @@ def _create_worlds_from_washerwoman_info(game: Game, info: WasherwomanInfo):
     player = info['washerwoman']
     worlds = _create_drunk_evil_poisoned_worlds(game, player, Role.WASHERWOMAN)
 
-    world3 = Grimoire(game['players'])
-    phase3 = world3.pages[0]
-    phase3.characters[info['first_player']] = info['townsfolk']
-    phase3.characters[player] = Role.WASHERWOMAN
-    worlds.append(world3)
+    # disregard worlds where they saw themselves as not the washerwoman
+    if info['first_player'] != player or info['townsfolk'] == Role.WASHERWOMAN:
+        world3 = Grimoire(game['players'])
+        phase3 = world3.pages[0]
+        phase3.characters[info['first_player']] = info['townsfolk']
+        phase3.characters[player] = Role.WASHERWOMAN
+        worlds.append(world3)
 
-    world4 = Grimoire(game['players'])
-    phase4 = world4.pages[0]
-    phase4.characters[info['second_player']] = info['townsfolk']
-    phase4.characters[player] = Role.WASHERWOMAN
-    worlds.append(world4)
+    if info['second_player'] != player or info['townsfolk'] == Role.WASHERWOMAN:
+        world4 = Grimoire(game['players'])
+        phase4 = world4.pages[0]
+        phase4.characters[info['second_player']] = info['townsfolk']
+        phase4.characters[player] = Role.WASHERWOMAN
+        worlds.append(world4)
 
-    world5 = Grimoire(game['players'])
-    phase5 = world5.pages[0]
-    phase5.characters[info['first_player']] = Role.SPY
-    phase5.characters[player] = Role.WASHERWOMAN
-    if phase5.characters[info['first_player']] == Role.SPY: # have to add an extra check in the case where the washerwoman saw themselves!
+    if info['first_player'] != player or info['townsfolk'] == Role.WASHERWOMAN:
+        world5 = Grimoire(game['players'])
+        phase5 = world5.pages[0]
+        phase5.characters[info['first_player']] = Role.SPY
+        phase5.characters[player] = Role.WASHERWOMAN
         phase5.add_minion_type(Role.SPY)
-    worlds.append(world5)
+        worlds.append(world5)
 
-    world6 = Grimoire(game['players'])
-    phase6 = world6.pages[0]
-    phase6.characters[info['second_player']] = Role.SPY
-    phase6.characters[player] = Role.WASHERWOMAN
-    if phase6.characters[info['second_player']] == Role.SPY:
+    if info['second_player'] != player or info['townsfolk'] == Role.WASHERWOMAN:
+        world6 = Grimoire(game['players'])
+        phase6 = world6.pages[0]
+        phase6.characters[info['second_player']] = Role.SPY
+        phase6.characters[player] = Role.WASHERWOMAN
         phase6.add_minion_type(Role.SPY)
-    worlds.append(world6)
+        worlds.append(world6)
 
     return worlds
 
@@ -177,37 +185,40 @@ def _create_worlds_from_librarian_info(game: Game, info: LibrarianInfo) -> list[
 
     assert first_player is not None and second_player is not None
 
-    world3 = Grimoire(game['players'])
-    phase3 = world3.pages[0]
-    phase3.characters[first_player] = token
-    phase3.characters[player] = Role.LIBRARIAN
-    if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase3.characters[first_player] == token: # have to add an extra check in the case where the librarian saw themselves!
-        phase3.add_minion_type(Role.BARON)
-    worlds.append(world3)
+    # disregard worlds where librarian saw themselves
+    if first_player != player:
+        world3 = Grimoire(game['players'])
+        phase3 = world3.pages[0]
+        phase3.characters[first_player] = token
+        phase3.characters[player] = Role.LIBRARIAN
+        if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
+            phase3.add_minion_type(Role.BARON)
+        worlds.append(world3)
 
-    world4 = Grimoire(game['players'])
-    phase4 = world4.pages[0]
-    phase4.characters[second_player] = token
-    phase4.characters[player] = Role.LIBRARIAN
-    if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0 and phase4.characters[second_player] == token: # have to add an extra check in the case where the librarian saw themselves!
-        phase4.add_minion_type(Role.BARON)
-    worlds.append(world4)
+    if second_player != player:
+        world4 = Grimoire(game['players'])
+        phase4 = world4.pages[0]
+        phase4.characters[second_player] = token
+        phase4.characters[player] = Role.LIBRARIAN
+        if ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
+            phase4.add_minion_type(Role.BARON)
+        worlds.append(world4)
 
-    world5 = Grimoire(game['players'])
-    phase5 = world5.pages[0]
-    phase5.characters[player] = Role.LIBRARIAN
-    if player != first_player:
+    if first_player != player:
+        world5 = Grimoire(game['players'])
+        phase5 = world5.pages[0]
+        phase5.characters[player] = Role.LIBRARIAN
         phase5.characters[first_player] = Role.SPY
         phase5.add_minion_type(Role.SPY)
-    worlds.append(world5)
+        worlds.append(world5)
 
-    world6 = Grimoire(game['players'])
-    phase6 = world6.pages[0]
-    phase6.characters[player] = Role.LIBRARIAN
-    if player != second_player:
+    if second_player != player:
+        world6 = Grimoire(game['players'])
+        phase6 = world6.pages[0]
+        phase6.characters[player] = Role.LIBRARIAN
         phase6.characters[second_player] = Role.SPY
         phase6.add_minion_type(Role.SPY)
-    worlds.append(world6)
+        worlds.append(world6)
 
     return worlds
 
