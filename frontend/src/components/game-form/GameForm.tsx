@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { SolveRequest } from '../../types';
 import { NumberField } from './fields';
-import { DeathModal } from '../claim-circle/DeathModal';
 import { PlayerSelectModal } from './PlayerSelectModal';
 import { useGameForm } from './useGameForm';
 import { InfoEntry } from './InfoEntry';
@@ -21,7 +20,8 @@ export function GameForm({
 }): JSX.Element {
   const {
     players,
-    setPlayers,
+    allExecutions,
+    demonKills,
     infos,
     claimRoleOptions,
     characterTypeOptions,
@@ -31,19 +31,13 @@ export function GameForm({
     evilRoleNames,
     goodRoleNames,
     infoErrors,
-    selectedDeathPlayer,
-    deathModalType,
-    deathModalDayNight,
     activePlayerSelectModal,
     playerSelectLabel,
     playerClaimMap,
     deadFlags,
+    setPlayers,
     computeEmpathNeighboursLocal,
     getBodyFromPreviousNightLocal,
-    handlePlayerContextMenu,
-    handleDeathConfirm,
-    handleCloseDeathModal,
-    handleClearDeath,
     handlePlayerSelectClick,
     handleClosePlayerSelectModal,
     handlePlayerSelectConfirm,
@@ -52,8 +46,9 @@ export function GameForm({
     clearInfo,
     updateInfo,
     removeInfo,
-    setDeathModalType,
-    setDeathModalDayNight,
+    setExecutions,
+    setDemonKills,
+    removeExecutionInfo,
   } = useGameForm(onSubmit);
 
   const normalizePlayerNames = (names: string[], count: number) =>
@@ -109,37 +104,27 @@ export function GameForm({
                 <div className="mx-auto w-full max-w-md">
                   <div className="relative aspect-square w-full rounded-full border border-gray-600 bg-gray-900/80">
                     <ClaimCircle 
-                      onPlayerNameChange={handlePlayerNameChange}
+                      players={players}
+                      playerClaims={playerClaimMap}
+                      claimRoleOptions={claimRoleOptions}
+                      characterTypeOptions={characterTypeOptions}
                       infos={infos}
+                      executions={allExecutions}
+                      demonKills={demonKills}
+                      deadFlags={deadFlags}
+                      evilRoleNames={evilRoleNames}
+                      goodRoleNames={goodRoleNames} 
+                      onPlayerNameChange={handlePlayerNameChange}
                       addInfo={addInfo}
                       updateInfo={updateInfo}
                       removeInfo={removeInfo}
-                      claimRoleOptions={claimRoleOptions}
-                      characterTypeOptions={characterTypeOptions}
-                      players={players}
                       playerNames={playerNames}
-                      playerClaims={playerClaimMap}
-                      deadFlags={deadFlags}
-                      handlePlayerContextMenu={handlePlayerContextMenu}
-                      evilRoleNames={evilRoleNames}
-                      goodRoleNames={goodRoleNames}
+                      setExecutions={setExecutions}
+                      setDemonKills={setDemonKills}
+                      removeExecution={removeExecutionInfo}
                     />
                   </div>
                 </div>
-                {selectedDeathPlayer !== null && (
-                  <DeathModal
-                    player={selectedDeathPlayer}
-                    deathType={deathModalType}
-                    dayNight={deathModalDayNight}
-                    maxDayNight={players * 2}
-                    onDeathTypeChange={setDeathModalType}
-                    onDayNightChange={setDeathModalDayNight}
-                    onConfirm={handleDeathConfirm}
-                    onClear={handleClearDeath}
-                    onClose={handleCloseDeathModal}
-                    playerNames={playerNames}
-                  />
-                )}
                 {activePlayerSelectModal !== null && (
                   <PlayerSelectModal
                     playerCount={players}

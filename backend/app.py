@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from grimoire import GrimoireManager, Grimoire, Game
 from grimoire.role import ROLE_CATEGORIES, Role, ROLE_BREAKDOWNS, MINIONS, TOWNSFOLK, CHARACTER_STRINGS, EVIL_ROLES, GOOD_ROLES
-from grimoire.info import Info
+from grimoire.info import DeathInfo, Info
 
 app = Flask(__name__)
 CORS(app)
@@ -117,20 +117,20 @@ def solve():
                 parsed_infos.append(parsed_info)
         
         # Convert death_info role strings to Role enums where applicable
-        parsed_death_info = {
-            "executed": death_info.get("executed", []),
-            "slayer_shot": death_info.get("slayer_shot"),
-            "killed_by_demon": death_info.get("killed_by_demon", []),
-        }
+        # parsed_death_info: list[DeathInfo] = [{
+        #     "player": death["player"],
+        #     "night": death["night"],
+        #     "kind": death["kind"],
+        # } for death in death_info]
         
         # Infer nights from info
         max_night = 1
-        for _, night in death_info.get("executed", []):
-            max_night = max(max_night, night)
-        for _, night in death_info.get("killed_by_demon", []):
-            max_night = max(max_night, night)
-        if death_info.get("slayer_shot"):
-            max_night = max(max_night, death_info["slayer_shot"][1])
+        for death in death_info:
+            max_night = max(max_night, death["night"])
+        # for _, night in death_info.get("killed_by_demon", []):
+        #     max_night = max(max_night, night)
+        # if death_info.get("slayer_shot"):
+        #     max_night = max(max_night, death_info["slayer_shot"][1])
         for info in parsed_infos:
             if info["kind"] in ['undertaker', 'empath', 'fortune teller']:
                 max_night = max(max_night, info["night"])
@@ -139,7 +139,7 @@ def solve():
         # Run the solver
         game: Game = {"players": players}
         manager = GrimoireManager(game)
-        manager.add_full_game(parsed_infos, parsed_death_info, nights)
+        manager.add_full_game(parsed_infos, death_info, nights)
         
         # Serialize results
         solutions = [serialize_grimoire(grim) for grim in manager.grims]

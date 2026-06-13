@@ -1,8 +1,37 @@
 // TypeScript types for the frontend
-export interface DeathInfo {
-  executed: Array<[number, number]>;
-  killed_by_demon: Array<[number, number]>;
-  slayer_shot: [number, number] | null;
+// export interface DeathInfo {
+//   executed: Array<[number, number]>;
+//   killed_by_demon: Array<[number, number]>;
+//   slayer_shot: [number, number] | null;
+// }
+
+export type DeathInfo = 
+  | ExecutionInfo
+  | DemonKillInfo
+  | SlayerKillInfo;
+
+export interface ExecutionInfo {
+  kind: 'execution';
+  player: number;
+  night: number;
+}
+
+export interface DemonKillInfo {
+  kind: 'demon';
+  player: number;
+  night: number;
+}
+
+export interface SlayerKillInfo {
+  kind: 'slayer';
+  player: number;
+  night: number;
+}
+
+export interface DemonKillInfo {
+  kind: 'demon';
+  player: number;
+  night: number;
 }
 
 export type Info =
@@ -105,7 +134,7 @@ export interface SlayerInfo {
 export interface SolveRequest {
   players: number;
   nights?: number;
-  deathInfo: DeathInfo;
+  deathInfo: DeathInfo[];
   infos: Info[];
 }
 

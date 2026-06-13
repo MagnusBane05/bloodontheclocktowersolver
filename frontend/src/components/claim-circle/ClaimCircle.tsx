@@ -2,42 +2,91 @@ import { useState } from "react";
 import { PlayerCircleRing } from "../PlayerCircleRing";
 import { ClaimModal } from "./ClaimModal";
 import { InfoFormEntry, SelectOption } from "../game-form/types";
+import { DeathModal } from "./DeathModal";
+import { DemonKillInfo, ExecutionInfo } from "../../types";
 
 interface ClaimCircleProps {
-  onPlayerNameChange: (index: number, value: string) => void;
+  players: number;
+  playerNames: string[];
+  playerClaims: Record<number, string[]>;
+  claimRoleOptions: SelectOption[];
+  characterTypeOptions: SelectOption[];
+  evilRoleNames: Set<string>;
+  goodRoleNames: Set<string>;
+  deadFlags: boolean[];
   infos: InfoFormEntry[];
+  executions: ExecutionInfo[];
+  demonKills: DemonKillInfo[];
+  onPlayerNameChange: (index: number, value: string) => void;
   addInfo: (info: InfoFormEntry | null) => void;
   updateInfo: (index: number, field: string, value: any) => void;
   removeInfo: (index: number) => void;
-  claimRoleOptions: SelectOption[];
-  characterTypeOptions: SelectOption[];
-  playerNames: string[];
-  players: number;
-  playerClaims: Record<number, string[]>;
-  deadFlags: boolean[];
-  handlePlayerContextMenu: (player: number, e: React.MouseEvent<Element, MouseEvent>) => void;
-  evilRoleNames: Set<string>;
-  goodRoleNames: Set<string>;
+  setExecutions: (executions: ExecutionInfo[]) => void;
+  setDemonKills: (demonKills: DemonKillInfo[]) => void;
+  removeExecution: (player: number, night: number) => void;
 }
 
 export function ClaimCircle({
-  onPlayerNameChange,
-  infos,
-  addInfo,
-  updateInfo,
-  removeInfo,
-  claimRoleOptions,
-  characterTypeOptions,
   players,
   playerNames,
   playerClaims,
-  deadFlags,
-  handlePlayerContextMenu,
+  claimRoleOptions,
+  characterTypeOptions,
   evilRoleNames,
   goodRoleNames,
+  deadFlags,
+  infos,
+  executions,
+  demonKills,
+  onPlayerNameChange,
+  addInfo,
+  updateInfo,
+  removeInfo,
+  setExecutions,
+  setDemonKills,
+  removeExecution,
 } : ClaimCircleProps
 ) {
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
+  const [displayClaimModal, setDisplayClaimModal] = useState<boolean>(false);
+  const [displayDeathModal, setDisplayDeathModal] = useState<boolean>(false);
+  const [deathModalType, setDeathModalType] = useState<'execution' | 'demon' | null>(null);
+  const [deathModalDayNight, setDeathModalDayNight] = useState<number | null>(null);
+
+  const handleSelectClaimPlayer = (player: number | null) => {
+    setSelectedPlayer(player);
+    if (player != null) {
+      setDisplayClaimModal(true);
+    } else {
+      setDisplayClaimModal(false);
+    }
+  };
+
+  const handleSelectDeathPlayer = (player: number | null) => {
+    setSelectedPlayer(player);
+    if (player != null) {
+      setDisplayDeathModal(true);
+    } else {
+      setDisplayDeathModal(false);
+    }
+  }
+
+  const getExistingDeath = (player: number) => {
+    const death = [...executions, ...demonKills].filter((d) => d.player === player);
+    if (death && death.length > 0) {
+      return death[0];
+    }
+    return null;
+  };
+
+  const handlePlayerContextMenu = (player: number, event: React.MouseEvent) => {
+    event.preventDefault();
+
+    const existingDeath = getExistingDeath(player);
+    setDeathModalType(existingDeath?.kind ?? null);
+    setDeathModalDayNight(existingDeath?.night ?? null);
+    handleSelectDeathPlayer(player);
+  };
 
   return (
     <>
@@ -47,7 +96,7 @@ export function ClaimCircle({
         playerClaims={playerClaims}
         deadFlags={deadFlags}
         selectedPlayer={selectedPlayer}
-        onPlayerSelect={setSelectedPlayer}
+        onPlayerSelect={handleSelectClaimPlayer}
         onPlayerNameChange={onPlayerNameChange}
         editablePlayerNames
         onPlayerContextMenu={handlePlayerContextMenu}
@@ -58,17 +107,34 @@ export function ClaimCircle({
         innerRingClassName="absolute inset-0 rounded-full border border-yellow-800/30"
         playerSize={74}
       />
-      {selectedPlayer !== null && (
+      {selectedPlayer !== null && displayClaimModal && (
         <ClaimModal
           player={selectedPlayer}
           characterOptions={claimRoleOptions}
           characterTypeOptions={characterTypeOptions}
           playerNames={playerNames} 
-          onSelectedPlayerChange={setSelectedPlayer}
+          onSelectedPlayerChange={handleSelectClaimPlayer}
           infos={infos}
           addInfo={addInfo}
           updateInfo={updateInfo}
           removeInfo={removeInfo}
+        />
+      )}
+      {selectedPlayer !== null && displayDeathModal && (
+        <DeathModal
+          maxDayNight={players * 2}
+          playerNames={playerNames}
+          player={selectedPlayer}
+          deathType={deathModalType}
+          dayNight={deathModalDayNight}
+          executions={executions}
+          demonKills={demonKills}
+          onDeathTypeChange={setDeathModalType}
+          onDayNightChange={setDeathModalDayNight}
+          onSelectedPlayerChange={handleSelectDeathPlayer}
+          setExecutions={setExecutions}
+          setDemonKills={setDemonKills}
+          removeExecution={removeExecution}
         />
       )}
     </>

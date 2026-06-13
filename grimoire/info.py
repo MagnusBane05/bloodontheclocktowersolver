@@ -4,10 +4,26 @@ from .role import Role
 FIRST_NIGHT_INFO = {"investigator", "washerwoman", "librarian", "chef", "claim"}
 ANY_NIGHT_INFO = {"fortune teller", "empath", "undertaker", "ravenkeeper", "virgin", "slayer"}
 
-class DeathInfo(TypedDict):
-    executed: list[tuple[int,int]]
-    slayer_shot: tuple[int,int] | None
-    killed_by_demon: list[tuple[int,int]]
+class ExecutionInfo(TypedDict):
+    kind: Literal["execution"]
+    player: int
+    night: int
+
+class DemonKillInfo(TypedDict):
+    kind: Literal["demon"]
+    player: int
+    night: int
+
+class SlayerKillInfo(TypedDict):
+    kind: Literal["slayer"]
+    player: int
+    night: int
+
+type DeathInfo = (
+    ExecutionInfo |
+    DemonKillInfo |
+    SlayerKillInfo
+)
 
 class Claim(TypedDict):
     kind: Literal["claim"]
@@ -82,7 +98,7 @@ class SlayerInfo(TypedDict):
     successful: bool
     night: int
 
-Info = (
+type Info = (
     Claim |
     InvestigatorInfo |
     WasherwomanInfo |

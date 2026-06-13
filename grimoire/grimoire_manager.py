@@ -22,12 +22,15 @@ class GrimoireManager():
         self.grims: list[Grimoire] = []
         self.true_grim = true_grim
 
-    def add_full_game(self, info_list: list[Info], death_info: DeathInfo, nights: int):
+    def add_full_game(self, info_list: list[Info], death_info: list[DeathInfo], nights: int):
         for night in range(1,nights+1):
             # add imp kill
-            for imp_kill in death_info['killed_by_demon']:
-                if imp_kill[1] == night:
-                    self.add_demon_kill(imp_kill[0], night)
+            for imp_kill in [
+                d for d in death_info 
+                if d["kind"] == "demon" 
+                and d["night"] == night
+            ]:
+                self.add_demon_kill(imp_kill["player"], night)
 
             # add info
             for info in info_list:
@@ -36,14 +39,13 @@ class GrimoireManager():
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
                     self.add_info(info)
 
-            # add slayer shot
-            if death_info["slayer_shot"] is not None and death_info["slayer_shot"][1] == night:
-                self.add_slayer_kill(death_info["slayer_shot"][0], night)
-
-            # add execution
-            for execution in death_info["executed"]:
-                if execution[1] == night:
-                    self.add_execution(execution[0], night)
+            for death in [d for d in death_info if d["night"] == night]:
+                # add slayer shot
+                if death["kind"] == "slayer":
+                    self.add_slayer_kill(death["player"], night)
+                elif death["kind"] == "execution":
+                    # add execution
+                    self.add_execution(death["player"], night)
 
             self.remove_duplicates() # faster than after adding info for games with 10 players
 

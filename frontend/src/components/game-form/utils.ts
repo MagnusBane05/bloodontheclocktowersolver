@@ -1,4 +1,4 @@
-import { Info, SlayerInfo, VirginInfo } from '../../types';
+import { DeathInfo, ExecutionInfo, Info, SlayerInfo, SlayerKillInfo, VirginInfo } from '../../types';
 import { InfoFormEntry } from './types';
 
 export const defaultInfoKinds = [
@@ -15,58 +15,37 @@ export const defaultInfoKinds = [
   'slayer',
 ] as const;
 
-export const parseDeathList = (input: string): Array<[number, number]> =>
-  input
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line)
-    .map((line) => {
-      const [player, night] = line.split(',').map(Number);
-      return [player, night] as [number, number];
-    });
-
 export const getAlivePlayersAtNight = (
   players: number,
   night: number | null,
-  executed: string,
-  demonKills: string,
-  slayerShot: [number, number] | null,
+  deaths: DeathInfo[],
 ): number[] => {
   if (night === undefined || night === null || Number.isNaN(night)) {
     return Array.from({ length: players }, (_, i) => i);
   }
 
-  const deadPlayers = new Set<number>();
-  parseDeathList(executed).forEach(([player, deathNight]) => {
-    if (deathNight < night) deadPlayers.add(player);
-  });
-  parseDeathList(demonKills).forEach(([player, deathNight]) => {
-    if (deathNight <= night) deadPlayers.add(player);
-  });
-  if (slayerShot && !Number.isNaN(slayerShot[0]) && slayerShot[1] < night) {
-    deadPlayers.add(slayerShot[0]);
-  }
-
-  return Array.from({ length: players }, (_, i) => i).filter((player) => !deadPlayers.has(player));
+  const deadPlayersAtNight = deaths
+    .filter((d) => d.night < night)
+    .map((d) => d.player);
+  return Array.from({ length: players }, (_, i) => i)
+    .filter((player) => deadPlayersAtNight.indexOf(player) === -1);
 };
 
-export const getBodyFromPreviousNight = (executed: string, night: number | null): number | null => {
+export const getBodyFromPreviousNight = (executions: ExecutionInfo[], night: number | null): number | null => {
   if (night === undefined || night === null || Number.isNaN(night) || night <= 1) {
     return null;
   }
 
   const previousNight = night - 1;
-  const executedRows = parseDeathList(executed).filter(([, deathNight]) => deathNight === previousNight);
-  return executedRows.length > 0 ? executedRows[0][0] : null;
+  const executedRows = executions.filter((e) => e.night === previousNight);
+  return executedRows.length > 0 ? executedRows[0].player : null;
 };
 
 export const computeEmpathNeighbours = (
   empath: number | null,
   night: number | null,
   players: number,
-  executed: string,
-  demonKills: string,
-  slayerShot: [number, number] | null,
+  deaths: DeathInfo[]
 ): { left: number | null; right: number | null } => {
   if (
     empath === undefined ||
@@ -79,7 +58,7 @@ export const computeEmpathNeighbours = (
     return { left: null, right: null };
   }
 
-  const alivePlayers = getAlivePlayersAtNight(players, night, executed, demonKills, slayerShot);
+  const alivePlayers = getAlivePlayersAtNight(players, night, deaths);
   if (alivePlayers.length < 2 || !alivePlayers.includes(empath)) {
     return { left: null, right: null };
   }
@@ -408,7 +387,7 @@ export const createInfoEntryForClaimRole = (kind: Info['kind'], player: number):
   }
 };
 
-export const deriveSlayerShotFromInfos = (infos: InfoFormEntry[]): [number, number] | null => {
+export const deriveSlayerShotFromInfos = (infos: InfoFormEntry[]): SlayerKillInfo | null => {
   const successfulSlayerInfo = infos.find((info) => info.kind === 'slayer' && (info as any).successful) as SlayerInfo;
 
   if (
@@ -423,10 +402,14 @@ export const deriveSlayerShotFromInfos = (infos: InfoFormEntry[]): [number, numb
     return null;
   }
 
-  return [successfulSlayerInfo.target, successfulSlayerInfo.night];
+  return {
+    player: successfulSlayerInfo.target, 
+    night: successfulSlayerInfo.night,
+    kind: "slayer"
+  } as SlayerKillInfo;
 };
 
-export const deriveVirginExecutionFromInfos = (infos: InfoFormEntry[]): [number, number] | null => {
+export const deriveVirginExecutionFromInfos = (infos: InfoFormEntry[]): ExecutionInfo | null => {
   const successfulVirginNomination = infos.find((info) => info.kind === 'virgin' && (info as any).executed) as VirginInfo;
 
   if (
@@ -441,5 +424,9 @@ export const deriveVirginExecutionFromInfos = (infos: InfoFormEntry[]): [number,
     return null;
   }
 
-  return [successfulVirginNomination.nominator, successfulVirginNomination.night];
+  return {
+    player: successfulVirginNomination.nominator, 
+    night: successfulVirginNomination.night,
+    kind: "execution"
+  } as ExecutionInfo;
 };

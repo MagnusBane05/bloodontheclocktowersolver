@@ -1,18 +1,22 @@
 import React from 'react';
 import { ModalHeader } from '../game-form/ModalHeader';
 import { Button } from '../Button';
+import { DemonKillInfo, ExecutionInfo } from '../../types';
 
 interface DeathModalProps {
   player: number;
-  deathType: 'execution' | 'demon_kill' | null;
+  deathType: 'execution' | 'demon' | null;
   dayNight: number | null;
   maxDayNight: number;
-  onDeathTypeChange: (type: 'execution' | 'demon_kill') => void;
-  onDayNightChange: (dayNight: number) => void;
-  onConfirm: () => void;
-  onClear: () => void;
-  onClose: () => void;
   playerNames: string[];
+  executions: ExecutionInfo[];
+  demonKills: DemonKillInfo[];
+  onSelectedPlayerChange: (value: number | null) => void;
+  onDeathTypeChange: (type: 'execution' | 'demon' | null) => void;
+  onDayNightChange: (dayNight: number | null) => void;
+  setExecutions: (executions: ExecutionInfo[]) => void;
+  setDemonKills: (demonKills: DemonKillInfo[]) => void;
+  removeExecution: (player: number, night: number) => void;
 }
 
 export function DeathModal({
@@ -20,43 +24,90 @@ export function DeathModal({
   deathType,
   dayNight,
   maxDayNight,
+  playerNames,
+  executions,
+  demonKills,
   onDeathTypeChange,
   onDayNightChange,
-  onConfirm,
-  onClear,
-  onClose,
-  playerNames,
+  onSelectedPlayerChange,
+  setExecutions,
+  setDemonKills,
+  removeExecution,
 }: DeathModalProps): JSX.Element {
+
+
   const isValid = deathType !== null && dayNight !== null && dayNight > 0;
   const isExecution = deathType === 'execution';
   const dayNightLabel = isExecution ? 'Day' : 'Night';
 
-  const handleConfirm = () => {
-    if (isValid) {
-      onConfirm();
-    }
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && isValid) {
-      handleConfirm();
+      handleDeathConfirm();
     } else if (e.key === 'Escape') {
-      onClose();
+      handleCloseDeathModal();
     }
   };
 
   const playerName = playerNames[player] ?? `Player ${player + 1}`;
 
+  const isExistingExecution = () => -1 !== executions.findIndex((e) => 
+    e.player === player
+  );
+
+  const handleDeathConfirm = () => {
+    if (!isValid || player === null || deathType === null || dayNight === null) {
+      return;
+    }
+
+    if (deathType === 'execution') {
+      const newExecutions = [
+        ...executions.filter((e) => e.player !== player),
+        {player: player, night: dayNight, kind: "execution"} as ExecutionInfo
+      ]
+      setExecutions(newExecutions);
+    } else {
+      const newDemonKills = [
+        ...demonKills.filter((d) => d.player !== player),
+        {player: player, night: dayNight, kind: "demon"} as DemonKillInfo
+      ]
+      setDemonKills(newDemonKills);
+    }
+
+    onSelectedPlayerChange(null);
+    onDeathTypeChange(null);
+    onDayNightChange(null);
+  };
+
+  const handleClearDeath = () => {
+    if (player === null) {
+      return;
+    }
+
+    setDemonKills(demonKills.filter((d) => d.player !== player));
+    if (isExistingExecution() && dayNight !== null) {
+      removeExecution(player, dayNight);
+    }
+
+    onDeathTypeChange(null);
+    onDayNightChange(null);
+  };
+
+  const handleCloseDeathModal = () => {
+    onSelectedPlayerChange(null);
+    onDeathTypeChange(null);
+    onDayNightChange(null);
+  };
+
   return (
     <div
       className="fixed inset-0 z-30 flex items-center justify-center bg-black/50"
-      onClick={onClose}
+      onClick={handleCloseDeathModal}
     >
       <div
         className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <ModalHeader content={`${playerName} death`} onClose={onClose} />
+        <ModalHeader content={`${playerName} death`} onClose={handleCloseDeathModal} />
         <div className="space-y-4">
           {/* Death Type Dropdown */}
           <div className="space-y-2">
@@ -67,7 +118,7 @@ export function DeathModal({
               value={deathType || ''}
               onChange={(e) =>
                 onDeathTypeChange(
-                  e.target.value as 'execution' | 'demon_kill'
+                  e.target.value as 'execution' | 'demon'
                 )
               }
               onKeyDown={handleKeyDown}
@@ -107,7 +158,7 @@ export function DeathModal({
         <div className="mt-6 flex gap-3 justify-center">
           <Button
             type="button"
-            onClick={onClear}
+            onClick={handleClearDeath}
             disabled={deathType === null && dayNight === null}
             style="remove"
           >
@@ -115,7 +166,7 @@ export function DeathModal({
           </Button>
           <Button
             type="button"
-            onClick={handleConfirm}
+            onClick={handleDeathConfirm}
             disabled={!isValid}
             style="primary"
           >
