@@ -30,6 +30,7 @@ def create_info(world: Grimoire, character: Role, player: int, real: bool) -> li
         count = 0
         for night in unique_nights:
             page = world.get_page(night, NightOrderPosition.AFTER_IMP)
+            assert(page != None)
             if not page.dead[player]:
                 info.append(create_empath_info(page, player, real and not page.poisoned[player]))
                 count += 1
@@ -41,6 +42,7 @@ def create_info(world: Grimoire, character: Role, player: int, real: bool) -> li
         count = 0
         for night in unique_nights:
             page = world.get_page(night, NightOrderPosition.AFTER_IMP)
+            assert(page != None)
             if not page.dead[player]:
                 info.append(create_fortune_teller_info(page, player, real and not page.poisoned[player]))
                 count += 1
@@ -52,9 +54,9 @@ def create_info(world: Grimoire, character: Role, player: int, real: bool) -> li
         count = 0
         for night in unique_nights:
             page = world.get_page(night, NightOrderPosition.AFTER_IMP)
-            try:
-                executed_page = world.get_page(night-1, NightOrderPosition.AFTER_EXECUTION)
-            except:
+            assert(page != None)
+            executed_page = world.get_page(night-1, NightOrderPosition.AFTER_EXECUTION)
+            if executed_page == None:
                 continue
             executee = executed_page.executee
             assert executee is not None

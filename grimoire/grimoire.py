@@ -29,9 +29,8 @@ class Grimoire:
         for page in self.pages:
             night = page.night
             night_order_position = page.night_order_position
-            try:
-                other_page = value.get_page(night, night_order_position)
-            except:
+            other_page = value.get_page(night, night_order_position)
+            if other_page == None:
                 continue
             # print("Characters")
             # for i in range(players):
@@ -88,14 +87,15 @@ class Grimoire:
     def _page_key(page: GrimoirePage) :
         return (page.night, page.night_order_position)
 
-    def get_page(self, night: int, night_order_position: NightOrderPosition) -> GrimoirePage:
+    def get_page(self, night: int, night_order_position: NightOrderPosition) -> GrimoirePage | None:
         key = (night, night_order_position)
         i = bisect.bisect_left(self.keys, key)
 
         if i < len(self.pages) and self._page_key(self.pages[i]) == key:
             return self.pages[i]
 
-        raise PhaseNotFoundError(f"Grimoire does not contain page with night {night} and night order position {night_order_position}")
+        return None
+        # raise PhaseNotFoundError(f"Grimoire does not contain page with night {night} and night order position {night_order_position}")
 
     def add_page(self, night: int, night_order_position: NightOrderPosition, page: GrimoirePage | None = None) -> GrimoirePage:
         key = (night, night_order_position)

@@ -8,12 +8,10 @@ from grimoire import helper
 from .nightOrderPosition import NightOrderPosition
 
 from . import gamerules
-from .errors import PhaseNotFoundError
 from .info import Info, DeathInfo, FIRST_NIGHT_INFO, ANY_NIGHT_INFO
 from .info_to_grim import info_to_grimoires
 from .game import Game
 from .grimoire import Grimoire
-from .grimoire_page import GrimoirePage
 from .role import EVIL_CHARACTERS, GOOD_CHARACTERS, Role
 
 SAMPLE_CHANCE = 0
@@ -111,10 +109,9 @@ class GrimoireManager():
         new_grims: list[Grimoire] = []
 
         for grim in self.grims:
-            try:
-                page: GrimoirePage = grim.get_page(night, NightOrderPosition.AFTER_SLAYER)
-            except PhaseNotFoundError:
-                page: GrimoirePage = grim.add_page(night, NightOrderPosition.AFTER_SLAYER)
+            page = grim.get_page(night, NightOrderPosition.AFTER_SLAYER)
+            if page == None:
+                page = grim.add_page(night, NightOrderPosition.AFTER_SLAYER)
 
             assert(not page.dead[target])
 
@@ -123,6 +120,7 @@ class GrimoireManager():
             if gamerules.can_scarlet_woman_catch(page, target):
                 sw_grim = grim.clone()
                 sw_page = sw_grim.get_page(night, NightOrderPosition.AFTER_SLAYER)
+                assert(sw_page != None)
                 sw_grim.apply_sw_catch(target, sw_page)
                 valid = Grimoire.pass_through_pages(sw_grim)
                 if valid and gamerules.is_grim_valid(sw_grim):
@@ -131,6 +129,7 @@ class GrimoireManager():
             if gamerules.can_player_be_recluse(page.characters[target]):
                 recluse_grim = grim.clone()
                 recluse_page = recluse_grim.get_page(night, NightOrderPosition.AFTER_SLAYER)
+                assert(recluse_page != None)
                 recluse_grim.apply_role_to_player(target, Role.RECLUSE, recluse_page)
                 valid = Grimoire.pass_through_pages(recluse_grim)
                 if valid and gamerules.is_grim_valid(recluse_grim):
@@ -143,16 +142,16 @@ class GrimoireManager():
         new_grims: list[Grimoire] = []
 
         for grim in self.grims:
-            try:
-                page: GrimoirePage = grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
-            except PhaseNotFoundError:
-                page: GrimoirePage = grim.add_page(night, NightOrderPosition.AFTER_EXECUTION)
+            page = grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
+            if page == None:
+                page = grim.add_page(night, NightOrderPosition.AFTER_EXECUTION)
 
             assert(not page.dead[executee])
 
             if gamerules.can_scarlet_woman_catch(page, executee):
                 sw_grim = grim.clone()
                 sw_page = sw_grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
+                assert(sw_page != None)
                 sw_page.dead[executee] = True
                 sw_page.executee = executee
                 sw_grim.apply_sw_catch(executee, sw_page)
@@ -163,6 +162,7 @@ class GrimoireManager():
             if page.characters[executee] != Role.IMP:
                 non_sw_grim = grim.clone()
                 non_sw_page = non_sw_grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
+                assert(non_sw_page != None)
                 non_sw_page.dead[executee] = True
                 non_sw_page.executee = executee
                 if page.characters[executee] == Role.SAINT:
@@ -187,10 +187,9 @@ class GrimoireManager():
         new_grims: list[Grimoire] = []
 
         for grim in self.grims:
-            try:
-                page: GrimoirePage = grim.get_page(night, NightOrderPosition.AFTER_IMP)
-            except PhaseNotFoundError:
-                page: GrimoirePage = grim.add_page(night, NightOrderPosition.AFTER_IMP)
+            page = grim.get_page(night, NightOrderPosition.AFTER_IMP)
+            if page == None:
+                page = grim.add_page(night, NightOrderPosition.AFTER_IMP)
 
             assert(not page.dead[player])
 
@@ -199,6 +198,7 @@ class GrimoireManager():
             if gamerules.can_imp_starpass(page, player):
                 sw_grim = grim.clone()
                 sw_page = sw_grim.get_page(night, NightOrderPosition.AFTER_IMP)
+                assert(sw_page != None)
                 sw_page.apply_starpass(player)
                 valid = Grimoire.pass_through_pages(sw_grim)
                 if valid and gamerules.is_grim_valid(sw_grim):
@@ -207,6 +207,7 @@ class GrimoireManager():
             if page.characters[player] != Role.IMP:
                 non_sw_grim = grim.clone()
                 non_sw_page = non_sw_grim.get_page(night, NightOrderPosition.AFTER_IMP)
+                assert(non_sw_page != None)
                 non_sw_grim.apply_non_demon_to_player(player, non_sw_page)
                 valid = Grimoire.pass_through_pages(non_sw_grim)
                 if valid and gamerules.is_grim_valid(non_sw_grim):
