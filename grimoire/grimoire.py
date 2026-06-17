@@ -198,8 +198,7 @@ class Grimoire:
                     new_page = GrimoirePage(num_players, key[0])
                     new_page.night_order_position = key[1]
 
-                phase_0 = new_world.pages[0] if new_world.pages else new_page
-                valid, reason = Grimoire._combine_pages(phase_0, new_page, num_players, p1, p2)
+                valid, reason = Grimoire._combine_pages(new_page, num_players, p1, p2)
                 if not valid:
                     return w1, False, reason
                 i += 1
@@ -224,7 +223,7 @@ class Grimoire:
         return new_world, True, ""
 
     @staticmethod
-    def _combine_pages(phase_0: GrimoirePage, new_phase: GrimoirePage, num_players: int, p1: GrimoirePage, p2: GrimoirePage) -> tuple[bool, str]:
+    def _combine_pages(new_phase: GrimoirePage, num_players: int, p1: GrimoirePage, p2: GrimoirePage) -> tuple[bool, str]:
         # Minion types
         if not Grimoire._combine_minion_types(new_phase, p1, p2):
             return False, "invalid combined minion types"
@@ -255,12 +254,18 @@ class Grimoire:
         if not Grimoire._combine_poisoned(new_phase, p1, p2, num_players):
             return False, "invalid poisoned"
 
-        # Outsider, evil and good count checks
-        if (not gamerules.is_outsider_count_valid(phase_0, num_players)
-            or not gamerules.is_evil_count_valid(new_phase, num_players)
-            or not gamerules.is_good_count_valid(new_phase, num_players)
+        # Outsider count only for first night
+        if (new_phase.night == 1 
+            and new_phase.night_order_position == NightOrderPosition.AFTER_IMP
+            and not gamerules.is_outsider_count_valid(new_phase, num_players)
         ):
-            return False, "invalid player counts"
+            return False, "invalid outsider count"
+
+        # Good and evil player counts
+        if not(gamerules.is_evil_count_valid(new_phase, num_players)
+            and gamerules.is_good_count_valid(new_phase, num_players)
+        ):
+            return False, "invalid good/evil counts"
         
         # Check if there's more than one red herring or if the red herring is on an evil player
         if not Grimoire._combine_red_herring(new_phase, p1, p2, num_players):
