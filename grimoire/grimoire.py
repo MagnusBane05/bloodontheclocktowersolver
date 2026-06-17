@@ -16,7 +16,7 @@ class Grimoire:
         if num_players not in ROLE_BREAKDOWNS.keys():
             raise ValueError(f"{num_players} player worlds are not yet handled.")
         self.pages: list[GrimoirePage] = [GrimoirePage(num_players,1)]
-        self.keys = [self._page_key(GrimoirePage(num_players,1))]
+        self.keys: list[tuple[int, NightOrderPosition]] = [self._page_key(GrimoirePage(num_players,1))]
         self.num_players = num_players
 
     @override
@@ -162,83 +162,98 @@ class Grimoire:
             phase.make_deductions(self.num_players)
     
     @classmethod
-    def combine(cls, w1: Grimoire, w2: Grimoire) -> tuple[Grimoire, bool]:
-
+    def combine(cls, w1: Grimoire, w2: Grimoire) -> tuple[Grimoire, bool, str]:
         if w1.num_players != w2.num_players:
-            raise Exception("You are trying to combine world with different numbers of players. Something has gone terribly wrong.")
+            raise Exception("You are trying to combine worlds with different numbers of players.")
+
         num_players = w1.num_players
+
         new_world = Grimoire(num_players)
+        new_world.pages = []
+        new_world.keys = []
 
-        pages_to_combine: list[tuple[GrimoirePage, GrimoirePage]] = []
+        i = 0
+        j = 0
 
-        for p1 in w1.pages:
-            try:
-                p2 = w2.get_page(p1.night, p1.night_order_position)
-            except PhaseNotFoundError:
-                new_world.add_page(p1.night, p1.night_order_position, p1.clone())
-                continue
-            pages_to_combine.append((p1, p2))
-
-        for p2 in w2.pages:
-            try:
-                p1 = w1.get_page(p2.night, p2.night_order_position)
-            except PhaseNotFoundError:
-                new_world.add_page(p2.night, p2.night_order_position, p2.clone())
-                continue
-
-        for p1, p2 in pages_to_combine:
-            assert(p1.night == p2.night)
-            assert(p1.night_order_position == p2.night_order_position)
-            night = p1.night
-            night_order_position = p2.night_order_position
-
-            if night == 1 and night_order_position == NightOrderPosition.AFTER_IMP:
-                new_page = new_world.pages[0]
+        while i < len(w1.pages) or j < len(w2.pages):
+            # page only in w1
+            if j >= len(w2.pages) or (i < len(w1.pages) and w1.keys[i] < w2.keys[j]):
+                key = w1.keys[i]
+                new_page = w1.pages[i].clone()
+                i += 1
+            # page only in w2
+            elif i >= len(w1.pages) or w2.keys[j] < w1.keys[i]:
+                key = w2.keys[j]
+                new_page = w2.pages[j].clone()
+                j += 1
+            # both grims have page with this key
             else:
-                new_page = GrimoirePage(num_players, night)
-                new_world.add_page(night, night_order_position, new_page)
+                key = w1.keys[i]
+                p1 = w1.pages[i]
+                p2 = w2.pages[j]
 
-            if not Grimoire._combine_pages(new_world.pages[0], new_page, num_players, p1, p2):
-                return w1, False
-            
-        if not Grimoire.pass_through_pages(new_world):
-            return w1, False
-        
+                if key == (1, NightOrderPosition.AFTER_IMP):
+                    new_page = GrimoirePage(num_players, 1)
+                else:
+                    new_page = GrimoirePage(num_players, key[0])
+                    new_page.night_order_position = key[1]
+
+                phase_0 = new_world.pages[0] if new_world.pages else new_page
+                valid, reason = Grimoire._combine_pages(phase_0, new_page, num_players, p1, p2)
+                if not valid:
+                    return w1, False, reason
+                i += 1
+                j += 1
+
+            new_page.night = key[0]
+            new_page.night_order_position = key[1]
+
+            new_world.pages.append(new_page)
+            new_world.keys.append(key)
+
+            if len(new_world.pages) > 1:
+                valid, reason = Grimoire._pass_between_pages(new_world.pages[-2], new_world.pages[-1])
+                if not valid:
+                    return w1, False, reason
+
+        if not gamerules.is_grim_valid(new_world):
+            return w1, False, "invalid grim"
+
         Grimoire.make_deductions(new_world)
 
-        return new_world, True
+        return new_world, True, ""
 
     @staticmethod
-    def _combine_pages(phase_0: GrimoirePage, new_phase: GrimoirePage, num_players: int, p1: GrimoirePage, p2: GrimoirePage):
+    def _combine_pages(phase_0: GrimoirePage, new_phase: GrimoirePage, num_players: int, p1: GrimoirePage, p2: GrimoirePage) -> tuple[bool, str]:
         # Minion types
         if not Grimoire._combine_minion_types(new_phase, p1, p2):
-            return False
+            return False, "invalid combined minion types"
 
         for i in range(num_players):
             c1, c2 = p1.characters[i], p2.characters[i]
             result = Grimoire._combine_characters(c1, c2, p1)
             if result is None:
-                return False
+                return False, "characters do not match"
             new_phase.characters[i] = result
 
         # Make sure the minions match the minion types
         if not Grimoire._validate_minion_types(new_phase):
-            return False
+            return False, "invalid minion types"
         
         # Combine no outsiders and make sure Baron still works
         if not Grimoire._combine_no_outsiders(new_phase, p1, p2):
-            return False
+            return False, "mismatched no outsiders"
 
         # Combine and validate chef numbers
         if new_phase.night == 1 and not Grimoire._combine_chef_number(new_phase, p1, p2, num_players):
-            return False
+            return False, "mismatched chef numbers"
         
         if not Grimoire._combine_deaths(new_phase, p1, p2, num_players):
-            return False
+            return False, "mismatched deaths"
 
         # Poisoner logic
         if not Grimoire._combine_poisoned(new_phase, p1, p2, num_players):
-            return False
+            return False, "invalid poisoned"
 
         # Outsider, evil and good count checks
         if not all([
@@ -246,18 +261,18 @@ class Grimoire:
             gamerules.is_evil_count_valid(new_phase, num_players),
             gamerules.is_good_count_valid(new_phase, num_players)
         ]):
-            return False
+            return False, "invalid player counts"
         
         # Check if there's more than one red herring or if the red herring is on an evil player
         if not Grimoire._combine_red_herring(new_phase, p1, p2, num_players):
-            return False
+            return False, "mismatched red herring"
 
         # Combine star passed and character changed
         new_phase.star_passed = p1.star_passed or p2.star_passed
         for i in range(num_players):
             new_phase.character_changed[i] = p1.character_changed[i] or p2.character_changed[i]
 
-        return True
+        return True, ""
 
     @staticmethod
     def _combine_minion_types(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage):
@@ -612,68 +627,76 @@ class Grimoire:
         return True
 
     @staticmethod
-    def pass_through_pages(world: Grimoire) -> bool:
+    def pass_through_pages(world: Grimoire) -> tuple[bool, str]:
         for i in range(1, len(world.pages)):
-            prev_phase = world.pages[i-1]
-            curr_phase = world.pages[i]
-
-            # pass characters
-            for i in range(len(prev_phase.characters)):
-                if curr_phase.character_changed[i]:
-                    continue
-                if prev_phase.character_changed[i]:
-                    curr_phase.characters[i] = prev_phase.characters[i]
-                    curr_phase.character_changed[i] = True
-                    continue
-                c1, c2 = curr_phase.characters[i], prev_phase.characters[i]
-                result = Grimoire._combine_characters(c1, c2, curr_phase)
-                if result is None:
-                    return False
-                curr_phase.characters[i] = result            
-
-            # pass minion types
-            for minion_type in prev_phase.minion_types:
-                if minion_type in curr_phase.minion_types or minion_type == Role.ANY_OTHER_MINION:
-                    continue
-                try:
-                    curr_phase.add_minion_type(minion_type)
-                except ValueError:
-                    return False
-            
-            # pass red herring
-            if not curr_phase.red_herring_moved:
-                for j, value in enumerate(prev_phase.red_herring):
-                    if value:
-                        curr_phase.red_herring[j] = True
-                
-                if sum(curr_phase.red_herring) > 1:
-                    return False
-
-            # pass drunk token
-            if prev_phase.drunk_token is not None:
-                if curr_phase.drunk_token is None:
-                    curr_phase.drunk_token = prev_phase.drunk_token
-                elif prev_phase.drunk_token != curr_phase.drunk_token:
-                    return False                
-
-            # pass chef number
-            if prev_phase.chef_number is not None:
-                if curr_phase.chef_number is None:
-                    curr_phase.chef_number = prev_phase.chef_number
-                elif prev_phase.chef_number != curr_phase.chef_number:
-                    return False
-                
-            # pass deaths            
-            curr_phase.dead = [a or b for a, b in zip(curr_phase.dead, prev_phase.dead)]
-
-            # check poisoning didn't change during same night
-            if (prev_phase.night == curr_phase.night
-                and True in prev_phase.poisoned 
-                and True in curr_phase.poisoned
-                and prev_phase.poisoned.index(True) != curr_phase.poisoned.index(True)):
-                return False
+            prev = world.pages[i-1]
+            curr = world.pages[i]
+            valid, reason = Grimoire._pass_between_pages(prev, curr)
+            if not valid:
+                return False, reason
                 
         if not gamerules.is_grim_valid(world):
-            return False
+            return False, "invalid grim"
 
-        return True
+        return True, ""
+    
+    @staticmethod
+    def _pass_between_pages(prev: GrimoirePage, curr: GrimoirePage) -> tuple[bool, str]:
+
+        # pass characters
+        for i in range(len(prev.characters)):
+            if curr.character_changed[i]:
+                continue
+            if prev.character_changed[i]:
+                curr.characters[i] = prev.characters[i]
+                curr.character_changed[i] = True
+                continue
+            c1, c2 = curr.characters[i], prev.characters[i]
+            result = Grimoire._combine_characters(c1, c2, curr)
+            if result is None:
+                return False, "mismatched characters between pages"
+            curr.characters[i] = result            
+
+        # pass minion types
+        for minion_type in prev.minion_types:
+            if minion_type in curr.minion_types or minion_type == Role.ANY_OTHER_MINION:
+                continue
+            try:
+                curr.add_minion_type(minion_type)
+            except ValueError:
+                return False, "mismatched minion types between pages"
+        
+        # pass red herring
+        if not curr.red_herring_moved:
+            for j, value in enumerate(prev.red_herring):
+                if value:
+                    curr.red_herring[j] = True
+            
+            if sum(curr.red_herring) > 1:
+                return False, "mismatched red herrings between pages"
+
+        # pass drunk token
+        if prev.drunk_token is not None:
+            if curr.drunk_token is None:
+                curr.drunk_token = prev.drunk_token
+            elif prev.drunk_token != curr.drunk_token:
+                return False, "mismatched drunk token between pages"        
+
+        # pass chef number
+        if prev.chef_number is not None:
+            if curr.chef_number is None:
+                curr.chef_number = prev.chef_number
+            elif prev.chef_number != curr.chef_number:
+                return False, "mismatched chef number between pages"
+            
+        # pass deaths            
+        curr.dead = [a or b for a, b in zip(curr.dead, prev.dead)]
+
+        # check poisoning didn't change during same night
+        if (prev.night == curr.night
+            and True in prev.poisoned 
+            and True in curr.poisoned
+            and prev.poisoned.index(True) != curr.poisoned.index(True)):
+            return False, "mismatched poisoned between pages"
+        
+        return True, ""

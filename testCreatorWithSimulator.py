@@ -7,8 +7,8 @@ from tqdm import tqdm
 from grimoire.info import *
 
 class TestCreatorWithSimulator(unittest.TestCase):
-    def test_5_player(self):
-        self._test_x_player(self, 5, 1000)
+    # def test_5_player(self):
+    #     self._test_x_player(self, 5, 1000)
 
     def test_10_player(self):
         self._test_x_player(self, 10, 10)
@@ -49,6 +49,19 @@ class TestCreatorWithSimulator(unittest.TestCase):
         print(f"Total: {sum(times)}")
         print()
         
+def profile_x_player(x: int, n: int):
+    game: Game = {
+        'players': x
+    }
+    seed = 193
+    result = simulate_info(n, game, seed)
+    for (info_list, death_info), true_world in result:
+    # (info_list, death_info), true_world = result[385]
+        grim_manager = GrimoireManager(game, true_world)
+
+        nights = len(true_world.get_unique_nights())
+        grim_manager.add_full_game(info_list, death_info, nights)
 
 if __name__ == '__main__':
     unittest.main()
+    # profile_x_player(10, 10)
