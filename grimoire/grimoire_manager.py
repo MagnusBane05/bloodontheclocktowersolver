@@ -16,7 +16,7 @@ from .grimoire import Grimoire
 from .grimoire_page import GrimoirePage
 from .role import EVIL_CHARACTERS, GOOD_CHARACTERS, Role
 
-SAMPLE_CHANCE = 0.1
+SAMPLE_CHANCE = 0
 
 
 class GrimoireManager():
