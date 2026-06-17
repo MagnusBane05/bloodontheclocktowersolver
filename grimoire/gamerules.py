@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from grimoire.nightOrderPosition import NightOrderPosition
+
 if TYPE_CHECKING:
     from .grimoire import Grimoire
     from .grimoire_page import GrimoirePage
@@ -57,7 +59,9 @@ def is_grim_valid(grim: Grimoire):
             is_evil_count_valid(page, num_players) and
             is_good_count_valid(page, num_players) and
             are_minion_types_valid(page) and
-            is_invalid_duplicates(page)
+            is_poisoning_valid(page, num_players) and
+            is_no_invalid_duplicates(page) and
+            is_no_sober_saint_executed(page)
         )
         if not valid:
             return False
@@ -129,10 +133,35 @@ def are_minion_types_valid(page: GrimoirePage) -> bool:
             return False
     return True
 
-def is_invalid_duplicates(page: GrimoirePage) -> bool:
+def is_poisoning_valid(page: GrimoirePage, num_players: int) -> bool:
+    # don't allow 2 instances of poisoning
+    if sum(page.poisoned) > 1:
+        return False
+    # return false if no room for poisoner
+    if any(page.poisoned) and Role.POISONER not in page.minion_types and Role.ANY_OTHER_MINION not in page.minion_types:
+        return False
+    # return false if known poisoner is dead
+    dead_characters = [c for i, c in enumerate(page.characters) if page.dead[i]]
+    if any(page.poisoned) and Role.POISONER in dead_characters:
+        return False
+    # false if all minions are dead (check evil roles, not just minions, in case of start passes)
+    if any(page.poisoned) and len([c for c in dead_characters if c in EVIL_ROLES]) == ROLE_BREAKDOWNS[num_players]['minions']:
+        return False
+    return True
+
+def is_no_invalid_duplicates(page: GrimoirePage) -> bool:
     valid_duplicates = ANY_OTHER_ROLES_SET | {Role.IMP}
-    no_imps = [c for c in page.characters if c not in valid_duplicates]
-    return len(no_imps) == len(set(no_imps))
+    invalid_duplicates = [c for c in page.characters if c not in valid_duplicates]
+    return len(invalid_duplicates) == len(set(invalid_duplicates))
+
+def is_no_sober_saint_executed(page: GrimoirePage) -> bool:
+    if page.night_order_position != NightOrderPosition.AFTER_EXECUTION:
+        return True
+    if page.executee is None:
+        return True
+    if page.characters[page.executee] != Role.SAINT:
+        return True
+    return page.poisoned[page.executee]
 
 def get_good_count(num_players: int):
     return get_townsfolk_count(num_players) + get_outsider_count(num_players, False)
@@ -175,7 +204,7 @@ def can_player_be_recluse(player: Role):
             player == Role.ANY_OTHER_GOOD or player == Role.ANY_OTHER)
 
 def can_player_be_demon(player: Role):
-    return player not in {Role.NON_DEMON} | GOOD_ROLES_SET | MINIONS_SET
+    return player not in {Role.NON_DEMON, Role.ANY_OTHER_MINION} | GOOD_ROLES_SET | MINIONS_SET
 
 def is_minion_type_possible(minion: Role, minion_types: list[Role]):
     return minion in minion_types or Role.ANY_OTHER_MINION in minion_types

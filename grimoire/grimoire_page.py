@@ -192,25 +192,25 @@ class GrimoirePage:
             pass
 
         # single alive minion becomes the demon
-        alive_known_minions = gamerules.get_alive_characters_of_type(self, {Role.ANY_OTHER_MINION}) 
-        if len(alive_known_minions) == 1:
-            for i,c in enumerate(self.characters):
-                if self.dead[i]:
-                    continue
-                if c in alive_known_minions:
-                    self.characters[i] = Role.IMP
-                    self.character_changed[i] = True
-                    return i
+        # alive_known_minions = gamerules.get_alive_characters_of_type(self, {Role.ANY_OTHER_MINION})
+        alive_possible_sw = gamerules.get_alive_players_of_type(self, {
+            Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.NON_DEMON
+        })
+        assert(len(alive_possible_sw) > 0)
+        if len(alive_possible_sw) == 1:
+            alive_sw = alive_possible_sw[0]
+            self.characters[alive_sw] = Role.IMP
+            self.character_changed[alive_sw] = True
+            return alive_sw
 
-        # if all minions are accounted for, there cannot be NON_DEMON roles, so any NON_DEMON roles could be potential scarlet women
-        for i,c in enumerate(self.characters):
-            if self.dead[i]:
-                continue
+        # otherwise, all alive potential scarlet women could be the new demon
+        for i in alive_possible_sw:
+            c = self.characters[i]
             if c == Role.NON_DEMON:
                 self.characters[i] = Role.ANY_OTHER
                 self.character_changed[i] = True
                 continue
-            if c == Role.ANY_OTHER_MINION:
+            elif c == Role.ANY_OTHER_MINION:
                 self.characters[i] = Role.ANY_OTHER_EVIL
                 self.character_changed[i] = True
 

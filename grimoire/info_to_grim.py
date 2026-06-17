@@ -73,7 +73,7 @@ def _create_worlds_from_claim(game: Game, claim: Claim) -> list[Grimoire]:
     world_claimed = Grimoire(game['players'])
     phase_claimed = world_claimed.pages[0]
     phase_claimed.characters[player] = character
-    if character in OUTSIDERS:
+    if character in OUTSIDERS and ROLE_BREAKDOWNS[game['players']]['outsiders'] == 0:
         phase_claimed.add_minion_type(Role.BARON)
     worlds.append(world_claimed)
 

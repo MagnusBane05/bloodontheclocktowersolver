@@ -69,7 +69,7 @@ class GrimoireManager():
         conflicting_worlds: list[tuple[Grimoire,Grimoire]] = []
         valid_worlds: list[Grimoire] = []
 
-        for w1 in self.grims:
+        for i,w1 in enumerate(self.grims):
             for w2 in new_grims:
                 combined_world, valid = Grimoire.combine(w1, w2)
                 if valid: 
@@ -125,15 +125,11 @@ class GrimoireManager():
 
             assert(not page.dead[executee])
 
-            if page.characters[executee] == Role.SAINT and not page.poisoned[executee]:
-                continue
-
-            page.dead[executee] = True
-            page.executee = executee
-
             if gamerules.can_scarlet_woman_catch(page, executee):
                 sw_grim = grim.clone()
                 sw_page = sw_grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
+                sw_page.dead[executee] = True
+                sw_page.executee = executee
                 sw_grim.apply_sw_catch(executee, sw_page)
                 valid = Grimoire.pass_through_pages(sw_grim)
                 if valid and gamerules.is_grim_valid(sw_grim):
@@ -142,7 +138,19 @@ class GrimoireManager():
             if page.characters[executee] != Role.IMP:
                 non_sw_grim = grim.clone()
                 non_sw_page = non_sw_grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
+                non_sw_page.dead[executee] = True
+                non_sw_page.executee = executee
+                if page.characters[executee] == Role.SAINT:
+                    non_sw_page.poisoned[executee] = True
+                    try:
+                        non_sw_page.add_minion_type(Role.POISONER)
+                    except ValueError:
+                        continue
                 non_sw_grim.apply_non_demon_to_player(executee, non_sw_page)
+                # non_sw_page.make_deductions(len(non_sw_page.characters))
+                # if (len(gamerules.get_alive_characters_of_type(non_sw_page, {Role.POISONER, Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER})) == 0 
+                #     or non_sw_page.characters[executee] == Role.POISONER):
+                #     non_sw_page.clear_poisoned()
                 valid = Grimoire.pass_through_pages(non_sw_grim)
                 if valid and gamerules.is_grim_valid(non_sw_grim):
                     Grimoire.make_deductions(non_sw_grim)

@@ -61,11 +61,10 @@ class Grimoire:
                 character = phase.characters[j]
                 dead = phase.dead[j]
                 red_herring = phase.red_herring[j]
-                if character != Role.ANY_OTHER:
-                    if character in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_MINION, Role.NON_DEMON]:
-                        ps += f"Player {j} is {CHARACTER_STRINGS[character]}.\n"
-                    else:
-                        ps += f"Player {j} is the {CHARACTER_STRINGS[character]}.\n"
+                if character in ANY_OTHER_ROLES:
+                    ps += f"Player {j} is {CHARACTER_STRINGS[character]}.\n"
+                else:
+                    ps += f"Player {j} is the {CHARACTER_STRINGS[character]}.\n"
                 if phase.poisoned[j]:
                     ps += f"Player {j} was poisoned N{phase.night}.\n"
                 if dead:
@@ -112,8 +111,8 @@ class Grimoire:
         new_page = prev.clone() if page is None else page
         new_page.night = night
         new_page.night_order_position = night_order_position
-        if prev.night != night:
-            new_page.poisoned = [False]*len(prev.poisoned)
+        if page is None:
+            new_page.poisoned = [False]*len(new_page.poisoned)
         self.pages.insert(i, new_page)
         self.keys.insert(i, key)
         return new_page
@@ -587,21 +586,7 @@ class Grimoire:
     def _combine_poisoned(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):
         for i in range(num_players):
             new_phase.poisoned[i] = p1.poisoned[i] or p2.poisoned[i]
-        # don't allow 2 instances of poisoning
-        if sum(new_phase.poisoned) > 1:
-            return False
-        # return false if no room for poisoner
-        if any(new_phase.poisoned) and Role.POISONER not in new_phase.minion_types and Role.ANY_OTHER_MINION not in new_phase.minion_types:
-            return False
-        # return false if known poisoner is dead
-        dead_characters = [c for i, c in enumerate(new_phase.characters) if new_phase.dead[i]]
-        if any(new_phase.poisoned) and Role.POISONER in dead_characters:
-            return False
-        # false if all minions are dead (check evil roles, not just minions, in case of start passes)
-        if any(new_phase.poisoned) and len([c for c in dead_characters if c in EVIL_ROLES]) == ROLE_BREAKDOWNS[num_players]['minions']:
-            return False
-
-        return True
+        return gamerules.is_poisoning_valid(new_phase, num_players)
 
     @staticmethod
     def _combine_red_herring(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):
@@ -682,6 +667,13 @@ class Grimoire:
                 
             # pass deaths            
             curr_phase.dead = [a or b for a, b in zip(curr_phase.dead, prev_phase.dead)]
+
+            # check poisoning didn't change during same night
+            if (prev_phase.night == curr_phase.night
+                and True in prev_phase.poisoned 
+                and True in curr_phase.poisoned
+                and prev_phase.poisoned.index(True) != curr_phase.poisoned.index(True)):
+                return False
                 
         if not gamerules.is_grim_valid(world):
             return False

@@ -35,24 +35,20 @@ def run_simulations(n_simulations: int, game: Game, seed: int | None = None, sub
 
     return simulations
 
-def simulate_info(n: int, game: Game, seed: int|None=None, preset: list[Role] | None = None) -> list[tuple[tuple[list[Info],DeathInfo], Grimoire]]:
-    worlds: list[tuple[tuple[list[Info],DeathInfo], Grimoire]] = []
+def simulate_info(n: int, game: Game, seed: int|None=None, preset: list[Role] | None = None) -> list[tuple[tuple[list[Info],list[DeathInfo]], Grimoire]]:
+    worlds: list[tuple[tuple[list[Info],list[DeathInfo]], Grimoire]] = []
     for i in range(n):
         sim_seed = seed + i if seed is not None else None
         worlds.append(simulate_single_game(game["players"], preset, sim_seed))
     return worlds
 
-def simulate_single_game(players: int, preset: list[Role] | None, seed: int | None) -> tuple[tuple[list[Info],DeathInfo], Grimoire]:
+def simulate_single_game(players: int, preset: list[Role] | None, seed: int | None) -> tuple[tuple[list[Info],list[DeathInfo]], Grimoire]:
     if seed is not None:
         random.seed(seed)
     info_list: list[Info] = []
     grim = Grimoire(players)
     first_page = grim.pages[0]
-    death_info: DeathInfo = {
-        'executed': [],
-        'slayer_shot': None,
-        'killed_by_demon': []
-    }
+    death_info: list[DeathInfo] = []
     characters = choose_characters(players, preset)
     first_page.minion_types = gamerules.get_characters_of_type(characters, MINIONS_SET)
             
@@ -161,7 +157,7 @@ def get_slayer_claim(page: GrimoirePage) -> int | None:
     except ValueError:
         return None
 
-def apply_slayer_shot(slayer: int | None, grim: Grimoire, page: GrimoirePage, death_info: DeathInfo):
+def apply_slayer_shot(slayer: int | None, grim: Grimoire, page: GrimoirePage, death_info: list[DeathInfo]):
     if slayer is None or page.slayer_shot[slayer]:
         return None
     
@@ -177,15 +173,15 @@ def apply_slayer_shot(slayer: int | None, grim: Grimoire, page: GrimoirePage, de
     if slayer_info["successful"]:
         target = slayer_info["target"]
         night = page.night
-        death_info["slayer_shot"] = (target, night)
-        slayer_page = grim.add_page(night, NightOrderPosition.AFTER_SLAYER)
+        death_info.append({"player": target, "night": night, "kind": "slayer"})
+        slayer_page = create_page_after_death(grim, page, night, NightOrderPosition.AFTER_SLAYER, target)
         slayer_page.dead[target] = True
         if page.characters[target] == Role.IMP:
             grim.apply_sw_catch(target, slayer_page)
 
     return slayer_info
 
-def handle_execution(page: GrimoirePage, info_list: list[Info], bluffs: list[Role], true_world: Grimoire, death_info: DeathInfo):
+def handle_execution(page: GrimoirePage, info_list: list[Info], bluffs: list[Role], true_world: Grimoire, death_info: list[DeathInfo]):
     execution_target = get_execution_target(page)
     assert not page.dead[execution_target]
     virgin_claim = None
@@ -194,7 +190,7 @@ def handle_execution(page: GrimoirePage, info_list: list[Info], bluffs: list[Rol
         info_list.append(virgin_info)
         virgin_claim = virgin_info['virgin']
     if not nominator_executed:
-        execute_player(execution_target, page.night, true_world, death_info)
+        execute_player(execution_target, page.night, true_world, page, death_info)
     return virgin_claim
 
 def get_execution_target(page: GrimoirePage):
@@ -208,7 +204,7 @@ def get_execution_target(page: GrimoirePage):
     assert len(execution_targets) > 0, "No valid execution targets."
     return random.choice(execution_targets)
 
-def handle_virgin_claim(page: GrimoirePage, nominated: int, bluffs: list[Role], grim: Grimoire, death_info: DeathInfo) -> tuple[VirginInfo | None, bool]:
+def handle_virgin_claim(page: GrimoirePage, nominated: int, bluffs: list[Role], grim: Grimoire, death_info: list[DeathInfo]) -> tuple[VirginInfo | None, bool]:
     if page.characters[nominated] == Role.VIRGIN or \
         (page.characters[nominated] == Role.DRUNK and page.drunk_token == Role.VIRGIN) or \
         (page.characters[nominated] == Role.IMP and Role.VIRGIN in bluffs and random.random() < VIRGIN_BLUFF_CHANCE) or \
@@ -220,19 +216,26 @@ def handle_virgin_claim(page: GrimoirePage, nominated: int, bluffs: list[Role], 
         )
         virgin_info = create_virgin_info(page, nominated, real)
         if virgin_info['executed']:
-            execute_player(virgin_info['nominator'], page.night, grim, death_info)
+            execute_player(virgin_info['nominator'], page.night, grim, page, death_info)
         return virgin_info, virgin_info['executed']
     return None, False
 
-def execute_player(target: int, night: int, grim: Grimoire, death_info: DeathInfo):
-    execution_page = grim.add_page(night, NightOrderPosition.AFTER_EXECUTION)
+def execute_player(target: int, night: int, grim: Grimoire, page: GrimoirePage, death_info: list[DeathInfo]):
+    execution_page = create_page_after_death(grim, page, night, NightOrderPosition.AFTER_EXECUTION, target)
     execution_page.dead[target] = True
     execution_page.executee = target
     if execution_page.characters[target] == Role.IMP:
         grim.apply_sw_catch(target, execution_page)
-    death_info['executed'].append((target, night))
+    death_info.append({"player": target, "night": night, "kind": "execution"})
 
-def handle_demon_kill(page: GrimoirePage, info_list: list[Info], bluffs: list[Role], death_info: DeathInfo) -> int | None:
+def create_page_after_death(grim: Grimoire, page: GrimoirePage, night: int, position: NightOrderPosition, death: int) -> GrimoirePage:
+    new_page = grim.add_page(night, position)
+    if True in page.poisoned and page.characters[death] != Role.POISONER:
+        poisoned = page.poisoned.index(True)
+        new_page.poisoned[poisoned] = True
+    return new_page
+
+def handle_demon_kill(page: GrimoirePage, info_list: list[Info], bluffs: list[Role], death_info: list[DeathInfo]) -> int | None:
     # Choose target
     alive_imps = page.get_potential_alive_demons()
     if len(alive_imps) > 0:
@@ -253,7 +256,10 @@ def handle_demon_kill(page: GrimoirePage, info_list: list[Info], bluffs: list[Ro
     characters = page.characters
 
     # Monk saved
-    if Role.MONK in characters and Role.MONK in page.get_alive_characters() and not page.poisoned[characters.index(Role.MONK)] and random.random() < 1.0/(len(page.get_alive_characters())-1):
+    if (Role.MONK in characters 
+        and Role.MONK in page.get_alive_characters() 
+        and not page.poisoned[characters.index(Role.MONK)] 
+        and random.random() < 1.0/(len(page.get_alive_characters())-1)):
         return    
     # Soldier targeted
     if page.characters[death_target] == Role.SOLDIER and not page.poisoned[death_target]:
@@ -262,7 +268,7 @@ def handle_demon_kill(page: GrimoirePage, info_list: list[Info], bluffs: list[Ro
     if page.dead[death_target]:
         return
     
-    death_info['killed_by_demon'].append((death_target, page.night))
+    death_info.append({"player": death_target, "night": page.night, "kind": "demon"})
     page.dead[death_target] = True
     # Starpass
     if page.characters[death_target] == Role.IMP:
