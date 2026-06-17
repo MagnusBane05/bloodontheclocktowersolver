@@ -5,6 +5,24 @@ from .role import *
 from grimoire.nightOrderPosition import NightOrderPosition
 from . import helper
 
+DEMON_CANDIDATE_ROLES = {
+    Role.ANY_OTHER,
+    Role.ANY_OTHER_EVIL,
+    Role.IMP,
+}
+
+GENERIC_MINION_SET = MINIONS_SET | {
+    Role.ANY_OTHER_MINION,
+}
+
+GENERIC_TOWNSFOLK_SET = TOWNSFOLK_SET | {
+    Role.ANY_OTHER_TOWNSFOLK,
+}
+
+GENERIC_OUTSIDER_SET = OUTSIDERS_SET | {
+    Role.ANY_OTHER_OUTSIDER,
+}
+
 class GrimoirePage:
     def __init__(self, num_players: int=5, night: int=1, night_order_position: NightOrderPosition=NightOrderPosition.AFTER_IMP):
         self.num_players = num_players
@@ -79,25 +97,34 @@ class GrimoirePage:
         self.poisoned = [False] * len(self.poisoned)
     
     def make_deductions(self: GrimoirePage, num_players: int):
-        deduced = True
         max_depth = 5
-        d = 0
-        while deduced and d < max_depth:
-            deduced = self._deduction_step(num_players)
-            d += 1
+        for _ in range(max_depth):
+            if not self._deduction_step(num_players):
+                break
 
     def _deduction_step(self: GrimoirePage, num_players: int) -> bool:
         deduced = False
 
-        minion_types = self.minion_types
+        dead = self.dead
         characters = self.characters
-        alive_players = [i for i in range(num_players) if not self.dead[i]]
-        alive_characters = [characters[i] for i in alive_players]
+        minion_types = self.minion_types
+
+        known_good_count = 0
+        known_minion_count = 0
+        known_evil_count = 0
+
+        for c in characters:
+            if c in GOOD_ROLES:
+                known_good_count += 1
+            if c in GENERIC_MINION_SET:
+                known_minion_count += 1
+            if c in EVIL_ROLES:
+                known_evil_count += 1
 
         # assign evil roles to player if all good players are accounted for
         good_player_count = ROLE_BREAKDOWNS[num_players]['townsfolk'] + ROLE_BREAKDOWNS[num_players]['outsiders']
-        known_good_players = [i for i,c in enumerate(characters) if c in GOOD_ROLES]
-        if len(known_good_players) == good_player_count:
+        # known_good_count = sum(1 for c in characters if c in GOOD_ROLES)
+        if known_good_count == good_player_count:
             for i,c in enumerate(characters):
                 if c == Role.ANY_OTHER:
                     self.characters[i] = Role.ANY_OTHER_EVIL
@@ -107,14 +134,27 @@ class GrimoirePage:
                     deduced = True
 
         # assign Imp to player if only one alive player could be the Imp
-        demon_roles = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.IMP]
-        potential_demons = [i for i in alive_players if characters[i] in demon_roles]
-        if len(potential_demons) == 1 and characters[potential_demons[0]] != Role.IMP:
-            self.characters[potential_demons[0]] = Role.IMP
+        potential_demon_count = 0
+        potential_demon_idx = -1
+        for i,c in enumerate(characters):
+            if not dead[i] and c in DEMON_CANDIDATE_ROLES:
+                potential_demon_count += 1
+                potential_demon_idx = i
+                if potential_demon_count > 1:
+                    break
+
+        if potential_demon_count == 1 and characters[potential_demon_idx] != Role.IMP:
+            self.characters[potential_demon_idx] = Role.IMP
             deduced = True
 
+        # check if alive Imp is known
+        alive_imp = False
+        for i,c in enumerate(characters):
+            if c == Role.IMP and not dead[i]:
+                alive_imp = True
+                break
         # assign minions to evil players if alive Imp is known
-        if Role.IMP in alive_characters:
+        if alive_imp:
             for i,c in enumerate(characters):
                 if c == Role.ANY_OTHER_EVIL:
                     self.characters[i] = Role.ANY_OTHER_MINION
@@ -129,10 +169,9 @@ class GrimoirePage:
             deduced = True
 
         # assign good role to non demons and if all minions are accounted for
-        minion_roles = MINIONS + [Role.ANY_OTHER_MINION]
         minion_count = ROLE_BREAKDOWNS[num_players]['minions']
-        known_minions = [i for i,c in enumerate(characters) if c in minion_roles]
-        if len(known_minions) == minion_count:
+        # known_minion_count = sum(1 for c in characters if c in GENERIC_MINION_SET)
+        if known_minion_count == minion_count:
             for i,c in enumerate(characters):
                 if c == Role.NON_DEMON:
                     self.characters[i] = Role.ANY_OTHER_GOOD
@@ -140,8 +179,8 @@ class GrimoirePage:
 
         # assign good role to unknowns if all evils are accounted for
         evil_count = ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']
-        known_evil_players = [i for i,c in enumerate(characters) if c in EVIL_ROLES]
-        if len(known_evil_players) == evil_count:
+        # known_evil_count = sum(1 for c in characters if c in EVIL_ROLES)
+        if known_evil_count == evil_count:
             for i,c in enumerate(characters):
                 if c == Role.NON_DEMON or c == Role.ANY_OTHER:
                     self.characters[i] = Role.ANY_OTHER_GOOD
@@ -149,24 +188,32 @@ class GrimoirePage:
 
         # assign leftover outsiders to good players if outsider count is known
         outsider_count_known = Role.BARON in minion_types or Role.ANY_OTHER_MINION not in minion_types
-        townsfolk_count = ROLE_BREAKDOWNS[num_players]["townsfolk"]-2 if Role.BARON in minion_types else ROLE_BREAKDOWNS[num_players]["townsfolk"]
-        townsfolk_roles = TOWNSFOLK + [Role.ANY_OTHER_TOWNSFOLK]
-        known_townsfolk = [i for i,c in enumerate(characters) if c in townsfolk_roles]
-        if outsider_count_known and len(known_townsfolk) == townsfolk_count:
-            for i,c in enumerate(characters):
-                if c == Role.ANY_OTHER_GOOD:
-                    self.characters[i] = Role.ANY_OTHER_OUTSIDER
-                    deduced = True
+        if outsider_count_known:
+            townsfolk_count = ROLE_BREAKDOWNS[num_players]["townsfolk"]-2 if Role.BARON in minion_types else ROLE_BREAKDOWNS[num_players]["townsfolk"]
+            # known_townsfolk_count = sum(1 for c in characters if c in GENERIC_TOWNSFOLK_SET)
+            known_townsfolk_count = 0
+            for c in characters:
+                if c in GENERIC_TOWNSFOLK_SET:
+                    known_townsfolk_count += 1
+            if known_townsfolk_count == townsfolk_count:
+                for i,c in enumerate(characters):
+                    if c == Role.ANY_OTHER_GOOD:
+                        self.characters[i] = Role.ANY_OTHER_OUTSIDER
+                        deduced = True
 
         # assign townsfolk to good players if outsider count is known
-        outsider_count = gamerules.get_outsider_count(num_players, Role.BARON in self.minion_types)
-        outsider_roles = OUTSIDERS + [Role.ANY_OTHER_OUTSIDER]
-        known_outsiders = [i for i,c in enumerate(characters) if c in outsider_roles]
-        if outsider_count_known and len(known_outsiders) == outsider_count:
-            for i,c in enumerate(characters):
-                if c == Role.ANY_OTHER_GOOD:
-                    self.characters[i] = Role.ANY_OTHER_TOWNSFOLK
-                    deduced = True
+        if outsider_count_known:
+            outsider_count = gamerules.get_outsider_count(num_players, Role.BARON in self.minion_types)
+            # known_outsider_count = sum(1 for c in characters if c in GENERIC_OUTSIDER_SET)
+            known_outsider_count = 0
+            for c in characters:
+                if c in GENERIC_OUTSIDER_SET:
+                    known_outsider_count += 1
+            if known_outsider_count == outsider_count:
+                for i,c in enumerate(characters):
+                    if c == Role.ANY_OTHER_GOOD:
+                        self.characters[i] = Role.ANY_OTHER_TOWNSFOLK
+                        deduced = True
         
         return deduced
     
