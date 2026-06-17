@@ -1,6 +1,6 @@
-from enum import Enum, auto
+from enum import IntEnum, auto
 
-class Role(Enum):
+class Role(IntEnum):
     WASHERWOMAN = auto()
     LIBRARIAN = auto()
     INVESTIGATOR = auto()
