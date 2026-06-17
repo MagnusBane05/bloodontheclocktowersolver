@@ -86,6 +86,14 @@ class Grimoire:
     @staticmethod
     def _page_key(page: GrimoirePage) :
         return (page.night, page.night_order_position)
+    
+    def get_first_page(self):
+        assert (
+            len(self.pages) > 0 
+            and self.pages[0].night == 1
+            and self.pages[0].night_order_position == NightOrderPosition.AFTER_IMP
+        )
+        return self.pages[0]
 
     def get_page(self, night: int, night_order_position: NightOrderPosition) -> GrimoirePage | None:
         key = (night, night_order_position)

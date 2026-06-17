@@ -71,6 +71,7 @@ def simulate_single_game(players: int, preset: list[Role] | None, seed: int | No
     ravenkeeper_claim = virgin_claim = slayer_claim = None
     while True:
         night_start_page = grim.get_page(night, NightOrderPosition.AFTER_IMP)
+        assert(night_start_page != None)
 
         # If poisoner is still alive, choose a poisoned target
         if Role.POISONER in night_start_page.characters and Role.POISONER not in compress(night_start_page.characters, night_start_page.dead):

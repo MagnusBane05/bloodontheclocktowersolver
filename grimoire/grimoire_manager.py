@@ -53,7 +53,7 @@ class GrimoireManager():
 
     def add_info(self, info: Info):
         new_grims = info_to_grimoires(self.game, info)
-        valid_grims, _ = self._merge_new_grims(new_grims)
+        valid_grims = self._merge_new_grims(new_grims)
         self.set_grims(valid_grims)
 
     def set_grims(self, new_grims: list[Grimoire]):
@@ -64,11 +64,10 @@ class GrimoireManager():
                         print(i,grim)
         self.grims = new_grims
 
-    def _merge_new_grims(self, new_grims: list[Grimoire]) -> tuple[list[Grimoire], list[tuple[Grimoire,Grimoire]]]:
+    def _merge_new_grims(self, new_grims: list[Grimoire]) -> list[Grimoire]:
         if len(self.grims) == 0:
-            return new_grims, []
+            return new_grims
         
-        conflicting_worlds: list[tuple[Grimoire,Grimoire]] = []
         valid_worlds: list[Grimoire] = []
 
         total = 0
@@ -90,7 +89,6 @@ class GrimoireManager():
                 else:  
                     invalid += 1
                     invalid_reasons[reason] += 1
-                    conflicting_worlds.append((w1, w2))
 
         if random() < SAMPLE_CHANCE:
             print()
@@ -99,7 +97,7 @@ class GrimoireManager():
             print()
             print(invalid_reasons.most_common(5))
             print()
-        return valid_worlds, conflicting_worlds
+        return valid_worlds
 
     
     def remove_duplicates(self):
