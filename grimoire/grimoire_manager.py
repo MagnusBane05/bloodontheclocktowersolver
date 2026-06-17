@@ -51,7 +51,7 @@ class GrimoireManager():
                     # add execution
                     self.add_execution(death["player"], night)
 
-            self.remove_duplicates() # faster than after adding info for games with 10 players
+            self.remove_duplicates() # faster than calling every time we add info
 
     def add_info(self, info: Info):
         new_grims = info_to_grimoires(self.game, info)

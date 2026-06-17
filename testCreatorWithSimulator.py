@@ -7,8 +7,8 @@ from tqdm import tqdm
 from grimoire.info import *
 
 class TestCreatorWithSimulator(unittest.TestCase):
-    # def test_5_player(self):
-    #     self._test_x_player(self, 5, 1000)
+    def test_5_player(self):
+        self._test_x_player(self, 5, 1000)
 
     def test_10_player(self):
         self._test_x_player(self, 10, 10)

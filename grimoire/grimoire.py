@@ -256,11 +256,10 @@ class Grimoire:
             return False, "invalid poisoned"
 
         # Outsider, evil and good count checks
-        if not all([
-            gamerules.is_outsider_count_valid(phase_0, num_players),
-            gamerules.is_evil_count_valid(new_phase, num_players),
-            gamerules.is_good_count_valid(new_phase, num_players)
-        ]):
+        if (not gamerules.is_outsider_count_valid(phase_0, num_players)
+            or not gamerules.is_evil_count_valid(new_phase, num_players)
+            or not gamerules.is_good_count_valid(new_phase, num_players)
+        ):
             return False, "invalid player counts"
         
         # Check if there's more than one red herring or if the red herring is on an evil player
