@@ -138,7 +138,7 @@ def is_evil_count_valid(page: GrimoirePage, num_players: int):
     return True
 
 def is_good_count_valid(page: GrimoirePage, num_players: int):
-    good_count = sum(1 for c in page.characters if c in GOOD_ROLES)
+    good_count = sum(1 for c in page.characters if c in GOOD_ROLES_SET)
     return good_count <= get_good_count(num_players)
 
 def are_minion_types_valid(page: GrimoirePage) -> bool:
