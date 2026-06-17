@@ -53,9 +53,12 @@ def can_imp_starpass(page: GrimoirePage, dead_player: int) -> bool:
 def is_grim_valid(grim: Grimoire):
     first_page = grim.pages[0]
     num_players = len(first_page.characters)
+
+    if not is_outsider_count_valid(first_page, num_players):
+        return False
+
     for page in grim.pages:
         valid = (
-            is_outsider_count_valid(first_page, num_players) and
             is_evil_count_valid(page, num_players) and
             is_good_count_valid(page, num_players) and
             are_minion_types_valid(page) and
@@ -81,37 +84,53 @@ def is_outsider_count_valid(first_page: GrimoirePage, num_players: int):
     # valid if any possible number of outsiders is in one of the valid counts
     return any(c in valid_counts for c in range(minimum, maximum+1))
 
+NONDEMON_OR_ANY = {Role.NON_DEMON, Role.ANY_OTHER}
+POTENTIAL_IMPS = {Role.IMP, Role.ANY_OTHER_EVIL, Role.ANY_OTHER}
+MINIONS_OR_ANY = MINIONS_SET | {Role.ANY_OTHER_MINION}
+VALID_DUPLICATES = ANY_OTHER_ROLES_SET | {Role.IMP}
+OUTSIDER_MIN_ROLES = OUTSIDERS_SET | {Role.ANY_OTHER_OUTSIDER}
+OUTSIDER_MAX_ROLES = {Role.ANY_OTHER_GOOD, Role.ANY_OTHER, Role.NON_DEMON}
+
 def is_evil_count_valid(page: GrimoirePage, num_players: int):
-    characters = page.characters
+    # characters = page.characters
     evil_count = get_evil_count(num_players)
 
     # Precompute counts
-    evil_roles_count = get_characters_of_type_count(characters, EVIL_ROLES_SET)
-    nondemon_any_count = get_characters_of_type_count(characters, {Role.NON_DEMON, Role.ANY_OTHER})
+    evil_roles_count = 0
+    nondemon_any_count = 0
+    alive_imps = 0
+    potential_imps = 0
+    dead_evils = 0
+    minion_count = 0
+    for character, dead in zip(page.characters, page.dead):
+        if character in EVIL_ROLES_SET:
+            evil_roles_count += 1
+            if dead:
+                dead_evils += 1
+        if character in NONDEMON_OR_ANY:
+            nondemon_any_count += 1
+        if character == Role.IMP and not dead:
+            alive_imps += 1
+        if character in POTENTIAL_IMPS and not dead:
+            potential_imps += 1
+        if character in MINIONS_OR_ANY:
+            minion_count += 1
+        
     potential_evils = evil_roles_count + nondemon_any_count
     if potential_evils < evil_count:
         return False
-
     # More than 1 alive imp
-    alive_imps = get_alive_characters_of_type_count(page, {Role.IMP})
     if alive_imps > 1:
         return False
-
     # No alive player could be the demon
-    potential_imps = get_alive_characters_of_type_count(page, {Role.IMP, Role.ANY_OTHER_EVIL, Role.ANY_OTHER})
     if potential_imps == 0:
         return False
-
     # All evil players are dead
-    dead_evils = get_dead_characters_of_type_count(page, EVIL_ROLES_SET)
     if dead_evils >= evil_count:
         return False
-
     # Too many minions
-    minion_count = get_characters_of_type_count(characters, MINIONS_SET | {Role.ANY_OTHER_MINION})
     if minion_count > get_minion_count(num_players):
         return False
-
     # Too many evil players
     if evil_roles_count > evil_count:
         return False
@@ -134,18 +153,22 @@ def are_minion_types_valid(page: GrimoirePage) -> bool:
     return True
 
 def is_poisoning_valid(page: GrimoirePage, num_players: int) -> bool:
+    poisoned_count = sum(page.poisoned)
+    # we can return true right away if no one is poisoned
+    if poisoned_count == 0:
+        return True
     # don't allow 2 instances of poisoning
-    if sum(page.poisoned) > 1:
+    if poisoned_count > 1:
         return False
     # return false if no room for poisoner
-    if any(page.poisoned) and Role.POISONER not in page.minion_types and Role.ANY_OTHER_MINION not in page.minion_types:
+    if Role.POISONER not in page.minion_types and Role.ANY_OTHER_MINION not in page.minion_types:
         return False
     # return false if known poisoner is dead
     dead_characters = [c for i, c in enumerate(page.characters) if page.dead[i]]
-    if any(page.poisoned) and Role.POISONER in dead_characters:
+    if Role.POISONER in dead_characters:
         return False
     # false if all minions are dead (check evil roles, not just minions, in case of start passes)
-    if any(page.poisoned) and len([c for c in dead_characters if c in EVIL_ROLES]) == ROLE_BREAKDOWNS[num_players]['minions']:
+    if len([c for c in dead_characters if c in EVIL_ROLES]) == ROLE_BREAKDOWNS[num_players]['minions']:
         return False
     return True
 
@@ -191,13 +214,13 @@ def get_dead_characters_of_type(page: GrimoirePage, type: set[Role]):
     return [c for i, c in enumerate(page.characters) if page.dead[i] and c in type]
 
 def get_characters_of_type_count(characters: list[Role], type: set[Role]):
-    return sum([1 for c in characters if c in type])
+    return sum(1 for c in characters if c in type)
 
 def get_alive_characters_of_type_count(page: GrimoirePage, type: set[Role]):
-    return sum([1 for c, d in zip(page.characters, page.dead) if not d and c in type])
+    return sum(1 for c, d in zip(page.characters, page.dead) if not d and c in type)
 
 def get_dead_characters_of_type_count(page: GrimoirePage, type: set[Role]):
-    return sum([1 for c, d in zip(page.characters, page.dead) if d and c in type])
+    return sum(1 for c, d in zip(page.characters, page.dead) if d and c in type)
 
 def can_player_be_recluse(player: Role):
     return (player == Role.RECLUSE or player == Role.ANY_OTHER_OUTSIDER or
