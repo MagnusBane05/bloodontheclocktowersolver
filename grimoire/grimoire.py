@@ -163,8 +163,6 @@ class Grimoire:
     
     @classmethod
     def combine(cls, w1: Grimoire, w2: Grimoire) -> tuple[Grimoire, bool]:
-        if not w1 == w2:
-            return w1, False
 
         if w1.num_players != w2.num_players:
             raise Exception("You are trying to combine world with different numbers of players. Something has gone terribly wrong.")

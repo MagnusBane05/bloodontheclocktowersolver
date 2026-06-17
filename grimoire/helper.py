@@ -1,4 +1,23 @@
+from typing import TYPE_CHECKING
+
+from grimoire.errors import PhaseNotFoundError
 from grimoire.role import DEMONS, EVIL_CHARACTERS, GOOD_CHARACTERS, MINIONS, OUTSIDERS, TOWNSFOLK, Role
+
+if TYPE_CHECKING:
+    from grimoire.grimoire import Grimoire
+
+def quick_reject(g1: Grimoire, g2: Grimoire) -> bool:
+    p2 = g2.pages[-1]
+    try:
+        p1 = g1.get_page(p2.night, p2.night_order_position)
+    except PhaseNotFoundError:
+        return False
+    
+    for i,c in enumerate(p2.characters):
+        if not roleLooseEquals(c, p1.characters[i]):
+            return True
+        
+    return False
 
 
 def roleLooseEquals(r1: Role, r2: Role) -> bool:
