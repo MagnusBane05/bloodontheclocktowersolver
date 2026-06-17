@@ -222,4 +222,4 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
-program.prof
+*.prof
