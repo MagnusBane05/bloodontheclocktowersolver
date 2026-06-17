@@ -1,5 +1,6 @@
 from __future__ import annotations
 from logging import warning
+from random import random
 
 from grimoire import helper
 
@@ -13,6 +14,8 @@ from .game import Game
 from .grimoire import Grimoire
 from .grimoire_page import GrimoirePage
 from .role import EVIL_CHARACTERS, GOOD_CHARACTERS, Role
+
+SAMPLE_CHANCE = 0
 
 
 class GrimoireManager():
@@ -69,15 +72,30 @@ class GrimoireManager():
         conflicting_worlds: list[tuple[Grimoire,Grimoire]] = []
         valid_worlds: list[Grimoire] = []
 
-        for i,w1 in enumerate(self.grims):
+        total = 0
+        quick_rejected = 0
+        invalid = 0
+        accepted = 0
+        for w1 in self.grims:
             for w2 in new_grims:
+                total += 1
+                if helper.quick_reject(w1, w2):
+                    quick_rejected += 1
+                    continue
                 combined_world, valid = Grimoire.combine(w1, w2)
                 if valid: 
+                    accepted += 1
                     valid_worlds.append(combined_world)
-                else:
+                else:  
+                    invalid += 1
                     conflicting_worlds.append((w1, w2))
-
+        if random() < SAMPLE_CHANCE:
+            print()
+            print(f"total: {total}, quick rejected: {quick_rejected}, invalid: {invalid}, accepted: {accepted}")
+            print(f"total: 100%, quick rejected: {round(quick_rejected*100./total)}%, invalid: {round(invalid*100./total)}%, accepted: {round(accepted*100./total)}%")
+            print()
         return valid_worlds, conflicting_worlds
+
     
     def remove_duplicates(self):
         self.grims = list(set(self.grims))
