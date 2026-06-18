@@ -1,9 +1,10 @@
 from typing import Any
+from grimoire.gamerules import ROLE_BREAKDOWNS
 from grimoire.grimoire import Grimoire
 import numpy as np
 import pandas as pd
 from grimoire.info_to_grim import Game, info_to_grimoires
-from grimoire.role import Role, ROLE_BREAKDOWNS, MINIONS
+from grimoire.role import Role, MINIONS
 from pprint import pprint
 from itertools import permutations
 from collections import defaultdict

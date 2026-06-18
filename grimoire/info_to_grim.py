@@ -1,6 +1,8 @@
+from .gamerules import ROLE_BREAKDOWNS
+
 from .info import *
 from .grimoire import Grimoire
-from .role import Role, TOWNSFOLK, OUTSIDERS, ROLE_BREAKDOWNS, EVIL_CHARACTERS, GOOD_CHARACTERS
+from .role import Role, TOWNSFOLK, OUTSIDERS, EVIL_CHARACTERS, GOOD_CHARACTERS
 from .game import Game
 from .nightOrderPosition import NightOrderPosition
 

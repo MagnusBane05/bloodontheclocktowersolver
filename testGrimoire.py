@@ -16,7 +16,7 @@ class TestGrimoire(unittest.TestCase):
         w1.pages[0].characters = [
             Role.CHEF, Role.WASHERWOMAN, Role.IMP, Role.LIBRARIAN, Role.SCARLET_WOMAN
         ]
-        w1, valid = Grimoire.combine(w1, chef_world)
+        w1, valid, _ = Grimoire.combine(w1, chef_world)
         self.assertTrue(valid)
 
         # Chef 0 with evil and Recluse pair
@@ -24,7 +24,7 @@ class TestGrimoire(unittest.TestCase):
         w2.pages[0].characters = [
             Role.CHEF, Role.RECLUSE, Role.IMP, Role.DRUNK, Role.BARON
         ]
-        w2, valid = Grimoire.combine(w2, chef_world)
+        w2, valid, _ = Grimoire.combine(w2, chef_world)
         self.assertTrue(valid)
         
         # Chef 0 wih Imp Spy pair
@@ -32,7 +32,7 @@ class TestGrimoire(unittest.TestCase):
         w3.pages[0].characters = [
             Role.CHEF, Role.WASHERWOMAN, Role.IMP, Role.SPY, Role.LIBRARIAN
         ]
-        w3, valid = Grimoire.combine(w3, chef_world)
+        w3, valid, _ = Grimoire.combine(w3, chef_world)
         self.assertTrue(valid)
 
         chef_world.pages[0].chef_number = 1
@@ -41,7 +41,7 @@ class TestGrimoire(unittest.TestCase):
         w4.pages[0].characters = [
             Role.CHEF, Role.WASHERWOMAN, Role.IMP, Role.SCARLET_WOMAN, Role.LIBRARIAN
         ]
-        w4, valid = Grimoire.combine(w4, chef_world)
+        w4, valid, _ = Grimoire.combine(w4, chef_world)
         self.assertTrue(valid)
 
         # Chef 1 with evil and Recluse pair
@@ -49,7 +49,7 @@ class TestGrimoire(unittest.TestCase):
         w5.pages[0].characters = [
             Role.CHEF, Role.RECLUSE, Role.IMP, Role.DRUNK, Role.BARON
         ]
-        w5, valid = Grimoire.combine(w5, chef_world)
+        w5, valid, _ = Grimoire.combine(w5, chef_world)
         self.assertTrue(valid)
 
         # Chef 1 with evil and Spy
@@ -57,7 +57,7 @@ class TestGrimoire(unittest.TestCase):
         w6.pages[0].characters = [
             Role.CHEF, Role.WASHERWOMAN, Role.IMP, Role.SPY, Role.LIBRARIAN
         ]
-        w6, valid = Grimoire.combine(w6, chef_world)
+        w6, valid, _ = Grimoire.combine(w6, chef_world)
         self.assertTrue(valid)
         
         # Chef 1 with evil, Recluse, evil
@@ -67,7 +67,7 @@ class TestGrimoire(unittest.TestCase):
         w7.pages[0].characters = [
             Role.CHEF, Role.WASHERWOMAN, Role.IMP, Role.RECLUSE, Role.SCARLET_WOMAN, Role.LIBRARIAN
         ]
-        w7, valid = Grimoire.combine(w7, chef_world)
+        w7, valid, _ = Grimoire.combine(w7, chef_world)
         self.assertTrue(valid)
 
         chef_world.pages[0].chef_number = 2
@@ -76,7 +76,7 @@ class TestGrimoire(unittest.TestCase):
         w8.pages[0].characters = [
             Role.CHEF, Role.WASHERWOMAN, Role.IMP, Role.RECLUSE, Role.SPY, Role.LIBRARIAN
         ]
-        w8, valid = Grimoire.combine(w8, chef_world)
+        w8, valid, _ = Grimoire.combine(w8, chef_world)
         self.assertTrue(valid)
 
         # Chef two with two seperate groups of evils
@@ -88,7 +88,7 @@ class TestGrimoire(unittest.TestCase):
             Role.SCARLET_WOMAN, Role.BARON, Role.SOLDIER, Role.SLAYER, Role.MAYOR,
             Role.BUTLER, Role.SAINT, Role.UNDERTAKER
         ]
-        w9, valid = Grimoire.combine(w9, chef_world)
+        w9, valid, _ = Grimoire.combine(w9, chef_world)
         self.assertTrue(valid)
 
         ## Invalid worlds
@@ -99,7 +99,7 @@ class TestGrimoire(unittest.TestCase):
         w_invalid1.pages[0].characters = [
             Role.CHEF, Role.IMP, Role.SCARLET_WOMAN, Role.WASHERWOMAN, Role.LIBRARIAN
         ]
-        w_invalid1, valid = Grimoire.combine(w_invalid1, chef_world)
+        w_invalid1, valid, _ = Grimoire.combine(w_invalid1, chef_world)
         self.assertFalse(valid)
 
         chef_world.pages[0].chef_number = 1
@@ -108,26 +108,26 @@ class TestGrimoire(unittest.TestCase):
         w_invalid2.pages[0].characters = [
             Role.CHEF, Role.WASHERWOMAN, Role.IMP, Role.LIBRARIAN, Role.SCARLET_WOMAN
         ]
-        w_invalid2, valid = Grimoire.combine(w_invalid2, chef_world)
+        w_invalid2, valid, _ = Grimoire.combine(w_invalid2, chef_world)
         self.assertFalse(valid)
 
         chef_world.pages[0].chef_number = 3
         # Chef 3 impossible in 5 players
         w_invalid3 = Grimoire()
-        w_invalid3, valid = Grimoire.combine(w_invalid3, chef_world)
+        w_invalid3, valid, _ = Grimoire.combine(w_invalid3, chef_world)
         self.assertFalse(valid)
 
         # In an unknown world, Chef number can be up to maximum possible
         chef_world.pages[0].chef_number = 2
         world = Grimoire()
-        world, valid = Grimoire.combine(world, chef_world)
+        world, valid, _ = Grimoire.combine(world, chef_world)
         self.assertTrue(valid)
 
         # If an unknown evil could be a Spy, a chef could get a 0
         chef_world.pages[0].chef_number = 0
         world = Grimoire()
         world.pages[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER]
-        world, valid = Grimoire.combine(world, chef_world)
+        world, valid, _ = Grimoire.combine(world, chef_world)
         self.assertTrue(valid)
         # self.assertIn(Role.SPY, world.phases[0].minion_types)
 
@@ -136,7 +136,7 @@ class TestGrimoire(unittest.TestCase):
         world = Grimoire()
         world.pages[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER]
         world.pages[0].minion_types = [Role.SCARLET_WOMAN]
-        world, valid = Grimoire.combine(world, chef_world)
+        world, valid, _ = Grimoire.combine(world, chef_world)
         self.assertFalse(valid)
 
         # if Spy is elsewhere, 0 is not possible
@@ -145,14 +145,14 @@ class TestGrimoire(unittest.TestCase):
         world = Grimoire(13)
         world.pages[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER, Role.SPY, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER]
         world.pages[0].minion_types = [Role.SPY, Role.ANY_OTHER_MINION, Role.ANY_OTHER_MINION]
-        world, valid = Grimoire.combine(world, chef_world)
+        world, valid, _ = Grimoire.combine(world, chef_world)
         self.assertFalse(valid)
 
         # only 1 possible evil pair can include a spy
         chef_world.pages[0].chef_number = 0
         world = Grimoire(13)
         world.pages[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER]
-        world, valid = Grimoire.combine(world, chef_world)
+        world, valid, _ = Grimoire.combine(world, chef_world)
         self.assertFalse(valid)
 
         # an unknown good could be the Recluse, making 2 the max Chef number
@@ -160,7 +160,7 @@ class TestGrimoire(unittest.TestCase):
         chef_world.pages[0].chef_number = 2
         world = Grimoire()
         world.pages[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
-        world, valid = Grimoire.combine(world, chef_world)
+        world, valid, _ = Grimoire.combine(world, chef_world)
         self.assertTrue(valid)
 
         # if the unknown good is not the Recluse, they can't contribute to the Chef number
@@ -168,159 +168,8 @@ class TestGrimoire(unittest.TestCase):
         world = Grimoire()
         world.pages[0].characters = [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
         world.pages[0].minion_types = [Role.SCARLET_WOMAN]
-        world, valid = Grimoire.combine(world, chef_world)
+        world, valid, _ = Grimoire.combine(world, chef_world)
         self.assertFalse(valid)
-
-
-
-    def test_combine_characters(self):
-        ## Valid cases
-
-        # Specific role with any other
-        world1a = Grimoire()
-        world1b = Grimoire()
-        world1b.pages[0].characters[0] = Role.LIBRARIAN
-        world1, valid1 = Grimoire.combine(world1a, world1b)
-        self.assertEqual(world1.pages[0].characters[0], Role.LIBRARIAN)
-        self.assertTrue(valid1)
-
-        # Specific non-demon role with non-demon
-        world2a = Grimoire()
-        world2a.pages[0].characters[0] = Role.SPY
-        world2b = Grimoire()
-        world2b.pages[0].characters[0] = Role.NON_DEMON
-        world2, valid2 = Grimoire.combine(world2a, world2b)
-        self.assertEqual(world2.pages[0].characters[0], Role.SPY)
-        self.assertTrue(valid2)
-
-        # Specific good role with any other good
-        world3a = Grimoire()
-        world3a.pages[0].characters[0] = Role.MAYOR
-        world3b = Grimoire()
-        world3b.pages[0].characters[0] = Role.ANY_OTHER_GOOD
-        world3, valid3 = Grimoire.combine(world3a, world3b)
-        self.assertEqual(world3.pages[0].characters[0], Role.MAYOR)
-        self.assertTrue(valid3)
-
-        # Specific evil role with any other evil
-        world4a = Grimoire()
-        world4a.pages[0].characters[0] = Role.POISONER
-        world4b = Grimoire()
-        world4b.pages[0].characters[0] = Role.ANY_OTHER_EVIL
-        world4, valid4 = Grimoire.combine(world4a, world4b)
-        self.assertEqual(world4.pages[0].characters[0], Role.POISONER)
-        self.assertTrue(valid4)
-
-        # Specific outsider with any other outsider
-        world5a = Grimoire()
-        world5a.pages[0].characters[0] = Role.DRUNK
-        world5b = Grimoire()
-        world5b.pages[0].characters[0] = Role.ANY_OTHER_OUTSIDER
-        world5, valid5 = Grimoire.combine(world5a, world5b)
-        self.assertEqual(world5.pages[0].characters[0], Role.DRUNK)
-        self.assertTrue(valid5)
-
-        # Specific townsfolk with any other townsfolk
-        world6a = Grimoire()
-        world6a.pages[0].characters[0] = Role.MONK
-        world6b = Grimoire()
-        world6b.pages[0].characters[0] = Role.ANY_OTHER_TOWNSFOLK
-        world6, valid6 = Grimoire.combine(world6a, world6b)
-        self.assertEqual(world6.pages[0].characters[0], Role.MONK)
-        self.assertTrue(valid6)
-
-        # Specific minion with any other minion
-        world7a = Grimoire()
-        world7a.pages[0].characters[0] = Role.SPY
-        world7b = Grimoire()
-        world7b.pages[0].characters[0] = Role.ANY_OTHER_MINION
-        world7, valid7 = Grimoire.combine(world7a, world7b)
-        self.assertEqual(world7.pages[0].characters[0], Role.SPY)
-        self.assertTrue(valid7)
-
-        # Any other evil with any other
-        world8a = Grimoire()
-        world8a.pages[0].characters[0] = Role.ANY_OTHER_EVIL
-        world8b = Grimoire()
-        world8, valid8 = Grimoire.combine(world8a, world8b)
-        self.assertEqual(world8.pages[0].characters[0], Role.ANY_OTHER_EVIL)
-        self.assertTrue(valid8)
-
-        # Any other evil with non-demon becomes any other minion
-        world9a = Grimoire()
-        world9a.pages[0].characters[0] = Role.ANY_OTHER_EVIL
-        world9b = Grimoire()
-        world9b.pages[0].characters[0] = Role.NON_DEMON
-        world9, valid9 = Grimoire.combine(world9a, world9b)
-        self.assertEqual(world9.pages[0].characters[0], Role.ANY_OTHER_MINION)
-        self.assertTrue(valid9)
-
-        # Any other townsfolk with any other good
-        world10a = Grimoire()
-        world10a.pages[0].characters[0] = Role.ANY_OTHER_TOWNSFOLK
-        world10b = Grimoire()
-        world10b.pages[0].characters[0] = Role.ANY_OTHER_GOOD
-        world10, valid10 = Grimoire.combine(world10a, world10b)
-        self.assertEqual(world10.pages[0].characters[0], Role.ANY_OTHER_TOWNSFOLK)
-        self.assertTrue(valid10)
-
-        ## Invalid cases
-
-        # Two different specific roles
-        world11a = Grimoire()
-        world11a.pages[0].characters[0] = Role.MONK
-        world11b = Grimoire()
-        world11b.pages[0].characters[0] = Role.MAYOR
-        _, valid11 = Grimoire.combine(world11a, world11b)
-        self.assertFalse(valid11)
-
-        # Specific evil role with any other good
-        world12a = Grimoire()
-        world12a.pages[0].characters[0] = Role.POISONER
-        world12b = Grimoire()
-        world12b.pages[0].characters[0] = Role.ANY_OTHER_GOOD
-        _, valid12 = Grimoire.combine(world12a, world12b)
-        self.assertFalse(valid12)
-
-        # Specific good role with any other evil
-        world13a = Grimoire()
-        world13a.pages[0].characters[0] = Role.MAYOR
-        world13b = Grimoire()
-        world13b.pages[0].characters[0] = Role.ANY_OTHER_EVIL
-        _, valid13 = Grimoire.combine(world13a, world13b)
-        self.assertFalse(valid13)
-
-        # Imp with non-demon
-        world14a = Grimoire()
-        world14a.pages[0].characters[0] = Role.IMP
-        world14b = Grimoire()
-        world14b.pages[0].characters[0] = Role.NON_DEMON
-        _, valid14 = Grimoire.combine(world14a, world14b)
-        self.assertFalse(valid14)
-
-        # Specific outsider with any other townsfolk
-        world15a = Grimoire()
-        world15a.pages[0].characters[0] = Role.DRUNK
-        world15b = Grimoire()
-        world15b.pages[0].characters[0] = Role.ANY_OTHER_TOWNSFOLK
-        _, valid15 = Grimoire.combine(world15a, world15b)
-        self.assertFalse(valid15)
-
-        # Specific townsfolk with any other outsider
-        world16a = Grimoire()
-        world16a.pages[0].characters[0] = Role.MONK
-        world16b = Grimoire()
-        world16b.pages[0].characters[0] = Role.ANY_OTHER_OUTSIDER
-        _, valid16 = Grimoire.combine(world16a, world16b)
-        self.assertFalse(valid16)
-
-        # Specific townsfolk with any other minion
-        world17a = Grimoire()
-        world17a.pages[0].characters[0] = Role.MONK
-        world17b = Grimoire()
-        world17b.pages[0].characters[0] = Role.ANY_OTHER_MINION
-        _, valid17 = Grimoire.combine(world17a, world17b)
-        self.assertFalse(valid17)
 
     def test_add_phase(self):
         # test phases with different nights

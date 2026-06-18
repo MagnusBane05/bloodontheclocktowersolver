@@ -3,8 +3,6 @@ from collections import Counter
 from logging import warning
 from random import random
 
-from grimoire import helper
-
 from .nightOrderPosition import NightOrderPosition
 
 from . import gamerules
@@ -13,6 +11,7 @@ from .info_to_grim import info_to_grimoires
 from .game import Game
 from .grimoire import Grimoire
 from .role import EVIL_CHARACTERS, GOOD_CHARACTERS, Role
+from . import role
 
 SAMPLE_CHANCE = 0
 
@@ -79,7 +78,7 @@ class GrimoireManager():
         for w1 in self.grims:
             for w2 in new_grims:
                 total += 1
-                if helper.quick_reject(w1, w2):
+                if self._quick_reject(w1, w2):
                     quick_rejected += 1
                     continue
                 combined_world, valid, reason = Grimoire.combine(w1, w2)
@@ -98,6 +97,19 @@ class GrimoireManager():
             print(invalid_reasons.most_common(5))
             print()
         return valid_worlds
+
+    @staticmethod
+    def _quick_reject(g1: Grimoire, g2: Grimoire) -> bool:
+        p2 = g2.pages[-1]
+        p1 = g1.get_page(p2.night, p2.night_order_position)
+        if p1 == None:
+            return False
+        
+        for i,c in enumerate(p2.characters):
+            if not role.roleLooseEquals(c, p1.characters[i]):
+                return True
+            
+        return False
 
     
     def remove_duplicates(self):
@@ -255,7 +267,7 @@ class GrimoireManager():
         if true_character in EVIL_CHARACTERS:
             raise NotImplementedError("Getting perspective of evil player not implemented yet.")
         elif true_character in GOOD_CHARACTERS:
-            if helper.roleLooseEquals(character, true_character):
+            if role.roleLooseEquals(character, true_character):
                 return True
             if character == Role.DRUNK and page.drunk_token == true_character:
                 return True

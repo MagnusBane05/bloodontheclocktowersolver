@@ -4,6 +4,7 @@ from grimoire import Grimoire, GrimoirePage, Game, NightOrderPosition, GrimoireM
 import grimoire.gamerules as gamerules
 import random
 from itertools import compress
+from grimoire.gamerules import ROLE_BREAKDOWNS
 from grimoire.info import *
 from grimoire.info import VirginInfo
 from grimoire.role import *
@@ -120,7 +121,8 @@ def choose_characters(players: int, preset: list[Role] | None) -> list[Role]:
     is_baron_needed = len(gamerules.get_characters_of_type(characters, OUTSIDERS_SET)) > gamerules.get_outsider_count(players, False)
     if is_baron_needed:
         characters.append(Role.BARON)
-    is_baron_possible = players - (len(characters) - gamerules.get_characters_of_type_count(characters, OUTSIDERS_SET) + 1) >= 2
+    outsider_count = sum(1 for c in characters if c in OUTSIDERS_SET)
+    is_baron_possible = players - (len(characters) - outsider_count + 1) >= 2
     possible_minions = MINIONS[:] if is_baron_possible else [m for m in MINIONS if m != Role.BARON]
     preset_minions = gamerules.get_characters_of_type(characters, MINIONS_SET)
     possible_minions = [m for m in possible_minions if m not in preset_minions]

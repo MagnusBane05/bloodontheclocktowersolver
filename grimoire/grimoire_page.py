@@ -1,9 +1,11 @@
 from __future__ import annotations
+
+from .gamerules import ROLE_BREAKDOWNS
 from . import gamerules
 from itertools import compress
 from .role import *
 from grimoire.nightOrderPosition import NightOrderPosition
-from . import helper
+from . import role
 
 DEMON_CANDIDATE_ROLES = {
     Role.ANY_OTHER,
@@ -240,7 +242,7 @@ class GrimoirePage:
 
         # single alive minion becomes the demon
         # alive_known_minions = gamerules.get_alive_characters_of_type(self, {Role.ANY_OTHER_MINION})
-        alive_possible_sw = gamerules.get_alive_players_of_type(self, {
+        alive_possible_sw = self.get_alive_players_of_type({
             Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.NON_DEMON
         })
         assert(len(alive_possible_sw) > 0)
@@ -276,7 +278,7 @@ class GrimoirePage:
                 return idx
 
         # single alive minion becomes the demon
-        alive_potential_minion_players = gamerules.get_alive_players_of_type(self, MINIONS_SET | {Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.NON_DEMON})
+        alive_potential_minion_players = self.get_alive_players_of_type(MINIONS_SET | {Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.NON_DEMON})
         if len(alive_potential_minion_players) == 1:
             alive_minion_player = alive_potential_minion_players[0]
             old_minion = self.characters[alive_minion_player]
@@ -319,9 +321,18 @@ class GrimoirePage:
         return list(compress(range(len(self.characters)), self.dead))
     
     def get_potential_alive_demons(self):
-        alive_demons = [i for i in self.get_alive_players() if helper.roleLooseEquals(Role.IMP, self.characters[i])]
+        alive_demons = [i for i in self.get_alive_players() if role.roleLooseEquals(Role.IMP, self.characters[i])]
         return alive_demons
     
     def get_known_evil_team(self):
         evil_team = [i for i,c in enumerate(self.characters) if c in EVIL_ROLES]
         return evil_team
+
+    def get_alive_characters_of_type(self, type: set[Role]):
+        return [c for i, c in enumerate(self.characters) if not self.dead[i] and c in type]
+
+    def get_alive_players_of_type(self, type: set[Role]):
+        return [i for i,(c,d) in enumerate(zip(self.characters, self.dead)) if not d and c in type]
+
+    def get_dead_characters_of_type(self, type: set[Role]):
+        return [c for i, c in enumerate(self.characters) if self.dead[i] and c in type]

@@ -31,103 +31,6 @@ class Role(IntEnum):
     NON_DEMON = auto()
     ANY_OTHER = auto()
 
-ROLE_BREAKDOWNS = {
-    5: {
-        'townsfolk': 3,
-        'outsiders': 0,
-        'minions': 1,
-        'demons': 1,
-    },
-    6: {
-        'townsfolk': 3,
-        'outsiders': 1,
-        'minions': 1,
-        'demons': 1,
-    },
-    7: {
-        'townsfolk': 5,
-        'outsiders': 0,
-        'minions': 1,
-        'demons': 1,
-    },
-    8: {
-        'townsfolk': 5,
-        'outsiders': 1,
-        'minions': 1,
-        'demons': 1,
-    },
-    9: {
-        'townsfolk': 5,
-        'outsiders': 2,
-        'minions': 1,
-        'demons': 1,
-    },
-    10: {
-        'townsfolk': 7,
-        'outsiders': 0,
-        'minions': 2,
-        'demons': 1,
-    },
-    11: {
-        'townsfolk': 7,
-        'outsiders': 1,
-        'minions': 2,
-        'demons': 1,
-    },
-    12: {
-        'townsfolk': 7,
-        'outsiders': 2,
-        'minions': 2,
-        'demons': 1,
-    },
-    13: {
-        'townsfolk': 9,
-        'outsiders': 0,
-        'minions': 3,
-        'demons': 1,
-    },
-    14: {
-        'townsfolk': 9,
-        'outsiders': 1,
-        'minions': 3,
-        'demons': 1,
-    },
-    15: {
-        'townsfolk': 9,
-        'outsiders': 2,
-        'minions': 3,
-        'demons': 1,
-    },
-}
-
-EVIL_CHARACTERS = [Role.POISONER, Role.SPY, Role.BARON, Role.SCARLET_WOMAN, Role.IMP]
-EVIL_CHARACTERS_SET = set(EVIL_CHARACTERS)
-GOOD_CHARACTERS = [
-    Role.WASHERWOMAN, Role.LIBRARIAN, Role.INVESTIGATOR, Role.CHEF, Role.EMPATH,
-    Role.FORTUNE_TELLER, Role.UNDERTAKER, Role.MONK, Role.RAVENKEEPER, Role.VIRGIN,
-    Role.SLAYER, Role.SOLDIER, Role.MAYOR, Role.BUTLER, Role.SAINT, Role.RECLUSE, Role.DRUNK
-]
-GOOD_CHARACTERS_SET = set(GOOD_CHARACTERS)
-MINIONS = [Role.POISONER, Role.SPY, Role.BARON, Role.SCARLET_WOMAN]
-MINIONS_SET = set(MINIONS)
-TOWNSFOLK = [
-    Role.WASHERWOMAN, Role.LIBRARIAN, Role.INVESTIGATOR, Role.CHEF, Role.EMPATH,
-    Role.FORTUNE_TELLER, Role.UNDERTAKER, Role.MONK, Role.RAVENKEEPER, Role.VIRGIN,
-    Role.SLAYER, Role.SOLDIER, Role.MAYOR
-]
-TOWNSFOLK_SET = set(TOWNSFOLK)
-OUTSIDERS = [Role.BUTLER, Role.SAINT, Role.RECLUSE, Role.DRUNK]
-OUTSIDERS_SET = set(OUTSIDERS)
-DEMONS = [Role.IMP]
-ALL_CHARACTERS = GOOD_CHARACTERS + EVIL_CHARACTERS
-EVIL_ROLES = EVIL_CHARACTERS + [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]
-EVIL_ROLES_SET = set(EVIL_ROLES)
-GOOD_ROLES = GOOD_CHARACTERS + [Role.ANY_OTHER_GOOD, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_OUTSIDER]
-GOOD_ROLES_SET = set(GOOD_ROLES)
-ANY_OTHER_ROLES = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_MINION, Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_TOWNSFOLK, Role.NON_DEMON]
-ANY_OTHER_ROLES_SET = set(ANY_OTHER_ROLES)
-ROLE_CATEGORIES = [Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_MINION, Role.IMP]
-
 CHARACTER_STRINGS = {
     Role.ANY_OTHER: "Unknown",
     Role.ANY_OTHER_EVIL: "Unknown Evil",
@@ -159,3 +62,210 @@ CHARACTER_STRINGS = {
     Role.SCARLET_WOMAN: "Scarlet Woman", 
     Role.IMP: "Imp"
 }
+
+EVIL_CHARACTERS = [Role.POISONER, Role.SPY, Role.BARON, Role.SCARLET_WOMAN, Role.IMP]
+EVIL_CHARACTERS_SET = set(EVIL_CHARACTERS)
+GOOD_CHARACTERS = [
+    Role.WASHERWOMAN, Role.LIBRARIAN, Role.INVESTIGATOR, Role.CHEF, Role.EMPATH,
+    Role.FORTUNE_TELLER, Role.UNDERTAKER, Role.MONK, Role.RAVENKEEPER, Role.VIRGIN,
+    Role.SLAYER, Role.SOLDIER, Role.MAYOR, Role.BUTLER, Role.SAINT, Role.RECLUSE, Role.DRUNK
+]
+GOOD_CHARACTERS_SET = set(GOOD_CHARACTERS)
+MINIONS = [Role.POISONER, Role.SPY, Role.BARON, Role.SCARLET_WOMAN]
+MINIONS_SET = set(MINIONS)
+TOWNSFOLK = [
+    Role.WASHERWOMAN, Role.LIBRARIAN, Role.INVESTIGATOR, Role.CHEF, Role.EMPATH,
+    Role.FORTUNE_TELLER, Role.UNDERTAKER, Role.MONK, Role.RAVENKEEPER, Role.VIRGIN,
+    Role.SLAYER, Role.SOLDIER, Role.MAYOR
+]
+TOWNSFOLK_SET = set(TOWNSFOLK)
+OUTSIDERS = [Role.BUTLER, Role.SAINT, Role.RECLUSE, Role.DRUNK]
+OUTSIDERS_SET = set(OUTSIDERS)
+DEMONS = [Role.IMP]
+ALL_CHARACTERS = GOOD_CHARACTERS + EVIL_CHARACTERS
+EVIL_ROLES = EVIL_CHARACTERS + [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]
+EVIL_ROLES_SET = set(EVIL_ROLES)
+GOOD_ROLES = GOOD_CHARACTERS + [Role.ANY_OTHER_GOOD, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_OUTSIDER]
+GOOD_ROLES_SET = set(GOOD_ROLES)
+ANY_OTHER_ROLES = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_MINION, Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_TOWNSFOLK, Role.NON_DEMON]
+ANY_OTHER_ROLES_SET = set(ANY_OTHER_ROLES)
+ROLE_CATEGORIES = [Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_MINION, Role.IMP]
+
+def get_overlapping(c1: Role, c2: Role, specific: bool) -> Role | None:
+    if c1 == c2:
+        return c1
+    if c1 not in ANY_OTHER_ROLES:
+        return _get_overlapping_character(c1, c2, specific)
+    if c1 == Role.ANY_OTHER_EVIL:
+        return _get_overlapping_evil(c2, specific)
+    if c1 == Role.ANY_OTHER_GOOD:
+        return _get_overlapping_good(c2, specific)
+    if c1 == Role.ANY_OTHER_MINION:
+        return _get_overlapping_minion(c2, specific)
+    if c1 == Role.ANY_OTHER_TOWNSFOLK:
+        return _get_overlapping_townsfolk(c2, specific)
+    if c1 == Role.ANY_OTHER_OUTSIDER:
+        return _get_overlapping_outsider(c2, specific)
+    if c1 == Role.NON_DEMON:
+        return _get_overlapping_non_demon(c2, specific)
+    if c1 == Role.ANY_OTHER:
+        return _get_overlapping_other(c2, specific)
+    return None
+
+def _get_overlapping_character(character: Role, c2: Role, specific: bool) -> Role | None:
+    if c2 not in ANY_OTHER_ROLES and c2 != character:
+        return None
+    if c2 == Role.ANY_OTHER_EVIL and character in EVIL_CHARACTERS:
+        return character if specific else c2
+    if c2 == Role.ANY_OTHER_GOOD and character in GOOD_CHARACTERS:
+        return character if specific else c2
+    if c2 == Role.ANY_OTHER_MINION and character in MINIONS:
+        return character if specific else c2
+    if c2 == Role.ANY_OTHER_OUTSIDER and character in OUTSIDERS:
+        return character if specific else c2
+    if c2 == Role.ANY_OTHER_TOWNSFOLK and character in TOWNSFOLK:
+        return character if specific else c2
+    if c2 == Role.NON_DEMON and character != Role.IMP:
+        return character if specific else c2
+    if c2 == Role.ANY_OTHER:
+        return character if specific else c2
+    return None
+
+def _get_overlapping_evil(c2: Role, specific: bool) -> Role | None:
+    if c2 == Role.ANY_OTHER:
+        return Role.ANY_OTHER_EVIL if specific else c2
+    if c2 == Role.ANY_OTHER_GOOD:
+        return None
+    if c2 == Role.ANY_OTHER_MINION:
+        return c2 if specific else Role.ANY_OTHER_EVIL
+    if c2 == Role.ANY_OTHER_TOWNSFOLK or c2 == Role.ANY_OTHER_OUTSIDER:
+        return None
+    if c2 == Role.NON_DEMON:
+        return Role.ANY_OTHER_MINION if specific else Role.ANY_OTHER_EVIL
+    if c2 not in EVIL_CHARACTERS:
+        return None
+    if c2 == Role.IMP:
+        return c2 if specific else Role.ANY_OTHER_EVIL
+    return c2 if specific else Role.ANY_OTHER_EVIL
+
+def _get_overlapping_good(c2: Role, specific: bool) -> Role | None:
+    if c2 == Role.ANY_OTHER:
+        return Role.ANY_OTHER_GOOD if specific else c2
+    if c2 == Role.ANY_OTHER_EVIL:
+        return None
+    if c2 == Role.ANY_OTHER_MINION:
+        return None
+    if c2 == Role.ANY_OTHER_TOWNSFOLK or c2 == Role.ANY_OTHER_OUTSIDER:
+        return c2 if specific else Role.ANY_OTHER_GOOD
+    if c2 == Role.NON_DEMON:
+        return Role.ANY_OTHER_GOOD if specific else c2
+    if c2 not in GOOD_CHARACTERS:
+        return None
+    return c2 if specific else Role.ANY_OTHER_GOOD
+
+def _get_overlapping_minion(c2: Role, specific: bool) -> Role | None:
+    if c2 == Role.ANY_OTHER:
+        return Role.ANY_OTHER_MINION if specific else c2
+    if c2 == Role.ANY_OTHER_GOOD:
+        return None
+    if c2 == Role.ANY_OTHER_EVIL:
+        return Role.ANY_OTHER_MINION if specific else c2
+    if c2 == Role.ANY_OTHER_TOWNSFOLK or c2 == Role.ANY_OTHER_OUTSIDER:
+        return None
+    if c2 == Role.NON_DEMON:
+        return Role.ANY_OTHER_MINION if specific else c2
+    if c2 not in MINIONS:
+        return None
+    return c2 if specific else Role.ANY_OTHER_MINION
+
+def _get_overlapping_townsfolk(c2: Role, specific: bool) -> Role | None:
+    if c2 == Role.ANY_OTHER:
+        return Role.ANY_OTHER_TOWNSFOLK if specific else c2
+    if c2 == Role.ANY_OTHER_GOOD:
+        return Role.ANY_OTHER_TOWNSFOLK if specific else c2
+    if c2 == Role.ANY_OTHER_EVIL:
+        return None
+    if c2 == Role.ANY_OTHER_OUTSIDER:
+        return None
+    if c2 == Role.ANY_OTHER_MINION:
+        return None
+    if c2 == Role.NON_DEMON:
+        return Role.ANY_OTHER_TOWNSFOLK if specific else c2
+    if c2 not in TOWNSFOLK:
+        return None
+    return c2 if specific else Role.ANY_OTHER_TOWNSFOLK
+
+def _get_overlapping_outsider(c2: Role, specific: bool) -> Role | None:
+    if c2 == Role.ANY_OTHER:
+        return Role.ANY_OTHER_OUTSIDER if specific else c2
+    if c2 == Role.ANY_OTHER_GOOD:
+        return Role.ANY_OTHER_OUTSIDER if specific else c2
+    if c2 == Role.ANY_OTHER_EVIL:
+        return None
+    if c2 == Role.ANY_OTHER_TOWNSFOLK:
+        return None
+    if c2 == Role.ANY_OTHER_MINION:
+        return None
+    if c2 == Role.NON_DEMON:
+        return Role.ANY_OTHER_OUTSIDER if specific else c2
+    if c2 not in OUTSIDERS:
+        return None
+    return c2 if specific else Role.ANY_OTHER_OUTSIDER
+
+def _get_overlapping_non_demon(c2: Role, specific: bool) -> Role | None:
+    if c2 == Role.ANY_OTHER:
+        return Role.NON_DEMON if specific else c2
+    if c2 == Role.ANY_OTHER_EVIL:
+        return Role.ANY_OTHER_MINION if specific else c2
+    if c2 == Role.ANY_OTHER_GOOD:
+        return c2 if specific else Role.NON_DEMON
+    if c2 == Role.ANY_OTHER_MINION:
+        return c2 if specific else Role.NON_DEMON
+    if c2 == Role.ANY_OTHER_TOWNSFOLK or c2 == Role.ANY_OTHER_OUTSIDER:
+        return c2 if specific else Role.NON_DEMON
+    if c2 == Role.IMP:
+        return None
+    return c2 if specific else Role.NON_DEMON
+
+def _get_overlapping_other(c2: Role, specific: bool) -> Role | None:
+    if c2 in ANY_OTHER_ROLES:
+        return c2 if specific else Role.ANY_OTHER
+    if c2 == Role.IMP:
+        return c2 if specific else Role.ANY_OTHER
+    return c2 if specific else Role.ANY_OTHER
+
+
+def roleLooseEquals(r1: Role, r2: Role) -> bool:
+    if r1 == r2:
+        return True
+    if r1 == Role.ANY_OTHER or r2 == Role.ANY_OTHER:
+        return True
+    if r1 == Role.NON_DEMON:
+        return r2 != Role.IMP
+    if r2 == Role.NON_DEMON:
+        return r1 != Role.IMP
+    if r1 == Role.ANY_OTHER_TOWNSFOLK:
+        return r2 in TOWNSFOLK or r2 == Role.ANY_OTHER_GOOD
+    if r1 == Role.ANY_OTHER_OUTSIDER:
+        return r2 in OUTSIDERS or r2 == Role.ANY_OTHER_GOOD
+    if r1 == Role.ANY_OTHER_MINION:
+        return r2 in MINIONS or r2 == Role.ANY_OTHER_EVIL
+    if r1 == Role.ANY_OTHER_GOOD:
+        return r2 in GOOD_CHARACTERS or r2 == Role.ANY_OTHER_OUTSIDER or r2 == Role.ANY_OTHER_TOWNSFOLK
+    if r1 == Role.ANY_OTHER_EVIL:
+        return r2 in EVIL_CHARACTERS or r2 == Role.ANY_OTHER_MINION
+    if r1 in TOWNSFOLK:
+        return r2 == Role.ANY_OTHER_TOWNSFOLK or r2 == Role.ANY_OTHER_GOOD
+    if r1 in OUTSIDERS:
+        return r2 == Role.ANY_OTHER_OUTSIDER or r2 == Role.ANY_OTHER_GOOD
+    if r1 in MINIONS:
+        return r2 == Role.ANY_OTHER_MINION or r2 == Role.ANY_OTHER_EVIL
+    if r1 in DEMONS:
+        return r2 == Role.ANY_OTHER_EVIL
+    raise Exception("Something has gone terribly wrong")
+
+
+def minion_types_loose_equals(mt1: list[Role], mt2: list[Role]):
+    unique_minions = set(mt1 + mt2)
+    unique_minions.discard(Role.ANY_OTHER_MINION)
+    return len(unique_minions) <= len(mt1)

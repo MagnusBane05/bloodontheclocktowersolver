@@ -3,13 +3,18 @@ import bisect
 from collections import Counter
 from typing import override
 
+from .role import roleLooseEquals
+
+from .gamerules import ROLE_BREAKDOWNS, ALLOWED_MULTIPLES
+
 from .nightOrderPosition import NightOrderPosition
 
 from . import gamerules
 from .role import *
 from .errors import *
 from .grimoire_page import GrimoirePage
-from .helper import roleLooseEquals, minion_types_loose_equals
+from .role import minion_types_loose_equals
+from grimoire import role
 
 class Grimoire:
     def __init__(self, num_players:int=5):
@@ -307,175 +312,16 @@ class Grimoire:
 
     @staticmethod
     def _combine_characters(c1: Role, c2: Role, p1: GrimoirePage):
-        if c1 == c2:
-            return c1
-        if c1 not in ANY_OTHER_ROLES:
-            return Grimoire._combine_specific_character(c1, c2)
-        if c1 == Role.ANY_OTHER_EVIL:
-            return Grimoire._combine_any_evil(c2, p1)
-        if c1 == Role.ANY_OTHER_GOOD:
-            return Grimoire._combine_any_good(c2, p1)
-        if c1 == Role.ANY_OTHER_MINION:
-            return Grimoire._combine_any_other_minion(c2, p1)
-        if c1 == Role.ANY_OTHER_TOWNSFOLK:
-            return Grimoire._combine_any_other_townsfolk(c2, p1)
-        if c1 == Role.ANY_OTHER_OUTSIDER:
-            return Grimoire._combine_any_other_outsider(c2, p1)
-        if c1 == Role.NON_DEMON:
-            return Grimoire._combine_non_demon(c2, p1)
-        if c1 == Role.ANY_OTHER:
-            return Grimoire._combine_any_other(c2, p1)
-        return None
-
-    @staticmethod
-    def _combine_specific_character(c1: Role, c2: Role):
-        if c2 not in ANY_OTHER_ROLES and c2 != c1:
+        specific = role.get_overlapping(c1, c2, True)
+        if (specific is None
+            or (specific != c1 
+                and specific not in ALLOWED_MULTIPLES 
+                and specific in p1.characters)
+            or (p1.drunk_token is not None 
+                and specific == p1.drunk_token)):
             return None
-        if c2 == Role.ANY_OTHER_EVIL and c1 in EVIL_CHARACTERS:
-            return c1
-        if c2 == Role.ANY_OTHER_GOOD and c1 in GOOD_CHARACTERS:
-            return c1
-        if c2 == Role.ANY_OTHER_MINION and c1 in MINIONS:
-            return c1
-        if c2 == Role.ANY_OTHER_OUTSIDER and c1 in OUTSIDERS:
-            return c1
-        if c2 == Role.ANY_OTHER_TOWNSFOLK and c1 in TOWNSFOLK:
-            return c1
-        if c2 == Role.NON_DEMON and c1 != Role.IMP:
-            return c1
-        if c2 in [Role.ANY_OTHER, c1]:
-            return c1
-        return None
-
-    @staticmethod
-    def _combine_any_evil(c2: Role, p1: GrimoirePage):
-        if c2 == Role.ANY_OTHER:
-            return Role.ANY_OTHER_EVIL
-        if c2 == Role.ANY_OTHER_GOOD:
-            return None
-        if c2 == Role.ANY_OTHER_MINION:
-            return c2
-        if c2 == Role.ANY_OTHER_TOWNSFOLK or c2 == Role.ANY_OTHER_OUTSIDER:
-            return None
-        if c2 == Role.NON_DEMON:
-            return Role.ANY_OTHER_MINION
-        if c2 not in EVIL_CHARACTERS:
-            return None
-        if c2 == Role.IMP:
-            return c2
-        if c2 in p1.characters:
-            return None
-        return c2
-
-    @staticmethod
-    def _combine_any_good(c2: Role, p1: GrimoirePage):
-        if c2 == Role.ANY_OTHER:
-            return Role.ANY_OTHER_GOOD
-        if c2 == Role.ANY_OTHER_EVIL:
-            return None
-        if c2 == Role.ANY_OTHER_MINION:
-            return None
-        if c2 == Role.ANY_OTHER_TOWNSFOLK or c2 == Role.ANY_OTHER_OUTSIDER:
-            return c2
-        if c2 == Role.NON_DEMON:
-            return Role.ANY_OTHER_GOOD
-        if c2 not in GOOD_CHARACTERS:
-            return None
-        if p1.drunk_token is not None and c2 == p1.drunk_token:
-            return None
-        if c2 in p1.characters:
-            return None
-        return c2
-
-    @staticmethod
-    def _combine_any_other_minion(c2: Role, p1: GrimoirePage):
-        if c2 == Role.ANY_OTHER:
-            return Role.ANY_OTHER_MINION
-        if c2 == Role.ANY_OTHER_GOOD:
-            return None
-        if c2 == Role.ANY_OTHER_EVIL:
-            return Role.ANY_OTHER_MINION
-        if c2 == Role.ANY_OTHER_TOWNSFOLK or c2 == Role.ANY_OTHER_OUTSIDER:
-            return None
-        if c2 == Role.NON_DEMON:
-            return Role.ANY_OTHER_MINION
-        if c2 not in MINIONS:
-            return None
-        if c2 in p1.characters:
-            return None
-        return c2
-
-    @staticmethod
-    def _combine_any_other_townsfolk(c2: Role, p1: GrimoirePage):
-        if c2 == Role.ANY_OTHER:
-            return Role.ANY_OTHER_TOWNSFOLK
-        if c2 == Role.ANY_OTHER_GOOD:
-            return Role.ANY_OTHER_TOWNSFOLK
-        if c2 == Role.ANY_OTHER_EVIL:
-            return None
-        if c2 == Role.ANY_OTHER_OUTSIDER:
-            return None
-        if c2 == Role.ANY_OTHER_MINION:
-            return None
-        if c2 == Role.NON_DEMON:
-            return Role.ANY_OTHER_TOWNSFOLK
-        if c2 not in TOWNSFOLK:
-            return None
-        if c2 in p1.characters:
-            return None
-        return c2
-
-    @staticmethod
-    def _combine_any_other_outsider(c2: Role, p1: GrimoirePage):
-        if c2 == Role.ANY_OTHER:
-            return Role.ANY_OTHER_OUTSIDER
-        if c2 == Role.ANY_OTHER_GOOD:
-            return Role.ANY_OTHER_OUTSIDER
-        if c2 == Role.ANY_OTHER_EVIL:
-            return None
-        if c2 == Role.ANY_OTHER_TOWNSFOLK:
-            return None
-        if c2 == Role.ANY_OTHER_MINION:
-            return None
-        if c2 == Role.NON_DEMON:
-            return Role.ANY_OTHER_OUTSIDER
-        if c2 not in OUTSIDERS:
-            return None
-        if c2 in p1.characters:
-            return None
-        return c2
-
-    @staticmethod
-    def _combine_non_demon(c2: Role, p1: GrimoirePage):
-        if c2 == Role.ANY_OTHER:
-            return Role.NON_DEMON
-        if c2 == Role.ANY_OTHER_EVIL:
-            return Role.ANY_OTHER_MINION
-        if c2 == Role.ANY_OTHER_GOOD:
-            return Role.NON_DEMON
-        if c2 == Role.ANY_OTHER_MINION:
-            return c2
-        if c2 == Role.ANY_OTHER_TOWNSFOLK or c2 == Role.ANY_OTHER_OUTSIDER:
-            return c2
-        if c2 == Role.IMP:
-            return None
-        if p1.drunk_token is not None and c2 == p1.drunk_token:
-            return None
-        if c2 in p1.characters:
-            return None
-        return c2
-
-    @staticmethod
-    def _combine_any_other(c2: Role, p1: GrimoirePage):
-        if c2 in ANY_OTHER_ROLES:
-            return c2
-        if p1.drunk_token is not None and c2 == p1.drunk_token:
-            return None
-        if c2 == Role.IMP:
-            return c2
-        if c2 in p1.characters:
-            return None
-        return c2
+        else:
+            return specific
 
     @staticmethod
     def _validate_minion_types(phase: GrimoirePage):

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from grimoire.nightOrderPosition import NightOrderPosition
 
@@ -9,22 +9,101 @@ if TYPE_CHECKING:
 
 from .role import *
 
+ROLE_BREAKDOWNS: dict[
+    int, dict[
+        Literal['townsfolk']
+        | Literal['outsiders']
+        | Literal['minions']
+        | Literal['demons'],
+        int]
+    ] = {
+    5: {
+        'townsfolk': 3,
+        'outsiders': 0,
+        'minions': 1,
+        'demons': 1,
+    },
+    6: {
+        'townsfolk': 3,
+        'outsiders': 1,
+        'minions': 1,
+        'demons': 1,
+    },
+    7: {
+        'townsfolk': 5,
+        'outsiders': 0,
+        'minions': 1,
+        'demons': 1,
+    },
+    8: {
+        'townsfolk': 5,
+        'outsiders': 1,
+        'minions': 1,
+        'demons': 1,
+    },
+    9: {
+        'townsfolk': 5,
+        'outsiders': 2,
+        'minions': 1,
+        'demons': 1,
+    },
+    10: {
+        'townsfolk': 7,
+        'outsiders': 0,
+        'minions': 2,
+        'demons': 1,
+    },
+    11: {
+        'townsfolk': 7,
+        'outsiders': 1,
+        'minions': 2,
+        'demons': 1,
+    },
+    12: {
+        'townsfolk': 7,
+        'outsiders': 2,
+        'minions': 2,
+        'demons': 1,
+    },
+    13: {
+        'townsfolk': 9,
+        'outsiders': 0,
+        'minions': 3,
+        'demons': 1,
+    },
+    14: {
+        'townsfolk': 9,
+        'outsiders': 1,
+        'minions': 3,
+        'demons': 1,
+    },
+    15: {
+        'townsfolk': 9,
+        'outsiders': 2,
+        'minions': 3,
+        'demons': 1,
+    },
+}
+
+ALLOWED_MULTIPLES = {Role.IMP} | ANY_OTHER_ROLES_SET
+
 def can_scarlet_woman_catch(page: GrimoirePage, dead_player: int) -> bool:
     # known non-demon player died
     if not can_player_be_demon(page.characters[dead_player]):
         return False
 
     # known scarlet woman is dead already
-    if len(get_dead_characters_of_type(page, {Role.SCARLET_WOMAN})) > 0:
-        return False
+    for i,c in enumerate(page.characters):
+        if c == Role.SCARLET_WOMAN and page.dead[i]:
+            return False
     
     # all minions are dead already
-    dead_minions = get_dead_characters_of_type(page, MINIONS_SET | {Role.ANY_OTHER_MINION})
+    dead_minions = page.get_dead_characters_of_type(MINIONS_SET | {Role.ANY_OTHER_MINION})
     if len(dead_minions) >= len(page.minion_types):
         return False
 
     # none of the alive players could be a scarlet woman
-    if len(get_alive_characters_of_type(page, {Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION, Role.NON_DEMON, Role.SCARLET_WOMAN})) == 0:
+    if len(page.get_alive_characters_of_type({Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION, Role.NON_DEMON, Role.SCARLET_WOMAN})) == 0:
         return False
     
     # scarlet woman cannot be in minion types
@@ -39,12 +118,12 @@ def can_imp_starpass(page: GrimoirePage, dead_player: int) -> bool:
         return False
     
     # all minions are dead already
-    dead_minions = get_dead_characters_of_type(page, MINIONS_SET | {Role.ANY_OTHER_MINION})
+    dead_minions = page.get_dead_characters_of_type(MINIONS_SET | {Role.ANY_OTHER_MINION})
     if len(dead_minions) >= len(page.minion_types):
         return False
     
     # none of the alive players could be a minion
-    alive_potential_minions = get_alive_characters_of_type(page, MINIONS_SET | {Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.NON_DEMON})
+    alive_potential_minions = page.get_alive_characters_of_type(MINIONS_SET | {Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.NON_DEMON})
     if len(alive_potential_minions) == 0:
         return False
     
@@ -70,6 +149,7 @@ def is_grim_valid(grim: Grimoire):
             return False
     return True
 
+
 def is_outsider_count_valid(first_page: GrimoirePage, num_players: int):
     # librarian told no outsiders
     if first_page.no_outsiders and len(get_characters_of_type(first_page.characters, OUTSIDERS_SET)) > 0:
@@ -93,7 +173,8 @@ OUTSIDER_MAX_ROLES = {Role.ANY_OTHER_GOOD, Role.ANY_OTHER, Role.NON_DEMON}
 
 def is_evil_count_valid(page: GrimoirePage, num_players: int):
     # characters = page.characters
-    evil_count = get_evil_count(num_players)
+    role_breakdowns = ROLE_BREAKDOWNS[num_players]
+    evil_count = role_breakdowns['demons'] + role_breakdowns['minions']
 
     # Precompute counts
     evil_roles_count = 0
@@ -129,7 +210,7 @@ def is_evil_count_valid(page: GrimoirePage, num_players: int):
     if dead_evils >= evil_count:
         return False
     # Too many minions
-    if minion_count > get_minion_count(num_players):
+    if minion_count > role_breakdowns['minions']:
         return False
     # Too many evil players
     if evil_roles_count > evil_count:
@@ -139,7 +220,8 @@ def is_evil_count_valid(page: GrimoirePage, num_players: int):
 
 def is_good_count_valid(page: GrimoirePage, num_players: int):
     good_count = sum(1 for c in page.characters if c in GOOD_ROLES_SET)
-    return good_count <= get_good_count(num_players)
+    role_breakdowns = ROLE_BREAKDOWNS[num_players]
+    return good_count <= role_breakdowns['townsfolk'] + role_breakdowns['outsiders']
 
 def are_minion_types_valid(page: GrimoirePage) -> bool:
     for c in page.characters:
@@ -186,41 +268,11 @@ def is_no_sober_saint_executed(page: GrimoirePage) -> bool:
         return True
     return page.poisoned[page.executee]
 
-def get_good_count(num_players: int):
-    return get_townsfolk_count(num_players) + get_outsider_count(num_players, False)
-
-def get_evil_count(num_players: int):
-    return get_minion_count(num_players) + 1
-
-def get_townsfolk_count(num_players: int):
-    return ROLE_BREAKDOWNS[num_players]['townsfolk']
-
 def get_outsider_count(num_players: int, baron: bool):
     return ROLE_BREAKDOWNS[num_players]['outsiders'] + 2 if baron else ROLE_BREAKDOWNS[num_players]['outsiders']
 
-def get_minion_count(num_players: int):
-    return ROLE_BREAKDOWNS[num_players]['minions']
-
 def get_characters_of_type(characters: list[Role], type: set[Role]):
     return [c for c in characters if c in type]
-
-def get_alive_characters_of_type(page: GrimoirePage, type: set[Role]):
-    return [c for i, c in enumerate(page.characters) if not page.dead[i] and c in type]
-
-def get_alive_players_of_type(page: GrimoirePage, type: set[Role]):
-    return [i for i,(c,d) in enumerate(zip(page.characters, page.dead)) if not d and c in type]
-
-def get_dead_characters_of_type(page: GrimoirePage, type: set[Role]):
-    return [c for i, c in enumerate(page.characters) if page.dead[i] and c in type]
-
-def get_characters_of_type_count(characters: list[Role], type: set[Role]):
-    return sum(1 for c in characters if c in type)
-
-def get_alive_characters_of_type_count(page: GrimoirePage, type: set[Role]):
-    return sum(1 for c, d in zip(page.characters, page.dead) if not d and c in type)
-
-def get_dead_characters_of_type_count(page: GrimoirePage, type: set[Role]):
-    return sum(1 for c, d in zip(page.characters, page.dead) if d and c in type)
 
 def can_player_be_recluse(player: Role):
     return (player == Role.RECLUSE or player == Role.ANY_OTHER_OUTSIDER or

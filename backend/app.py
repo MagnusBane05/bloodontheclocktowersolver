@@ -6,11 +6,13 @@ import typing
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+from grimoire.gamerules import ROLE_BREAKDOWNS
+
 # Add the parent directory to the path so we can import grimoire
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from grimoire import GrimoireManager, Grimoire, Game
-from grimoire.role import ROLE_CATEGORIES, Role, ROLE_BREAKDOWNS, MINIONS, TOWNSFOLK, CHARACTER_STRINGS, EVIL_ROLES, GOOD_ROLES
+from grimoire.role import ROLE_CATEGORIES, Role, MINIONS, TOWNSFOLK, CHARACTER_STRINGS, EVIL_ROLES, GOOD_ROLES
 from grimoire.info import Info
 
 app = Flask(__name__)

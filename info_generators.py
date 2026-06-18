@@ -2,6 +2,7 @@ import random
 from itertools import compress
 
 from grimoire import Grimoire, GrimoirePage, NightOrderPosition
+from grimoire.gamerules import ROLE_BREAKDOWNS
 from grimoire.info import *
 from grimoire.role import *
 
