@@ -3,18 +3,15 @@ from collections import Counter, defaultdict
 import logging
 # logging.basicConfig(level=logging.DEBUG)
 
-from .nightOrderPosition import NightOrderPosition
-
-from . import gamerules
 from .info import Info, DeathInfo, FIRST_NIGHT_INFO, ANY_NIGHT_INFO
 from .info_to_grim import info_to_grimoires
 from .game import Game
 from .grimoire import Grimoire
 from .role import EVIL_CHARACTERS, GOOD_CHARACTERS, Role
 from . import helper
+from .add_info_to_grims import add_death_info_to_grims
 
 SAMPLE_CHANCE = 0
-
 
 class GrimoireManager():
     
@@ -31,7 +28,7 @@ class GrimoireManager():
                 if d["kind"] == "demon" 
                 and d["night"] == night
             ]:
-                self.add_demon_kill(imp_kill["player"], night)
+                self.grims = add_death_info_to_grims(imp_kill, self.grims)
 
             # add info
             for info in info_list:
@@ -41,12 +38,9 @@ class GrimoireManager():
                     self.add_info(info)
 
             for death in [d for d in death_info if d["night"] == night]:
-                # add slayer shot
-                if death["kind"] == "slayer":
-                    self.add_slayer_kill(death["player"], night)
-                elif death["kind"] == "execution":
-                    # add execution
-                    self.add_execution(death["player"], night)
+                # add slayer shot and execution
+                if death["kind"] == "slayer" or death["kind"] == "execution":
+                    self.grims = add_death_info_to_grims(death, self.grims)
 
         self.remove_subsumed_grims() # clean up subsumed grims before we return
 
@@ -242,114 +236,6 @@ class GrimoireManager():
                 for page in grim.pages
             ),
         )
-                        
-    
-    def add_slayer_kill(self, target: int, night: int):
-        new_grims: list[Grimoire] = []
-
-        for grim in self.grims:
-            page = grim.get_page(night, NightOrderPosition.AFTER_SLAYER)
-            if page == None:
-                page = grim.add_page(night, NightOrderPosition.AFTER_SLAYER)
-
-            assert(not page.dead[target])
-
-            page.dead[target] = True
-
-            if gamerules.can_scarlet_woman_catch(page, target):
-                sw_grim = grim.clone()
-                sw_page = sw_grim.get_page(night, NightOrderPosition.AFTER_SLAYER)
-                assert(sw_page != None)
-                sw_grim.apply_sw_catch(target, sw_page)
-                valid = Grimoire.pass_through_pages(sw_grim)
-                if valid and gamerules.is_grim_valid(sw_grim):
-                    Grimoire.make_deductions(sw_grim)
-                    new_grims.append(sw_grim)
-            if gamerules.can_player_be_recluse(page.characters[target]):
-                recluse_grim = grim.clone()
-                recluse_page = recluse_grim.get_page(night, NightOrderPosition.AFTER_SLAYER)
-                assert(recluse_page != None)
-                recluse_grim.apply_role_to_player(target, Role.RECLUSE, recluse_page)
-                valid = Grimoire.pass_through_pages(recluse_grim)
-                if valid and gamerules.is_grim_valid(recluse_grim):
-                    Grimoire.make_deductions(recluse_grim)
-                    new_grims.append(recluse_grim)
-
-        self.set_grims(new_grims)
-    
-    def add_execution(self, executee: int, night: int):
-        new_grims: list[Grimoire] = []
-
-        for grim in self.grims:
-            page = grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
-            if page == None:
-                page = grim.add_page(night, NightOrderPosition.AFTER_EXECUTION)
-
-            assert(not page.dead[executee])
-
-            if gamerules.can_scarlet_woman_catch(page, executee):
-                sw_grim = grim.clone()
-                sw_page = sw_grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
-                assert(sw_page != None)
-                sw_page.dead[executee] = True
-                sw_page.executee = executee
-                sw_grim.apply_sw_catch(executee, sw_page)
-                valid = Grimoire.pass_through_pages(sw_grim)
-                if valid and gamerules.is_grim_valid(sw_grim):
-                    Grimoire.make_deductions(sw_grim)
-                    new_grims.append(sw_grim)
-            if page.characters[executee] != Role.IMP:
-                non_sw_grim = grim.clone()
-                non_sw_page = non_sw_grim.get_page(night, NightOrderPosition.AFTER_EXECUTION)
-                assert(non_sw_page != None)
-                non_sw_page.dead[executee] = True
-                non_sw_page.executee = executee
-                if page.characters[executee] == Role.SAINT:
-                    non_sw_page.poisoned[executee] = True
-                    try:
-                        non_sw_page.add_minion_type(Role.POISONER)
-                    except ValueError:
-                        continue
-                non_sw_grim.apply_non_demon_to_player(executee, non_sw_page)
-                valid = Grimoire.pass_through_pages(non_sw_grim)
-                if valid and gamerules.is_grim_valid(non_sw_grim):
-                    Grimoire.make_deductions(non_sw_grim)
-                    new_grims.append(non_sw_grim)
-
-        self.set_grims(new_grims)
-
-    def add_demon_kill(self, player: int, night: int):
-        new_grims: list[Grimoire] = []
-
-        for grim in self.grims:
-            page = grim.get_page(night, NightOrderPosition.AFTER_IMP)
-            if page == None:
-                page = grim.add_page(night, NightOrderPosition.AFTER_IMP)
-
-            assert(not page.dead[player])
-
-            page.dead[player] = True
-
-            if gamerules.can_imp_starpass(page, player):
-                sw_grim = grim.clone()
-                sw_page = sw_grim.get_page(night, NightOrderPosition.AFTER_IMP)
-                assert(sw_page != None)
-                sw_page.apply_starpass(player)
-                valid = Grimoire.pass_through_pages(sw_grim)
-                if valid and gamerules.is_grim_valid(sw_grim):
-                    Grimoire.make_deductions(sw_grim)
-                    new_grims.append(sw_grim)
-            if page.characters[player] != Role.IMP:
-                non_sw_grim = grim.clone()
-                non_sw_page = non_sw_grim.get_page(night, NightOrderPosition.AFTER_IMP)
-                assert(non_sw_page != None)
-                non_sw_grim.apply_non_demon_to_player(player, non_sw_page)
-                valid = Grimoire.pass_through_pages(non_sw_grim)
-                if valid and gamerules.is_grim_valid(non_sw_grim):
-                    Grimoire.make_deductions(non_sw_grim)
-                    new_grims.append(non_sw_grim)
-
-        self.set_grims(new_grims)
 
     def do_grims_contain_true_grim(self) -> bool:
         if self.true_grim is None:
