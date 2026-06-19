@@ -64,4 +64,6 @@ def profile_x_player(x: int, n: int):
 
 if __name__ == '__main__':
     unittest.main()
+    # profile_x_player(5, 1000)
     # profile_x_player(10, 10)
+    # profile_x_player(15, 1)
