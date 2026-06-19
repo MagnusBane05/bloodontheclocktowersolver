@@ -13,8 +13,8 @@ class TestCreatorWithSimulator(unittest.TestCase):
     def test_10_player(self):
         self._test_x_player(self, 10, 10)
 
-    # def test_15_player(self):
-    #     self._test_x_player(self, 15, 10)
+    def test_15_player(self):
+        self._test_x_player(self, 15, 1)
 
     @staticmethod
     def _test_x_player(clazz: TestCreatorWithSimulator, x: int, n: int):

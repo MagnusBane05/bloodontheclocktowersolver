@@ -14,3 +14,7 @@
 2. Create venv if not present `python -m venv` and activate venv `source .venv/bin/activate`
 3. Install dependencies `pip install -r backend_requirements.txt`
 4. Run app `python app.py`
+
+## Running tests
+1. `cd bloodontheclocktowersolver`
+2. `unittest-parallel -t . -s tests`
