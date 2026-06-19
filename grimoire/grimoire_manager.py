@@ -116,15 +116,17 @@ class GrimoireManager():
 
     @staticmethod
     def _quick_reject(g1: Grimoire, g2: Grimoire) -> bool:
-        p2 = g2.pages[-1]
-        p1 = g1.get_page(p2.night, p2.night_order_position)
-        if p1 == None:
-            return False
-        
-        for i,c in enumerate(p2.characters):
-            if not helper.roleLooseEquals(c, p1.characters[i]):
-                return True
+        if len(g2.pages) > 2:
+            logging.warning(f"New grim has more pages than expected ({len(g2.pages)})")
+        for p2 in g2.pages:
+            p1 = g1.get_page(p2.night, p2.night_order_position)
+            if p1 == None:
+                continue
             
+            for i,c in enumerate(p2.characters):
+                if not helper.roleLooseEquals(c, p1.characters[i]):
+                    return True
+                
         return False
     
     def remove_subsumed_grims(self, max_bucket_size: int = 500):
