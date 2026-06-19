@@ -47,7 +47,7 @@ class GrimoireManager():
                     # add execution
                     self.add_execution(death["player"], night)
 
-            # self.remove_duplicates() # faster than calling every time we add info
+        self.remove_subsumed_grims() # clean up subsumed grims before we return
 
     def add_info(self, info: Info):
         new_grims = info_to_grimoires(self.game, info)
@@ -112,13 +112,6 @@ class GrimoireManager():
                 return True
             
         return False
-    
-    def remove_duplicates(self):
-        before = len(self.grims)
-        self.grims = list(set(self.grims))
-        difference = before - len(self.grims)
-        logging.debug(f"Removed {difference} ({difference*100./before:.2f}%) duplicate grims")
-
     
     def remove_subsumed_grims(self, max_bucket_size: int = 500):
         buckets: dict[tuple, list[Grimoire]] = defaultdict(list) # type: ignore
