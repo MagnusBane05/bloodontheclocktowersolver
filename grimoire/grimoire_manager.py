@@ -48,7 +48,7 @@ class GrimoireManager():
                     # add execution
                     self.add_execution(death["player"], night)
 
-            self.remove_duplicates() # faster than calling every time we add info
+            # self.remove_duplicates() # faster than calling every time we add info
 
     def add_info(self, info: Info):
         new_grims = info_to_grimoires(self.game, info)
@@ -67,7 +67,7 @@ class GrimoireManager():
         if len(self.grims) == 0:
             return new_grims
         
-        valid_worlds: list[Grimoire] = []
+        valid_worlds: set[Grimoire] = set()
 
         total = 0
         quick_rejected = 0
@@ -84,7 +84,7 @@ class GrimoireManager():
                 combined_world, valid, reason = Grimoire.combine(w1, w2)
                 if valid: 
                     accepted += 1
-                    valid_worlds.append(combined_world)
+                    valid_worlds.add(combined_world)
                 else:  
                     invalid += 1
                     invalid_reasons[reason] += 1
@@ -96,7 +96,7 @@ class GrimoireManager():
             print()
             print(invalid_reasons.most_common(5))
             print()
-        return valid_worlds
+        return list(valid_worlds)
 
     @staticmethod
     def _quick_reject(g1: Grimoire, g2: Grimoire) -> bool:
@@ -110,7 +110,6 @@ class GrimoireManager():
                 return True
             
         return False
-
     
     def remove_duplicates(self):
         self.grims = list(set(self.grims))
