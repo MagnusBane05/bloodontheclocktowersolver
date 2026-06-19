@@ -46,8 +46,8 @@ class GrimoireManager():
                 elif death["kind"] == "execution":
                     # add execution
                     self.add_execution(death["player"], night)
-            self.maybe_prune(f"end of night {night}", night == 1)
-        self.remove_subsumed_grims()
+
+            # self.remove_duplicates() # faster than calling every time we add info
 
     def add_info(self, info: Info):
         new_grims = info_to_grimoires(self.game, info)
@@ -64,10 +64,9 @@ class GrimoireManager():
 
     def _merge_new_grims(self, new_grims: list[Grimoire]) -> list[Grimoire]:
         if len(self.grims) == 0:
-            return list(dict.fromkeys(new_grims))
-
-        valid_worlds: list[Grimoire] = []
-        seen: set[Grimoire] = set()
+            return new_grims
+        
+        valid_worlds: set[Grimoire] = set()
 
         total = 0
         quick_rejected = 0
@@ -88,14 +87,8 @@ class GrimoireManager():
 
                 if valid:
                     accepted += 1
-
-                    if combined_world in seen:
-                        duplicate += 1
-                        continue
-
-                    seen.add(combined_world)
-                    valid_worlds.append(combined_world)
-                else:
+                    valid_worlds.add(combined_world)
+                else:  
                     invalid += 1
                     invalid_reasons[reason] += 1
 
@@ -105,7 +98,7 @@ class GrimoireManager():
             f"final={len(valid_worlds)}"
         )
 
-        return valid_worlds
+        return list(valid_worlds)
 
     @staticmethod
     def _quick_reject(g1: Grimoire, g2: Grimoire) -> bool:
@@ -119,37 +112,6 @@ class GrimoireManager():
                 return True
             
         return False
-    
-    def maybe_prune(self, stage: str, force_subsumption: bool = False):
-        before = len(self.grims)
-
-        if before == 0:
-            return
-
-        # Exact dedupe
-        if before > 10000:
-            self.remove_duplicates()
-
-        # Subsumption only rarely
-        if force_subsumption or len(self.grims) > 50000:
-            if len(self.grims) > 150000:
-                logging.warning(f"{stage}: grim count high: {len(self.grims)}")
-
-            self.remove_subsumed_grims(max_bucket_size=500)
-
-            if len(self.grims) > 250000:
-                raise RuntimeError(
-                    f"Hit grim cap after pruning at {stage}: {len(self.grims)} grims"
-                )
-
-        after = len(self.grims)
-
-        if after != before:
-            logging.debug(
-                f"{stage}: pruned {before - after} grims "
-                f"({(before - after) * 100.0 / before:.2f}%), "
-                f"{before} -> {after}"
-            )
     
     def remove_duplicates(self):
         before = len(self.grims)
