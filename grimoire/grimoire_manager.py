@@ -1,6 +1,7 @@
 from __future__ import annotations
 from collections import Counter, defaultdict
 import logging
+# logging.basicConfig(level=logging.DEBUG)
 
 from .nightOrderPosition import NightOrderPosition
 
@@ -50,8 +51,21 @@ class GrimoireManager():
         self.remove_subsumed_grims() # clean up subsumed grims before we return
 
     def add_info(self, info: Info):
+        before = len(self.grims)
         new_grims = info_to_grimoires(self.game, info)
+
+        logging.debug(
+            f"add_info {info['kind']}: before={before}, "
+            f"new_grims={len(new_grims)}, "
+            f"potential_pairs={before * len(new_grims)}"
+        )
+
         valid_grims = self._merge_new_grims(new_grims)
+
+        logging.debug(
+            f"add_info {info['kind']}: after_merge={len(valid_grims)}"
+        )
+
         self.set_grims(valid_grims)
 
     def set_grims(self, new_grims: list[Grimoire]):
