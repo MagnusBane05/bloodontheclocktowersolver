@@ -1,6 +1,7 @@
 from __future__ import annotations
-from collections import Counter
-from logging import warning
+from collections import Counter, defaultdict
+import logging
+# logging.basicConfig(level=logging.DEBUG)
 from random import random
 
 from .nightOrderPosition import NightOrderPosition
@@ -11,7 +12,7 @@ from .info_to_grim import info_to_grimoires
 from .game import Game
 from .grimoire import Grimoire
 from .role import EVIL_CHARACTERS, GOOD_CHARACTERS, Role
-from . import role
+from . import helper
 
 SAMPLE_CHANCE = 0
 
@@ -32,23 +33,30 @@ class GrimoireManager():
                 and d["night"] == night
             ]:
                 self.add_demon_kill(imp_kill["player"], night)
+                self.maybe_prune(f"night {night} demon kill")
 
             # add info
             for info in info_list:
                 if night == 1 and info["kind"] in FIRST_NIGHT_INFO:
                     self.add_info(info)
+                    self.maybe_prune(f"first night info ({info['kind']})", force_subsumption=True)
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
                     self.add_info(info)
+                    self.maybe_prune(f"night {night} info ({info['kind']})")
 
             for death in [d for d in death_info if d["night"] == night]:
                 # add slayer shot
                 if death["kind"] == "slayer":
                     self.add_slayer_kill(death["player"], night)
+                    self.maybe_prune(f"night {night} slayer shot")
                 elif death["kind"] == "execution":
                     # add execution
                     self.add_execution(death["player"], night)
-
+                    self.maybe_prune(f"night {night} execution")
             self.remove_duplicates() # faster than calling every time we add info
+            if night == 1 or len(self.grims) > 25000: # 25000 is arbitrary, consider dialing it in
+                self.remove_subsumed_grims()
+        self.remove_subsumed_grims()
 
     def add_info(self, info: Info):
         new_grims = info_to_grimoires(self.game, info)
@@ -59,7 +67,7 @@ class GrimoireManager():
         if self.true_grim != None:
             if not self._does_grim_list_contain_true_grim(new_grims, self.true_grim):
                 for i,grim in enumerate(self.grims):
-                    if grim == self.true_grim:
+                    if grim .loose_equals(self.true_grim):
                         print(i,grim)
         self.grims = new_grims
 
@@ -106,14 +114,160 @@ class GrimoireManager():
             return False
         
         for i,c in enumerate(p2.characters):
-            if not role.roleLooseEquals(c, p1.characters[i]):
+            if not helper.roleLooseEquals(c, p1.characters[i]):
                 return True
             
         return False
+    
+    def maybe_prune(self, stage: str, force_subsumption: bool = False):
+        before = len(self.grims)
 
+        if before == 0:
+            return
+
+        # Exact dedupe
+        if before > 10000:
+            self.remove_duplicates()
+
+        # Subsumption only rarely
+        if force_subsumption or len(self.grims) > 50000:
+            if len(self.grims) > 150000:
+                logging.warning(f"{stage}: grim count high: {len(self.grims)}")
+
+            self.remove_subsumed_grims(max_bucket_size=500)
+
+            if len(self.grims) > 250000:
+                raise RuntimeError(
+                    f"Hit grim cap after pruning at {stage}: {len(self.grims)} grims"
+                )
+
+        after = len(self.grims)
+
+        if after != before:
+            logging.debug(
+                f"{stage}: pruned {before - after} grims "
+                f"({(before - after) * 100.0 / before:.2f}%), "
+                f"{before} -> {after}"
+            )
     
     def remove_duplicates(self):
+        before = len(self.grims)
         self.grims = list(set(self.grims))
+        difference = before - len(self.grims)
+        logging.debug(f"Removed {difference} ({difference*100./before:.2f}%) duplicate grims")
+
+    
+    def remove_subsumed_grims(self, max_bucket_size: int = 500):
+        buckets: dict[tuple, list[Grimoire]] = defaultdict(list) # type: ignore
+        for grim in self.grims:
+            buckets[self.subsumtion_buket_key(grim)].append(grim) # type: ignore
+
+        result: list[Grimoire] = []
+
+        for bucket in buckets.values():
+            if len(bucket) > max_bucket_size:
+                result.extend(
+                    self.remove_subsumed_from_large_bucket(
+                        bucket,
+                        max_checks_per_grim=100,
+                    )
+                )
+            else:
+                result.extend(self.remove_subsumed_from_bucket(bucket))
+
+        self.grims = result
+
+    @staticmethod
+    def remove_subsumed_from_bucket(grims: list[Grimoire]) -> list[Grimoire]:
+        unique: list[Grimoire] = []
+
+        for grim in grims:
+            should_add = True
+            indexes_to_remove: list[int] = []
+
+            for idx, other in enumerate(unique):
+                if other.subsumes(grim):
+                    # Existing grim is more general, so new grim adds nothing.
+                    should_add = False
+                    break
+
+                if grim.subsumes(other):
+                    # New grim is more general, so remove existing one.
+                    indexes_to_remove.append(idx)
+
+            if should_add:
+                for idx in reversed(indexes_to_remove):
+                    del unique[idx]
+                unique.append(grim)
+
+        return unique
+    
+    @staticmethod
+    def remove_subsumed_from_large_bucket(
+        grims: list[Grimoire],
+        max_checks_per_grim: int = 100,
+    ) -> list[Grimoire]:
+        grims = sorted(grims, key=GrimoireManager.grim_generality_score, reverse=True)
+
+        unique: list[Grimoire] = []
+
+        for grim in grims:
+            subsumed = False
+
+            for other in unique[:max_checks_per_grim]:
+                if other.subsumes(grim):
+                    subsumed = True
+                    break
+
+            if not subsumed:
+                unique.append(grim)
+
+        return unique
+    
+    @staticmethod
+    def grim_generality_score(grim: Grimoire) -> int:
+        score = 0
+
+        for page in grim.pages:
+            for c in page.characters:
+                if c == Role.ANY_OTHER:
+                    score += 10
+                elif c in {Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.NON_DEMON}:
+                    score += 7
+                elif c in {
+                    Role.ANY_OTHER_TOWNSFOLK,
+                    Role.ANY_OTHER_OUTSIDER,
+                    Role.ANY_OTHER_MINION,
+                }:
+                    score += 5
+
+            score += page.minion_types.count(Role.ANY_OTHER_MINION) * 5
+
+            if page.drunk_token is None:
+                score += 1
+
+            if page.chef_number is None:
+                score += 1
+
+        return score
+
+    @staticmethod
+    def subsumtion_buket_key(grim: Grimoire) -> tuple: # type: ignore
+        return (
+            grim.num_players,
+            tuple(grim.keys),
+            tuple(
+                (
+                    tuple(page.poisoned),
+                    tuple(page.red_herring),
+                    page.drunk_token,
+                    page.chef_number,
+                    page.no_outsiders
+                )
+                for page in grim.pages
+            ),
+        )
+                        
     
     def add_slayer_kill(self, target: int, night: int):
         new_grims: list[Grimoire] = []
@@ -182,10 +336,6 @@ class GrimoireManager():
                     except ValueError:
                         continue
                 non_sw_grim.apply_non_demon_to_player(executee, non_sw_page)
-                # non_sw_page.make_deductions(len(non_sw_page.characters))
-                # if (len(gamerules.get_alive_characters_of_type(non_sw_page, {Role.POISONER, Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER})) == 0 
-                #     or non_sw_page.characters[executee] == Role.POISONER):
-                #     non_sw_page.clear_poisoned()
                 valid = Grimoire.pass_through_pages(non_sw_grim)
                 if valid and gamerules.is_grim_valid(non_sw_grim):
                     Grimoire.make_deductions(non_sw_grim)
@@ -234,18 +384,15 @@ class GrimoireManager():
         return self._does_grim_list_contain_true_grim(self.grims, self.true_grim)
     
     @staticmethod
-    def _does_grim_list_contain_true_grim(grims: list[Grimoire], true_grim: Grimoire, 
-                                          conflicting_grims: list[tuple[Grimoire, Grimoire]] | None = None):
+    def _does_grim_list_contain_true_grim(
+        grims: list[Grimoire], 
+        true_grim: Grimoire, 
+        conflicting_grims: list[tuple[Grimoire, Grimoire]] | None = None
+    ):
         for grim in grims:
-            if true_grim == grim:
+            if true_grim.loose_equals(grim):
                 return True
-        warning("True grim not found in grims")
-        if conflicting_grims is not None:
-            for w1, w2 in conflicting_grims:
-                if true_grim == w1:
-                    warning("True grim found in conflicting grims")
-                if true_grim == w2:
-                    warning("True grim found in conflicting grims")
+        logging.warning("True grim not found in grims")
         return False
     
     def get_player_perspective(self, player: int) -> GrimoireManager:
@@ -267,7 +414,7 @@ class GrimoireManager():
         if true_character in EVIL_CHARACTERS:
             raise NotImplementedError("Getting perspective of evil player not implemented yet.")
         elif true_character in GOOD_CHARACTERS:
-            if role.roleLooseEquals(character, true_character):
+            if helper.roleLooseEquals(character, true_character):
                 return True
             if character == Role.DRUNK and page.drunk_token == true_character:
                 return True

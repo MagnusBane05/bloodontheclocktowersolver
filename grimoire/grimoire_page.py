@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from . import helper
+
+
 from .gamerules import ROLE_BREAKDOWNS
 from . import gamerules
 from itertools import compress
 from .role import *
 from grimoire.nightOrderPosition import NightOrderPosition
-from . import role
 
 DEMON_CANDIDATE_ROLES = {
     Role.ANY_OTHER,
@@ -43,34 +45,6 @@ class GrimoirePage:
         self.executee: int | None = None
         self.slayer_shot: list[bool] = [False]*num_players
         self.red_herring_moved = False
-
-    def add_minion_type(self, type: Role) -> None:
-        if type not in MINIONS:
-            raise ValueError("You are trying to add a non-minion role as a minion type.")
-        if type in self.minion_types:
-            return
-        try:
-            idx = self.minion_types.index(Role.ANY_OTHER_MINION)
-            self.minion_types[idx] = type
-        except ValueError:
-            raise ValueError("You are trying to add a minion type but this phase already has all minion types determined.")
-        
-    def clone(self) -> GrimoirePage:
-        page = GrimoirePage(self.num_players, self.night, self.night_order_position)
-        page.characters = list(self.characters)
-        page.poisoned = list(self.poisoned)
-        page.minion_types = list(self.minion_types)
-        page.red_herring = list(self.red_herring)
-        page.dead = list(self.dead)
-        page.character_changed = list(self.character_changed)
-        page.slayer_shot = list(self.slayer_shot)
-        page.drunk_token = self.drunk_token
-        page.chef_number = self.chef_number
-        page.no_outsiders = self.no_outsiders
-        page.star_passed = self.star_passed
-        page.executee = self.executee
-        page.red_herring_moved = self.red_herring_moved
-        return page
         
     def __eq__(self, other): # type: ignore
         if not isinstance(other, GrimoirePage):
@@ -89,6 +63,76 @@ class GrimoirePage:
             tuple(self.poisoned),
             tuple(self.red_herring),
         ))
+        
+    def clone(self) -> GrimoirePage:
+        page = GrimoirePage(self.num_players, self.night, self.night_order_position)
+        page.characters = list(self.characters)
+        page.minion_types = list(self.minion_types)
+        page.poisoned = list(self.poisoned)
+        page.red_herring = list(self.red_herring)
+        page.dead = list(self.dead)
+        page.character_changed = list(self.character_changed)
+        page.slayer_shot = list(self.slayer_shot)
+        page.drunk_token = self.drunk_token
+        page.chef_number = self.chef_number
+        page.no_outsiders = self.no_outsiders
+        page.star_passed = self.star_passed
+        page.executee = self.executee
+        page.red_herring_moved = self.red_herring_moved
+        return page
+    
+    def loose_equals(self, other: GrimoirePage) -> bool:
+        return (
+            all(helper.roleLooseEquals(self.characters[p], other.characters[p]) for p in range(self.num_players)) and 
+            helper.minion_types_loose_equals(self.minion_types, other.minion_types) and
+            sum(a or b for a, b in zip(self.poisoned, other.poisoned)) <= 1 and 
+            sum(a or b for a, b in zip(self.red_herring, other.red_herring)) <= 1 and
+            (self.chef_number is None or other.chef_number is None or self.chef_number == other.chef_number) and
+            (self.chef_number is None or other.drunk_token is None or self.drunk_token == other.drunk_token)
+        )
+    
+    def subsumes(self, other: GrimoirePage) -> bool:
+        # Characters subsume     
+        for i,c1 in enumerate(self.characters):
+            c2 = other.characters[i]
+            if not helper.role_subsumes(c1, c2):
+                return False
+
+        if not helper.minion_types_subsume(self.minion_types, other.minion_types):
+            return False
+        
+        if self.poisoned != other.poisoned:
+            return False
+        
+        if self.red_herring != other.red_herring:
+            return False
+        
+        if (
+            self.drunk_token is not None
+            and other.drunk_token is not None
+            and self.drunk_token != other.drunk_token
+        ):
+            return False
+        
+        # If both have chef numbers, make sure they match
+        if (self.chef_number is not None 
+            and other.chef_number is not None 
+            and self.chef_number != other.chef_number
+        ):
+            return False
+        
+        return True
+
+    def add_minion_type(self, type: Role) -> None:
+        if type not in MINIONS:
+            raise ValueError("You are trying to add a non-minion role as a minion type.")
+        if type in self.minion_types:
+            return
+        try:
+            idx = self.minion_types.index(Role.ANY_OTHER_MINION)
+            self.minion_types[idx] = type
+        except ValueError:
+            raise ValueError("You are trying to add a minion type but this phase already has all minion types determined.")
     
     def remove_minion_type(self) -> None:
         if len(self.minion_types) == 0:
@@ -321,7 +365,7 @@ class GrimoirePage:
         return list(compress(range(len(self.characters)), self.dead))
     
     def get_potential_alive_demons(self):
-        alive_demons = [i for i in self.get_alive_players() if role.roleLooseEquals(Role.IMP, self.characters[i])]
+        alive_demons = [i for i in self.get_alive_players() if helper.roleLooseEquals(Role.IMP, self.characters[i])]
         return alive_demons
     
     def get_known_evil_team(self):

@@ -56,10 +56,7 @@ export function InfoEntry({
     : info.kind
     ? 'Tap the chevron to collapse or expand details'
     : 'Select an info type to configure';
-  const displayInfo = 
-    info.kind === 'claim' || 
-    info.kind === 'character type claim' || 
-    info.kind === 'alignment claim';
+  const displayInfo = info.kind === 'claim'
 
   return displayInfo ? null : (
     <div

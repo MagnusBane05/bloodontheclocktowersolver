@@ -4,6 +4,7 @@ from .grimoire_manager import GrimoireManager
 from .game import Game
 from .nightOrderPosition import NightOrderPosition
 from .role import Role, get_overlapping
+from.gamerules import ROLE_BREAKDOWNS
 
 __all__ = [
     "Grimoire", 
@@ -12,5 +13,6 @@ __all__ = [
     "Game",
     "NightOrderPosition",
     "Role",
-    "get_overlapping"
+    "get_overlapping",
+    "ROLE_BREAKDOWNS"
 ]

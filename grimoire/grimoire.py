@@ -3,8 +3,6 @@ import bisect
 from collections import Counter
 from typing import override
 
-from .role import roleLooseEquals
-
 from .gamerules import ROLE_BREAKDOWNS, ALLOWED_MULTIPLES
 
 from .nightOrderPosition import NightOrderPosition
@@ -13,7 +11,6 @@ from . import gamerules
 from .role import *
 from .errors import *
 from .grimoire_page import GrimoirePage
-from .role import minion_types_loose_equals
 from grimoire import role
 
 class Grimoire:
@@ -37,19 +34,7 @@ class Grimoire:
             other_page = value.get_page(night, night_order_position)
             if other_page == None:
                 continue
-            # print("Characters")
-            # for i in range(players):
-            #     print(f"{i}. {phase.characters[i].name:<15} - {other_phase.characters[i].name}")
-            # print("Minion types")
-            # for i in range(len(phase.minion_types)):
-            #     print(f"{i}. {phase.minion_types[i].name:<15} - {other_phase.minion_types[i].name}")
-            equal = (
-                all(roleLooseEquals(page.characters[p], other_page.characters[p]) for p in range(players)) and 
-                minion_types_loose_equals(page.minion_types, other_page.minion_types) and
-                sum(a or b for a, b in zip(page.poisoned, other_page.poisoned)) <= 1 and 
-                sum(a or b for a, b in zip(page.red_herring, other_page.red_herring)) <= 1
-            )
-            if not equal:
+            if not page == other_page:
                 return False
         return True
 
@@ -81,6 +66,29 @@ class Grimoire:
         s += "\n"
         s += "---------------------"
         return s
+    
+    def loose_equals(self, other: Grimoire):
+        players = self.num_players
+        if players != other.num_players:
+            return False
+        for page in self.pages:
+            night = page.night
+            night_order_position = page.night_order_position
+            other_page = other.get_page(night, night_order_position)
+            if other_page == None:
+                continue
+            if not page.loose_equals(other_page):
+                return False
+        return True
+
+    def subsumes(self, other: Grimoire) -> bool:
+        for page in self.pages:
+            other_page = other.get_page(page.night, page.night_order_position)
+            if other_page == None:
+                continue
+            if not page.subsumes(other_page):
+                return False
+        return True
     
     def clone(self):
         new = Grimoire(self.num_players)

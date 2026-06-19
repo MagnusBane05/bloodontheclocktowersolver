@@ -78,7 +78,8 @@ def simulate_single_game(players: int, preset: list[Role] | None, seed: int | No
         if Role.POISONER in night_start_page.characters and Role.POISONER not in compress(night_start_page.characters, night_start_page.dead):
             targets = [i for i,x in enumerate(night_start_page.characters) if x != Role.IMP and x not in MINIONS]
             night_start_page.poisoned[random.choice(targets)] = True
-
+        
+        # Handle demon kill
         if night > 1:
             ravenkeeper_claim = handle_demon_kill(night_start_page, info_list, bluffs, death_info)
 

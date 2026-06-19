@@ -108,6 +108,9 @@ def create_librarian_info(phase: GrimoirePage, player: int, real: bool) -> Libra
         'second_player': other,
         'token': character
     }
+    # update page with librarian none if necessary
+    if real and character == None:
+        phase.no_outsiders = True
     return info
 
 def create_investigator_info(phase: GrimoirePage, player: int, real: bool) -> InvestigatorInfo:
@@ -146,6 +149,9 @@ def create_chef_info(phase: GrimoirePage, player: int, real: bool) -> ChefInfo:
         'chef': player,
         'number': chef_number
     }
+    # update page chef number if necessary
+    if real:
+        phase.chef_number = chef_number
     return info
 
 def create_empath_info(phase: GrimoirePage, player: int, real: bool) -> EmpathInfo:
