@@ -1,8 +1,6 @@
 from __future__ import annotations
 from collections import Counter, defaultdict
 import logging
-# logging.basicConfig(level=logging.DEBUG)
-from random import random
 
 from .nightOrderPosition import NightOrderPosition
 
@@ -33,29 +31,22 @@ class GrimoireManager():
                 and d["night"] == night
             ]:
                 self.add_demon_kill(imp_kill["player"], night)
-                self.maybe_prune(f"night {night} demon kill")
 
             # add info
             for info in info_list:
                 if night == 1 and info["kind"] in FIRST_NIGHT_INFO:
                     self.add_info(info)
-                    self.maybe_prune(f"first night info ({info['kind']})", force_subsumption=True)
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
                     self.add_info(info)
-                    self.maybe_prune(f"night {night} info ({info['kind']})")
 
             for death in [d for d in death_info if d["night"] == night]:
                 # add slayer shot
                 if death["kind"] == "slayer":
                     self.add_slayer_kill(death["player"], night)
-                    self.maybe_prune(f"night {night} slayer shot")
                 elif death["kind"] == "execution":
                     # add execution
                     self.add_execution(death["player"], night)
-                    self.maybe_prune(f"night {night} execution")
-            self.remove_duplicates() # faster than calling every time we add info
-            if night == 1 or len(self.grims) > 25000: # 25000 is arbitrary, consider dialing it in
-                self.remove_subsumed_grims()
+            self.maybe_prune(f"end of night {night}", night == 1)
         self.remove_subsumed_grims()
 
     def add_info(self, info: Info):
@@ -73,37 +64,47 @@ class GrimoireManager():
 
     def _merge_new_grims(self, new_grims: list[Grimoire]) -> list[Grimoire]:
         if len(self.grims) == 0:
-            return new_grims
-        
+            return list(dict.fromkeys(new_grims))
+
         valid_worlds: list[Grimoire] = []
+        seen: set[Grimoire] = set()
 
         total = 0
         quick_rejected = 0
         invalid = 0
         accepted = 0
-
+        duplicate = 0
         invalid_reasons: Counter[str] = Counter()
+
         for w1 in self.grims:
             for w2 in new_grims:
                 total += 1
+
                 if self._quick_reject(w1, w2):
                     quick_rejected += 1
                     continue
+
                 combined_world, valid, reason = Grimoire.combine(w1, w2)
-                if valid: 
+
+                if valid:
                     accepted += 1
+
+                    if combined_world in seen:
+                        duplicate += 1
+                        continue
+
+                    seen.add(combined_world)
                     valid_worlds.append(combined_world)
-                else:  
+                else:
                     invalid += 1
                     invalid_reasons[reason] += 1
 
-        if random() < SAMPLE_CHANCE:
-            print()
-            print(f"total: {total}, quick rejected: {quick_rejected}, invalid: {invalid}, accepted: {accepted}")
-            print(f"total: 100%, quick rejected: {round(quick_rejected*100./total)}%, invalid: {round(invalid*100./total)}%, accepted: {round(accepted*100./total)}%")
-            print()
-            print(invalid_reasons.most_common(5))
-            print()
+        logging.debug(
+            f"merge: total={total}, quick_rejected={quick_rejected}, "
+            f"invalid={invalid}, accepted={accepted}, duplicate={duplicate}, "
+            f"final={len(valid_worlds)}"
+        )
+
         return valid_worlds
 
     @staticmethod
@@ -163,6 +164,7 @@ class GrimoireManager():
             buckets[self.subsumtion_buket_key(grim)].append(grim) # type: ignore
 
         result: list[Grimoire] = []
+        before = len(self.grims)
 
         for bucket in buckets.values():
             if len(bucket) > max_bucket_size:
@@ -176,6 +178,8 @@ class GrimoireManager():
                 result.extend(self.remove_subsumed_from_bucket(bucket))
 
         self.grims = result
+        after = len(result)
+        logging.debug(f"removed {before - after} subsumed grims")
 
     @staticmethod
     def remove_subsumed_from_bucket(grims: list[Grimoire]) -> list[Grimoire]:
