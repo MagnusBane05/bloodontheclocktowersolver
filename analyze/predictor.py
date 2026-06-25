@@ -8,7 +8,7 @@ from grimoire.role import Role, MINIONS
 from pprint import pprint
 from itertools import permutations
 from collections import defaultdict
-from simulator import simulate_info
+from .simulator import simulate_info
 
 def _set_up_worlds(worlds: list[Grimoire], game: Game) -> pd.DataFrame:
     zeros = np.zeros((game['players'],Role.__len__()))

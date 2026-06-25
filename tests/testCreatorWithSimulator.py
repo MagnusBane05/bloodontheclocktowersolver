@@ -1,6 +1,6 @@
 import time
 import unittest
-from simulator import simulate_info
+from analyze.simulator import simulate_info
 from grimoire.info_to_grim import *
 from grimoire import GrimoireManager
 from tqdm import tqdm
@@ -11,7 +11,7 @@ class TestCreatorWithSimulator(unittest.TestCase):
         self._test_x_player(self, 5, 1000)
 
     def test_10_player(self):
-        self._test_x_player(self, 10, 10)
+        self._test_x_player(self, 10, 1000)
 
     def test_15_player(self):
         self._test_x_player(self, 15, 1)

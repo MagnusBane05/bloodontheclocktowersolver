@@ -1,6 +1,10 @@
 from __future__ import annotations
 from collections import Counter, defaultdict
 import logging
+
+from .traces import TrueGrimTrace
+
+from .errors import TrueGrimLostError
 # logging.basicConfig(level=logging.DEBUG)
 
 from .info import Info, DeathInfo, FIRST_NIGHT_INFO, ANY_NIGHT_INFO
@@ -9,7 +13,7 @@ from .game import Game
 from .grimoire import Grimoire
 from .role import EVIL_CHARACTERS, GOOD_CHARACTERS, Role
 from . import helper
-from .add_info_to_grims import add_death_info_to_grims
+from .add_info_to_grims import add_death_info_to_grims, add_info_to_grims
 
 SAMPLE_CHANCE = 0
 
@@ -20,6 +24,14 @@ class GrimoireManager():
         self.grims: list[Grimoire] = []
         self.true_grim = true_grim
 
+    def _make_trace(self, stage: str) -> TrueGrimTrace | None:
+        if self.true_grim is None:
+            return None
+        return TrueGrimTrace(
+            true_grim=self.true_grim,
+            stage=stage,
+        )
+
     def add_full_game(self, info_list: list[Info], death_info: list[DeathInfo], nights: int):
         for night in range(1,nights+1):
             # add imp kill
@@ -28,30 +40,53 @@ class GrimoireManager():
                 if d["kind"] == "demon" 
                 and d["night"] == night
             ]:
-                self.grims = add_death_info_to_grims(imp_kill, self.grims)
+                before = self.grims
+                new_grims = add_death_info_to_grims(imp_kill, self.grims)
+                self._set_grims_checked(
+                    new_grims,
+                    f"night {night} demon kill {imp_kill}",
+                    previous_grims=before,
+                )
 
             # add info
             for info in info_list:
                 if night == 1 and info["kind"] in FIRST_NIGHT_INFO:
                     self.add_info(info)
+                # elif info["kind"] == "fortune teller":
+                #     add_info_to_grims(info, self.grims)
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
                     self.add_info(info)
 
             for death in [d for d in death_info if d["night"] == night]:
                 # add slayer shot and execution
                 if death["kind"] == "slayer" or death["kind"] == "execution":
-                    self.grims = add_death_info_to_grims(death, self.grims)
+                    before = self.grims
+                    stage = f"night {night} death {death}"
+                    trace = self._make_trace(stage)
+                    new_grims = add_death_info_to_grims(death, self.grims, trace)
+                    self._set_grims_checked(
+                        new_grims,
+                        stage,
+                        previous_grims=before,
+                    )
 
+        before = self.grims
         self.remove_subsumed_grims() # clean up subsumed grims before we return
+        self._set_grims_checked(
+            self.grims,
+            "final remove_subsumed_grims",
+            previous_grims=before,
+        )
 
-    def add_info(self, info: Info):
-        before = len(self.grims)
+    def add_info(self, info: Info, stage: str | None = None):
+        before = self.grims
+        before_count = len(self.grims)
         new_grims = info_to_grimoires(self.game, info)
 
         logging.debug(
-            f"add_info {info['kind']}: before={before}, "
+            f"add_info {info['kind']}: before={before_count}, "
             f"new_grims={len(new_grims)}, "
-            f"potential_pairs={before * len(new_grims)}"
+            f"potential_pairs={before_count * len(new_grims)}"
         )
 
         valid_grims = self._merge_new_grims(new_grims)
@@ -60,7 +95,11 @@ class GrimoireManager():
             f"add_info {info['kind']}: after_merge={len(valid_grims)}"
         )
 
-        self.set_grims(valid_grims)
+        self._set_grims_checked(
+            valid_grims,
+            stage or f"info {info}",
+            previous_grims=before
+        )
 
     def set_grims(self, new_grims: list[Grimoire]):
         if self.true_grim != None:
@@ -68,6 +107,29 @@ class GrimoireManager():
                 for i,grim in enumerate(self.grims):
                     if grim .loose_equals(self.true_grim):
                         print(i,grim)
+        self.grims = new_grims
+
+    def _set_grims_checked(
+        self,
+        new_grims: list[Grimoire],
+        stage: str,
+        *,
+        previous_grims: list[Grimoire] | None = None,
+    ):
+        if self.true_grim is not None and not self._contains_true_grim(new_grims):
+            previous = previous_grims if previous_grims is not None else self.grims
+
+            previous_true_matches = [
+                grim for grim in previous
+                if self.true_grim.loose_equals(grim)
+            ]
+
+            raise TrueGrimLostError(
+                f"True grim lost at {stage}. "
+                f"before={len(previous)}, after={len(new_grims)}, "
+                f"previous_true_matches={len(previous_true_matches)}"
+            )
+
         self.grims = new_grims
 
     def _merge_new_grims(self, new_grims: list[Grimoire]) -> list[Grimoire]:
@@ -236,6 +298,11 @@ class GrimoireManager():
                 for page in grim.pages
             ),
         )
+    
+    def _contains_true_grim(self, grims: list[Grimoire]) -> bool:
+        if self.true_grim is None:
+            return True
+        return any(self.true_grim.loose_equals(grim) for grim in grims)
 
     def do_grims_contain_true_grim(self) -> bool:
         if self.true_grim is None:
@@ -247,8 +314,7 @@ class GrimoireManager():
     @staticmethod
     def _does_grim_list_contain_true_grim(
         grims: list[Grimoire], 
-        true_grim: Grimoire, 
-        conflicting_grims: list[tuple[Grimoire, Grimoire]] | None = None
+        true_grim: Grimoire,
     ):
         for grim in grims:
             if true_grim.loose_equals(grim):

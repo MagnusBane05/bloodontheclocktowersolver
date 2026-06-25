@@ -244,9 +244,15 @@ def create_slayer_info(phase: GrimoirePage, player: int, real: bool) -> SlayerIn
         target = random.choice([p for p in range(len(phase.characters)) if p != player])
     else:
         target = random.choice([p for p in range(len(phase.characters)) if p != player and phase.characters[p] != Role.IMP])
-    successful = real and \
-     (phase.characters[target] == Role.IMP or \
-     (phase.characters[target] == Role.RECLUSE and random.random() < 0.5))
+    successful = (
+        real 
+        and not phase.dead[target]
+        and (
+            phase.characters[target] == Role.IMP 
+            or (
+                phase.characters[target] == Role.RECLUSE 
+                and random.random() < 0.5
+        )))
 
     info: SlayerInfo = {
         'kind': "slayer",

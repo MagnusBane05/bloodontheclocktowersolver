@@ -8,7 +8,7 @@ from grimoire.gamerules import ROLE_BREAKDOWNS
 from grimoire.info import *
 from grimoire.info import VirginInfo
 from grimoire.role import *
-from info_generators import create_bluff_info, create_no_bluff_info, create_info, create_slayer_info, create_ravenkeeper_info, create_virgin_info
+from .info_generators import create_bluff_info, create_no_bluff_info, create_info, create_slayer_info, create_ravenkeeper_info, create_virgin_info
 from tqdm import tqdm
 
 VIRGIN_BLUFF_CHANCE = 0.34

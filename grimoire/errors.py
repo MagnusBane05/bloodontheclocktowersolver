@@ -3,3 +3,6 @@ class PhaseNotFoundError(ValueError):
 
 class PhaseInWorldError(ValueError):
     pass
+
+class TrueGrimLostError(AssertionError):
+    pass

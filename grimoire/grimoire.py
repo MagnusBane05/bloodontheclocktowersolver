@@ -116,7 +116,13 @@ class Grimoire:
             return self.pages[i]
 
         return None
-        # raise PhaseNotFoundError(f"Grimoire does not contain page with night {night} and night order position {night_order_position}")
+    
+    def get_page_before(self, page: GrimoirePage) -> GrimoirePage | None:
+        key = (page.night, page.night_order_position)
+        i = bisect.bisect_left(self.keys, key)
+        if i == 0:
+            return None
+        return self.pages[i-1]
 
     def add_page(self, night: int, night_order_position: NightOrderPosition, page: GrimoirePage | None = None) -> GrimoirePage:
         key = (night, night_order_position)
@@ -130,6 +136,8 @@ class Grimoire:
 
         prev = self.pages[i-1]
         new_page = prev.clone() if page is None else page
+        if night != new_page.night:
+            new_page.executee = None
         new_page.night = night
         new_page.night_order_position = night_order_position
         if page is None:
@@ -155,17 +163,13 @@ class Grimoire:
             for p in prev_pages:
                 p.characters[new_demon] = Role.SCARLET_WOMAN
 
-
-    def apply_non_demon_to_player(self, player: int, page: GrimoirePage):
-        page.apply_non_demon_to_player(player)
-        for p in self.get_all_previous_pages(page):
-            p.apply_non_demon_to_player(player)
-
+    # TODO deprecate
     def apply_role_to_player(self, player: int, role: Role, page: GrimoirePage):
         page.characters[player] = role
         for p in self.get_all_previous_pages(page):
             p.characters[player] = role
 
+    # TODO deprecate?
     def get_all_previous_pages(self, page: GrimoirePage):
         key = self._page_key(page)
         i = bisect.bisect_left(self.keys, key)
@@ -177,10 +181,74 @@ class Grimoire:
         for page in self.pages:
             nights.add(page.night)        
         return nights
+    
+    def apply_character(
+        self, 
+        character: Role, 
+        player: int, 
+        night: int, 
+        night_order_position: NightOrderPosition
+    ):
+        for page in self.pages:
+            if (
+                page.night >= night 
+                and page.night_order_position > night_order_position
+            ):
+                continue
+            page.apply_character(character, player)
+
+    def apply_drunk(
+        self, 
+        character: Role, 
+        player: int,
+        night: int,
+        night_order_position: NightOrderPosition
+    ):
+        for page in self.pages:
+            if (
+                page.night >= night 
+                and page.night_order_position > night_order_position
+            ):
+                continue
+            page.apply_drunk(character, player)
+        
+
+    def can_be_character(
+        self, 
+        character: Role, 
+        player: int,
+        night: int,
+        night_order_position: NightOrderPosition
+    ):
+        for page in self.pages:
+            if (
+                page.night >= night
+                and page.night_order_position > night_order_position
+            ):
+                continue
+            if not page.can_be_character(character, player):
+                return False
+        return True
+
+    def can_be_red_herring(
+        self, 
+        player: int,
+        night: int,
+        night_order_position: NightOrderPosition
+    ):
+        for page in self.pages:
+            if (
+                page.night >= night
+                and page.night_order_position > night_order_position
+            ):
+                continue
+            if not page.can_be_red_herring( player):
+                return False
+        return True
 
     def make_deductions(self):
         for phase in self.pages:
-            phase.make_deductions(self.num_players)
+            phase.make_deductions()
     
     @classmethod
     def combine(cls, w1: Grimoire, w2: Grimoire) -> tuple[Grimoire, bool, str]:
@@ -232,7 +300,7 @@ class Grimoire:
             new_world.keys.append(key)
 
             if len(new_world.pages) > 1:
-                valid, reason = Grimoire._pass_between_pages(new_world.pages[-2], new_world.pages[-1])
+                valid, reason = Grimoire.pass_between_pages(new_world.pages[-2], new_world.pages[-1])
                 if not valid:
                     return w1, False, reason
 
@@ -497,18 +565,14 @@ class Grimoire:
         for i in range(1, len(world.pages)):
             prev = world.pages[i-1]
             curr = world.pages[i]
-            valid, reason = Grimoire._pass_between_pages(prev, curr)
+            valid, reason = Grimoire.pass_between_pages(prev, curr)
             if not valid:
                 return False, reason
-                
-        if not gamerules.is_grim_valid(world):
-            return False, "invalid grim"
 
         return True, ""
     
     @staticmethod
-    def _pass_between_pages(prev: GrimoirePage, curr: GrimoirePage) -> tuple[bool, str]:
-
+    def pass_between_pages(prev: GrimoirePage, curr: GrimoirePage) -> tuple[bool, str]:
         # pass characters
         for i in range(len(prev.characters)):
             if curr.character_changed[i]:
@@ -565,4 +629,7 @@ class Grimoire:
             and prev.poisoned.index(True) != curr.poisoned.index(True)):
             return False, "mismatched poisoned between pages"
         
+        valid = gamerules.is_page_valid(curr)
+        if not valid:
+            return False, "page validity check failed"
         return True, ""

@@ -1,4 +1,4 @@
-from simulator import run_simulations
+from .simulator import run_simulations
 from grimoire import GrimoireManager
 from grimoire import Game
 from collections import Counter

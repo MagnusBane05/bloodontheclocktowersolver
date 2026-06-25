@@ -3,7 +3,7 @@ from .gamerules import ROLE_BREAKDOWNS
 from .info import *
 from .grimoire import Grimoire
 from .grimoire_page import GrimoirePage
-from .role import Role, TOWNSFOLK, OUTSIDERS, EVIL_CHARACTERS, GOOD_CHARACTERS
+from .role import MINIONS_SET, Role, TOWNSFOLK, OUTSIDERS, EVIL_CHARACTERS, GOOD_CHARACTERS
 from .game import Game
 from .nightOrderPosition import NightOrderPosition
 
@@ -469,6 +469,8 @@ def _create_worlds_from_undertaker_info(game: Game, info: UndertakerInfo):
     # World where the undertaker sees the actual token (body is that token)
     world1 = Grimoire(game['players'])
     phase1 = get_info_page(world1, night)
+    if token in MINIONS_SET:
+        phase1.add_minion_type(token)
     world1.get_first_page().characters[player] = Role.UNDERTAKER
     phase1.characters[body] = token
     worlds.append(world1)

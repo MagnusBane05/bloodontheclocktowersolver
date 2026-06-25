@@ -91,7 +91,7 @@ ANY_OTHER_ROLES = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Rol
 ANY_OTHER_ROLES_SET = set(ANY_OTHER_ROLES)
 ROLE_CATEGORIES = [Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_MINION, Role.IMP]
 
-def get_overlapping(c1: Role, c2: Role, specific: bool) -> Role | None:
+def get_overlapping(c1: Role, c2: Role, specific: bool = True) -> Role | None:
     if c1 == c2:
         return c1
     if c1 not in ANY_OTHER_ROLES:

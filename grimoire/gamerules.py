@@ -130,35 +130,46 @@ def can_imp_starpass(page: GrimoirePage, dead_player: int) -> bool:
     return True
 
 def is_grim_valid(grim: Grimoire):
-    first_page = grim.pages[0]
-    num_players = len(first_page.characters)
-
-    if not is_outsider_count_valid(first_page, num_players):
-        return False
-
     for page in grim.pages:
-        valid = (
-            is_evil_count_valid(page, num_players) and
-            is_good_count_valid(page, num_players) and
-            are_minion_types_valid(page) and
-            is_poisoning_valid(page, num_players) and
-            is_no_invalid_duplicates(page) and
-            is_no_sober_saint_executed(page)
-        )
-        if not valid:
+        if not is_page_valid(page):
             return False
     return True
 
+def is_page_valid(page: GrimoirePage) -> bool:
+    num_players = page.num_players
+    # Check outsider count on first night only
+    if page.night == 1 and page.night_order_position == NightOrderPosition.AFTER_IMP:
+        if not is_outsider_count_valid(page, num_players):
+            return False
+    return (
+        is_evil_count_valid(page, num_players) and
+        is_good_count_valid(page, num_players) and
+        are_minion_types_valid(page) and
+        is_poisoning_valid(page, num_players) and
+        is_no_invalid_duplicates(page) and
+        is_no_sober_saint_executed(page)
+    )
 
 def is_outsider_count_valid(first_page: GrimoirePage, num_players: int):
     # librarian told no outsiders
     if first_page.no_outsiders and len(get_characters_of_type(first_page.characters, OUTSIDERS_SET)) > 0:
         return False
     # base outsider count or if a Baron is in play, base outsider count plus 2
-    valid_counts = [get_outsider_count(num_players, Role.BARON in first_page.minion_types)]
+    base_outsider_count = get_outsider_count(num_players, Role.BARON in first_page.minion_types)
+    recluse = False
+    for c in first_page.characters:
+        if can_player_be_recluse(c):
+            recluse = True
+            break
+    # no outsiders and at least 1 non-recluse outsider
+    non_recluse_outsiders = base_outsider_count - 1 if recluse else base_outsider_count
+    if first_page.no_outsiders and non_recluse_outsiders > 0:
+        return False
+
+    valid_counts = [base_outsider_count]
     # we don't know if a baron is in play, valid counts could be base and base plus 2
     if Role.BARON not in first_page.minion_types and Role.ANY_OTHER_MINION in first_page.minion_types:
-        valid_counts.append(ROLE_BREAKDOWNS[num_players]['outsiders']+2)
+        valid_counts.append(get_outsider_count(num_players, True))
     minimum = len(get_characters_of_type(first_page.characters, OUTSIDERS_SET | {Role.ANY_OTHER_OUTSIDER}))
     maximum = minimum + len(get_characters_of_type(first_page.characters, {Role.ANY_OTHER_GOOD, Role.ANY_OTHER, Role.NON_DEMON}))
     # valid if any possible number of outsiders is in one of the valid counts
@@ -180,6 +191,7 @@ def is_evil_count_valid(page: GrimoirePage, num_players: int):
     evil_roles_count = 0
     nondemon_any_count = 0
     alive_imps = 0
+    dead_imps = 0
     potential_imps = 0
     dead_evils = 0
     minion_count = 0
@@ -190,8 +202,11 @@ def is_evil_count_valid(page: GrimoirePage, num_players: int):
                 dead_evils += 1
         if character in NONDEMON_OR_ANY:
             nondemon_any_count += 1
-        if character == Role.IMP and not dead:
-            alive_imps += 1
+        if character == Role.IMP:
+            if not dead:
+                alive_imps += 1
+            else:
+                dead_imps += 1
         if character in POTENTIAL_IMPS and not dead:
             potential_imps += 1
         if character in MINIONS_OR_ANY:
@@ -215,6 +230,9 @@ def is_evil_count_valid(page: GrimoirePage, num_players: int):
     # Too many evil players
     if evil_roles_count > evil_count:
         return False
+    # Dead imp and all minions known
+    if dead_imps + minion_count == evil_count:
+        return False
 
     return True
 
@@ -225,12 +243,7 @@ def is_good_count_valid(page: GrimoirePage, num_players: int):
 
 def are_minion_types_valid(page: GrimoirePage) -> bool:
     for c in page.characters:
-        if c not in MINIONS or c in page.minion_types:
-            continue
-        try:
-            # If there isn't room to replace ANY_OTHER_MINION with the specific character, it's not a valid world
-            page.minion_types.index(Role.ANY_OTHER_MINION)
-        except ValueError:
+        if c in MINIONS and c not in page.minion_types:
             return False
     return True
 
@@ -242,14 +255,14 @@ def is_poisoning_valid(page: GrimoirePage, num_players: int) -> bool:
     # don't allow 2 instances of poisoning
     if poisoned_count > 1:
         return False
-    # return false if no room for poisoner
-    if Role.POISONER not in page.minion_types and Role.ANY_OTHER_MINION not in page.minion_types:
+    # return false if no poisoner (must be explicit)
+    if Role.POISONER not in page.minion_types:
         return False
     # return false if known poisoner is dead
     dead_characters = [c for i, c in enumerate(page.characters) if page.dead[i]]
     if Role.POISONER in dead_characters:
         return False
-    # false if all minions are dead (check evil roles, not just minions, in case of start passes)
+    # false if all minions are dead (check evil roles, not just minions, in case of star passes)
     if len([c for c in dead_characters if c in EVIL_ROLES]) == ROLE_BREAKDOWNS[num_players]['minions']:
         return False
     return True
@@ -268,9 +281,6 @@ def is_no_sober_saint_executed(page: GrimoirePage) -> bool:
         return True
     return page.poisoned[page.executee]
 
-def get_outsider_count(num_players: int, baron: bool):
-    return ROLE_BREAKDOWNS[num_players]['outsiders'] + 2 if baron else ROLE_BREAKDOWNS[num_players]['outsiders']
-
 def get_characters_of_type(characters: list[Role], type: set[Role]):
     return [c for c in characters if c in type]
 
@@ -286,3 +296,18 @@ def is_minion_type_possible(minion: Role, minion_types: list[Role]):
 
 def get_valid_red_herrings(characters: list[Role]):
     return [i for i, c in enumerate(characters) if c not in EVIL_CHARACTERS or c == Role.SPY]
+
+def get_evil_count(num_players: int) -> int:
+    return ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']
+
+def get_good_count(num_players: int) -> int:
+    return ROLE_BREAKDOWNS[num_players]['townsfolk'] + ROLE_BREAKDOWNS[num_players]['outsiders']
+
+def get_townsfolk_count(num_players: int, baron: bool) -> int:
+    return ROLE_BREAKDOWNS[num_players]['townsfolk'] - 2 if baron else ROLE_BREAKDOWNS[num_players]['townsfolk']
+
+def get_outsider_count(num_players: int, baron: bool):
+    return ROLE_BREAKDOWNS[num_players]['outsiders'] + 2 if baron else ROLE_BREAKDOWNS[num_players]['outsiders']
+
+def get_minion_count(num_players: int):
+    return ROLE_BREAKDOWNS[num_players]['minions']

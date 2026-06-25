@@ -4,15 +4,34 @@ from . import helper
 
 
 from .gamerules import ROLE_BREAKDOWNS
-from . import gamerules
+from . import gamerules, role, character_type
 from itertools import compress
 from .role import *
 from grimoire.nightOrderPosition import NightOrderPosition
+from .character_type import CharacterType
 
-DEMON_CANDIDATE_ROLES = {
+DEMON_CANDIDATE_SET = {
     Role.ANY_OTHER,
     Role.ANY_OTHER_EVIL,
     Role.IMP,
+}
+
+DEMON_OR_ANY_OTHER_SET = ANY_OTHER_ROLES_SET | {
+    Role.IMP
+}
+
+MINION_CANDIDATE_SET = MINIONS_SET | {
+    Role.ANY_OTHER_MINION,
+    Role.ANY_OTHER_EVIL,
+    Role.NON_DEMON,
+    Role.ANY_OTHER
+}
+
+SCARLET_WOMAN_CANDIDATE_SET = {
+    Role.ANY_OTHER_MINION,
+    Role.ANY_OTHER_EVIL,
+    Role.NON_DEMON,
+    Role.ANY_OTHER
 }
 
 GENERIC_MINION_SET = MINIONS_SET | {
@@ -141,19 +160,153 @@ class GrimoirePage:
     
     def clear_poisoned(self):
         self.poisoned = [False] * len(self.poisoned)
+
+    def apply_character(self, character: Role, player: int):
+        original = self.characters[player]
+        overlapping = role.get_overlapping(character, original)
+        if overlapping is None:
+            raise RuntimeError(f"Failed to apply {character.name} to player {player} with character {original.name}")
+        self.characters[player] = overlapping
+        # Need to add minion type if character is a minion
+        if (character in MINIONS_SET and character not in self.minion_types):
+            self.add_minion_type(character)
+        if character in OUTSIDERS_SET or character == Role.ANY_OTHER_OUTSIDER:
+            outsider_count = self.get_characters_of_type(CharacterType.OUTSIDER)
+            max_outsider_count_baron = gamerules.get_outsider_count(self.num_players, True)
+            if outsider_count > max_outsider_count_baron:
+                raise RuntimeError(
+                    f"Too many outsiders after adding {character}. "
+                    f"Outsider count: {outsider_count}. "
+                    f"Max outsiders with baron: {max_outsider_count_baron}"
+                )
+            max_outsider_count = gamerules.get_outsider_count(self.num_players, False)
+            # If Baron is required, add it
+            if (
+                outsider_count > max_outsider_count 
+                and Role.BARON not in self.minion_types
+            ):
+                self.add_minion_type(Role.BARON)
+
+    def apply_drunk(self, character: Role, player: int):
+        self.apply_character(Role.DRUNK, player)
+        self.drunk_token = character
+
+    def apply_red_herring(self, player: int):
+        self.red_herring[player] = True
+
+    def apply_poisoned(self, player: int):
+        self.poisoned[player] = True
+        self.add_minion_type(Role.POISONER)
+
+    def can_be_character(self, character: Role, player: int) -> bool:
+        original = self.characters[player]
+        if original == character:
+            return True
+        
+        overlapping = get_overlapping(character, original)
+        if overlapping is None:
+            return False
+        # New character is broader than original        
+        if overlapping == original:
+            return True
+        # New character is more specific
+        if not self._can_be_type(character, player):
+            return False
+        # No repeats
+        for i, c in enumerate(self.characters):
+            if i == player:
+                continue
+            if character in DEMON_OR_ANY_OTHER_SET:
+                continue
+            if character == c:
+                return False
+        # Minion is in or can be added to minion types
+        if overlapping in MINIONS_SET:
+            if not (
+                overlapping in self.minion_types
+                or Role.ANY_OTHER_MINION in self.minion_types
+            ):
+                return False
+        return True
+
+    def _can_be_type(self, character: Role, player: int) -> bool:
+        type = character_type.get_type(character)
+        original_type = character_type.get_type(self.characters[player])
+        num_players = self.num_players
+        # this should be covered by can_be_character
+        if not type.loose_equals(original_type):
+            return False
+        # same with this
+        if type == original_type:
+            return True
+        # and this
+        if type == CharacterType.ANY:
+            return True
+        elif type == CharacterType.NON_DEMON:
+            return True
+        elif type == CharacterType.ANY_EVIL:
+            evils = self.get_evil_count()
+            max_evils = gamerules.get_evil_count(num_players)
+            return evils < max_evils
+        elif type == CharacterType.ANY_GOOD:
+            goods = self.get_good_count()
+            max_goods = gamerules.get_good_count(num_players)
+            return goods < max_goods
+        elif type == CharacterType.TOWNSFOLK:
+            townsfolk = self.get_characters_of_type(CharacterType.TOWNSFOLK)
+            baron = Role.BARON in self.minion_types
+            max_townsfolk = gamerules.get_townsfolk_count(num_players, baron)
+            return townsfolk < max_townsfolk
+        elif type == CharacterType.OUTSIDER:
+            outsiders = self.get_characters_of_type(CharacterType.OUTSIDER)
+            baron = Role.BARON in self.minion_types or Role.ANY_OTHER_MINION in self.minion_types
+            max_outsiders = gamerules.get_outsider_count(num_players, baron)
+            return outsiders < max_outsiders
+        elif type == CharacterType.MINION:
+            minions = self.get_characters_of_type(CharacterType.MINION)
+            max_minions = gamerules.get_minion_count(num_players)
+            return  minions < max_minions
+        elif type == CharacterType.DEMON:
+            return not Role.IMP in self.get_alive_characters()
+        else:
+            raise RuntimeError(f"Character cannot be type {type.name}")     
+
+    def can_be_red_herring(self, player: int):
+        # Can't have another red herring
+        for i, rh in enumerate(self.red_herring):
+            if i == player:
+                continue
+            if rh:
+                return False
+        return True
     
-    def make_deductions(self: GrimoirePage, num_players: int):
+    def can_be_poisoned(self, player: int) -> bool:
+        # Can't have other poisoning
+        for i, p in enumerate(self.poisoned):
+            if i == player:
+                continue
+            if p:
+                return False
+            
+        # Poisoner must be in minion types or can be added to minion types
+        return (
+            Role.POISONER in self.minion_types
+            or Role.ANY_OTHER_MINION in self.minion_types
+        )
+    
+    def make_deductions(self):
         max_depth = 5
         for _ in range(max_depth):
-            if not self._deduction_step(num_players):
+            if not self._deduction_step():
                 break
 
-    def _deduction_step(self: GrimoirePage, num_players: int) -> bool:
+    def _deduction_step(self) -> bool:
         deduced = False
 
         dead = self.dead
         characters = self.characters
         minion_types = self.minion_types
+        num_players = self.num_players
 
         known_good_count = 0
         known_minion_count = 0
@@ -183,7 +336,7 @@ class GrimoirePage:
         potential_demon_count = 0
         potential_demon_idx = -1
         for i,c in enumerate(characters):
-            if not dead[i] and c in DEMON_CANDIDATE_ROLES:
+            if not dead[i] and c in DEMON_CANDIDATE_SET:
                 potential_demon_count += 1
                 potential_demon_idx = i
                 if potential_demon_count > 1:
@@ -283,18 +436,24 @@ class GrimoirePage:
             return idx
         except:
             pass
-
-        # single alive minion becomes the demon
-        # alive_known_minions = gamerules.get_alive_characters_of_type(self, {Role.ANY_OTHER_MINION})
-        alive_possible_sw = self.get_alive_players_of_type({
-            Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.NON_DEMON
-        })
+        known_minion_count = sum(1 for c in self.characters if c in GENERIC_MINION_SET)
+        minions_accounted_for = known_minion_count == gamerules.get_minion_count(self.num_players)
+        alive_known_minions = self.get_alive_players_of_type(GENERIC_MINION_SET)
+        alive_possible_sw = self.get_alive_players_of_type(SCARLET_WOMAN_CANDIDATE_SET)
         assert(len(alive_possible_sw) > 0)
-        if len(alive_possible_sw) == 1:
-            alive_sw = alive_possible_sw[0]
-            self.characters[alive_sw] = Role.IMP
-            self.character_changed[alive_sw] = True
-            return alive_sw
+        alive_minion = None
+        # All minions are known and there is only 1 alive
+        if len(alive_known_minions) == 1 and minions_accounted_for:
+            alive_minion = alive_known_minions[0]
+            assert(self.characters[alive_minion]) == Role.ANY_OTHER_MINION
+        # Only 1 alive player could possibly be the minion
+        elif len(alive_possible_sw) == 1:
+            alive_minion = alive_possible_sw[0]
+        # Alive minion becomes the Imp
+        if alive_minion is not None:
+            self.characters[alive_minion] = Role.IMP
+            self.character_changed[alive_minion] = True
+            return alive_minion
 
         # otherwise, all alive potential scarlet women could be the new demon
         for i in alive_possible_sw:
@@ -320,24 +479,33 @@ class GrimoirePage:
                 self.characters[idx] = Role.IMP
                 self.character_changed[idx] = True
                 return idx
-
-        # single alive minion becomes the demon
-        alive_potential_minion_players = self.get_alive_players_of_type(MINIONS_SET | {Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.NON_DEMON})
-        if len(alive_potential_minion_players) == 1:
-            alive_minion_player = alive_potential_minion_players[0]
-            old_minion = self.characters[alive_minion_player]
-            assert not self.dead[alive_minion_player]
-            self.characters[alive_minion_player] = Role.IMP
-            self.character_changed[alive_minion_player] = True
+        
+        known_minion_count = sum(1 for c in self.characters if c in GENERIC_MINION_SET)
+        minions_accounted_for = known_minion_count == gamerules.get_minion_count(self.num_players)
+        alive_known_minions = self.get_alive_players_of_type(GENERIC_MINION_SET)
+        alive_potential_minions = self.get_alive_players_of_type(MINION_CANDIDATE_SET)
+        alive_minion = None
+        # All minions are known and there is only 1 alive
+        if len(alive_known_minions) == 1 and minions_accounted_for:
+            alive_minion = alive_known_minions[0]
+        # Only 1 alive player could possibly be the minion
+        elif len(alive_potential_minions) == 1:
+            alive_minion = alive_potential_minions[0]
+        # Alive minion becomes the new demon
+        if alive_minion is not None:
+            old_minion = self.characters[alive_minion]
+            assert not self.dead[alive_minion]
+            self.characters[alive_minion] = Role.IMP
+            self.character_changed[alive_minion] = True
             if old_minion == Role.POISONER:
                 self.poisoned = [False]*self.num_players
-            elif old_minion == Role.SPY and self.red_herring[alive_minion_player]:
-                self.red_herring[alive_minion_player] = False
+            elif old_minion == Role.SPY and self.red_herring[alive_minion]:
+                self.red_herring[alive_minion] = False
                 self.red_herring_moved = True
-            return alive_minion_player
+            return alive_minion
 
         # non-demons become any role
-        # any other minions become any other evil
+        # minions become any other evil
         # known demons become any other evil
         for i,c in enumerate(self.characters):
             if self.dead[i]:
@@ -348,12 +516,6 @@ class GrimoirePage:
             if c == Role.ANY_OTHER_MINION or c in MINIONS:
                 self.characters[i] = Role.ANY_OTHER_EVIL
                 self.character_changed[i] = True
-
-    def apply_non_demon_to_player(self, player: int):
-        if self.characters[player] == Role.ANY_OTHER:
-            self.characters[player] = Role.NON_DEMON
-        elif self.characters[player] == Role.ANY_OTHER_EVIL:
-            self.characters[player] = Role.ANY_OTHER_MINION
     
     def get_alive_characters(self) -> list[Role]:
         return list(compress(self.characters, [not x for x in self.dead]))
@@ -371,6 +533,9 @@ class GrimoirePage:
     def get_known_evil_team(self):
         evil_team = [i for i,c in enumerate(self.characters) if c in EVIL_ROLES]
         return evil_team
+    
+    def get_characters_of_type(self, type: CharacterType):
+        return sum(1 for c in self.characters if character_type.get_type(c) == type)
 
     def get_alive_characters_of_type(self, type: set[Role]):
         return [c for i, c in enumerate(self.characters) if not self.dead[i] and c in type]
@@ -380,3 +545,9 @@ class GrimoirePage:
 
     def get_dead_characters_of_type(self, type: set[Role]):
         return [c for i, c in enumerate(self.characters) if self.dead[i] and c in type]
+
+    def get_evil_count(self) -> int:
+        return sum(1 for c in self.characters if c in EVIL_ROLES_SET)
+
+    def get_good_count(self) -> int:
+        return sum(1 for c in self.characters if c in GOOD_ROLES_SET)
