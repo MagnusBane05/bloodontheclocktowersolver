@@ -533,10 +533,8 @@ class GrimoirePage:
                 continue
             if c == Role.NON_DEMON:
                 self.characters[i] = Role.ANY_OTHER
-                self.character_changed[i] = True
             if c == Role.ANY_OTHER_MINION or c in MINIONS:
                 self.characters[i] = Role.ANY_OTHER_EVIL
-                self.character_changed[i] = True
     
     def get_alive_characters(self) -> list[Role]:
         return list(compress(self.characters, [not x for x in self.dead]))

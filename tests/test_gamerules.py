@@ -514,6 +514,188 @@ class TestCanMinionBecomeDemon(unittest.TestCase):
         curr.slayer_shot[imp] = True
         result = gamerules.can_minion_become_demon(prev, curr, minion)
         self.assertFalse(result, "Expected minion not able to become demon if Scarlet Woman is alive after imp slayer shot.")
+
+class TestCanNonDemonBecomePotentialDemon(unittest.TestCase):
+    def test_starpass(self):
+        non_demon = 0
+        imp = 3
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_IMP
+        curr.characters[non_demon] = Role.ANY_OTHER
+        curr.star_passed = True
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertTrue(result, "Expected non demon able to become any other role after starpass.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.ANY_OTHER_MINION
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_IMP
+        curr.characters[non_demon] = Role.ANY_OTHER_EVIL
+        curr.star_passed = True
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertTrue(result, "Expected minion able to become any other evil role after starpass.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_IMP
+        curr.characters[non_demon] = Role.ANY_OTHER
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected non demon not able to become any other role if no starpass.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.ANY_OTHER_MINION
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_IMP
+        curr.characters[non_demon] = Role.ANY_OTHER_EVIL
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected minion not able to become any other evil role if no starpass.")
+        
+        minion = 1
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.characters[minion] = Role.ANY_OTHER_MINION
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_IMP
+        curr.characters[non_demon] = Role.ANY_OTHER
+        curr.characters[minion] = Role.IMP
+        curr.star_passed = True
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected non demon not able to become potential demon if a minion caught the pass.")
+        
+    def test_execution(self):
+        non_demon = 0
+        imp = 3
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[non_demon] = Role.ANY_OTHER
+        curr.executee = imp
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertTrue(result, "Expected non demon able to become any other role after executed Imp.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.ANY_OTHER_MINION
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[non_demon] = Role.ANY_OTHER_EVIL
+        curr.executee = imp
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertTrue(result, "Expected minion able to become any other evil role after executed Imp.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[non_demon] = Role.ANY_OTHER
+        curr.executee = 5
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected non demon not able to become any other role if executed different player.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.ANY_OTHER_MINION
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[non_demon] = Role.ANY_OTHER_EVIL
+        curr.executee = 5
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected minion not able to become any other evil role if executed different player.")
+        
+        minion = 1
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.characters[minion] = Role.SCARLET_WOMAN
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[non_demon] = Role.ANY_OTHER
+        curr.characters[minion] = Role.IMP
+        curr.executee = imp
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected non demon not able to become potential demon if a Scarlet Woman caught the pass.")
+        
+    def test_slayer_shot(self):
+        non_demon = 0
+        imp = 3
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[non_demon] = Role.ANY_OTHER
+        curr.slayer_shot[imp] = True
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertTrue(result, "Expected non demon able to become any other role after Slayer shot Imp.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.ANY_OTHER_MINION
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[non_demon] = Role.ANY_OTHER_EVIL
+        curr.slayer_shot[imp] = True
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertTrue(result, "Expected minion able to become any other evil role after Slayer shot Imp.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[non_demon] = Role.ANY_OTHER
+        curr.slayer_shot[5] = True
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected non demon not able to become any other role if Slayer shot different player.")
+        
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.ANY_OTHER_MINION
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[non_demon] = Role.ANY_OTHER_EVIL
+        curr.slayer_shot[5] = True
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected minion not able to become any other evil role if Slayer shot different player.")
+        
+        minion = 1
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[non_demon] = Role.NON_DEMON
+        prev.characters[imp] = Role.IMP
+        prev.characters[minion] = Role.ANY_OTHER_MINION
+        prev.dead[imp] = True
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[non_demon] = Role.ANY_OTHER
+        curr.characters[minion] = Role.IMP
+        curr.slayer_shot[imp] = True
+        result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
+        self.assertFalse(result, "Expected non demon not able to become potential demon if a Scarlet Woman caught the pass.")
         
 if __name__ == '__main__':
     _ = unittest.main()

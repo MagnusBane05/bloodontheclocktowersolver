@@ -593,12 +593,20 @@ class Grimoire:
         promotions = 0
         for i in range(len(prev.characters)):
             c1, c2 = curr.characters[i], prev.characters[i]
+            # minion became demon
             if c1 == Role.IMP and c2 in GENERIC_MINION_SET:
                 if gamerules.can_minion_become_demon(prev, curr, i):
                     promotions += 1
                     continue
                 else:
                     return False, "invalid minion to demon character change"
+            # non demon can now be demon
+            if (
+                (c1 == Role.ANY_OTHER and c2 == Role.NON_DEMON)
+                or (c1 == Role.ANY_OTHER_EVIL and c2 == Role.ANY_OTHER_MINION)
+            ):
+                if gamerules.can_non_demon_become_potential_demon(prev, curr, i):
+                    continue
             result = Grimoire._combine_characters(c1, c2, curr)
             if result is None:
                 return False, "mismatched characters between pages"

@@ -131,7 +131,11 @@ def can_imp_starpass(page: GrimoirePage, dead_player: int) -> bool:
 
 def can_minion_become_demon(prev: GrimoirePage, curr: GrimoirePage, minion: int) -> bool:
     minion_type = prev.characters[minion]
-    assert minion_type in GENERIC_MINION_SET and curr.characters[minion] == Role.IMP
+    if not minion_type in GENERIC_MINION_SET and curr.characters[minion] == Role.IMP:
+        raise AssertionError(
+            f"Called function with incompatible characters. "
+            f"Prev: {prev.characters[minion].name}, curr: {curr.characters[minion].name}"
+        )
     phase = curr.night_order_position
     if phase == NightOrderPosition.AFTER_IMP:
         if not curr.star_passed:
@@ -167,7 +171,40 @@ def can_minion_become_demon(prev: GrimoirePage, curr: GrimoirePage, minion: int)
     else:
         return False
         
-        
+def can_non_demon_become_potential_demon(prev: GrimoirePage, curr: GrimoirePage, player: int) -> bool:
+    if not (
+        (prev.characters[player] == Role.NON_DEMON or prev.characters[player] == Role.ANY_OTHER_MINION)
+        and (curr.characters[player] == Role.ANY_OTHER or curr.characters[player] == Role.ANY_OTHER_EVIL)
+    ):
+        raise AssertionError(
+            f"Called function with incompatible characters. "
+            f"Prev: {prev.characters[player].name}, curr: {curr.characters[player].name}"
+        )
+    phase = curr.night_order_position
+    if phase == NightOrderPosition.AFTER_IMP:
+        if not curr.star_passed:
+            return False
+    elif phase == NightOrderPosition.AFTER_EXECUTION:
+        if curr.executee is None:
+            return False
+        if curr.characters[curr.executee] != Role.IMP and prev.characters[curr.executee] != Role.IMP:
+            return False
+    elif phase == NightOrderPosition.AFTER_SLAYER:
+        if True not in curr.slayer_shot:
+            return False
+        slayer_shot = curr.slayer_shot.index(True)
+        if curr.characters[slayer_shot] != Role.IMP and prev.characters[slayer_shot] != Role.IMP:
+            return False
+    else:
+        return False
+    for i, c in enumerate(curr.characters):
+        if i == player:
+            continue
+        if c == Role.IMP and not curr.dead[i]:
+            return False
+    return True
+
+
 
 def is_grim_valid(grim: Grimoire):
     for page in grim.pages:
