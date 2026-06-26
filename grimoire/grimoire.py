@@ -146,6 +146,13 @@ class Grimoire:
         self.keys.insert(i, key)
         return new_page
 
+    def apply_starpass(self, demon: int, page: GrimoirePage):
+        new_demon = page.apply_starpass(demon)
+
+        # make new demon a minion in past pages
+        if new_demon is not None:
+            for p in self.get_all_previous_pages(page):
+                p.apply_character(Role.ANY_OTHER_MINION, new_demon)
     
     def apply_sw_catch(self, demon: int, page: GrimoirePage):
         new_demon = page.apply_sw_catch(demon)
@@ -573,20 +580,6 @@ class Grimoire:
     
     @staticmethod
     def pass_between_pages(prev: GrimoirePage, curr: GrimoirePage) -> tuple[bool, str]:
-        # pass characters
-        for i in range(len(prev.characters)):
-            if curr.character_changed[i]:
-                continue
-            if prev.character_changed[i]:
-                curr.characters[i] = prev.characters[i]
-                curr.character_changed[i] = True
-                continue
-            c1, c2 = curr.characters[i], prev.characters[i]
-            result = Grimoire._combine_characters(c1, c2, curr)
-            if result is None:
-                return False, "mismatched characters between pages"
-            curr.characters[i] = result            
-
         # pass minion types
         for minion_type in prev.minion_types:
             if minion_type in curr.minion_types or minion_type == Role.ANY_OTHER_MINION:
@@ -595,6 +588,23 @@ class Grimoire:
                 curr.add_minion_type(minion_type)
             except ValueError:
                 return False, "mismatched minion types between pages"
+            
+        # pass characters
+        promotions = 0
+        for i in range(len(prev.characters)):
+            c1, c2 = curr.characters[i], prev.characters[i]
+            if c1 == Role.IMP and c2 in GENERIC_MINION_SET:
+                if gamerules.can_minion_become_demon(prev, curr, i):
+                    promotions += 1
+                    continue
+                else:
+                    return False, "invalid minion to demon character change"
+            result = Grimoire._combine_characters(c1, c2, curr)
+            if result is None:
+                return False, "mismatched characters between pages"
+            curr.characters[i] = result    
+        if promotions > 1:
+            return False, "too many minions became demons"
         
         # pass red herring
         if not curr.red_herring_moved:

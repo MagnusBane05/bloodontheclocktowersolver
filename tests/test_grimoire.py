@@ -4,7 +4,7 @@ from grimoire.nightOrderPosition import NightOrderPosition
 from grimoire.role import Role
 from grimoire import GrimoirePage
 
-class TestPhaseManagement(unittest.TestCase):
+class TestAddPage(unittest.TestCase):
 
     def test_add_phase(self):
         # test phases with different nights
@@ -32,7 +32,8 @@ class TestPhaseManagement(unittest.TestCase):
         self.assertEqual(world.pages[2].night_order_position, NightOrderPosition.AFTER_SLAYER)
         self.assertEqual(world.pages[3].night_order_position, NightOrderPosition.AFTER_EXECUTION)        
 
-    def test_pass_between_phases(self):
+class TestPassBetweenPages(unittest.TestCase):
+    def test_pass_characters(self):
         # sanity check, same characters should be okay
         world = Grimoire()
         night1 = world.pages[0]
@@ -69,17 +70,22 @@ class TestPhaseManagement(unittest.TestCase):
         night2.minion_types[0] = Role.SCARLET_WOMAN
         result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
-
-        # if there was a character change, it's okay
-        world = Grimoire()
-        night1 = world.pages[0]
-        night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
-        night1.characters[0] = Role.SCARLET_WOMAN
-        night2.characters[0] = Role.IMP
-        night1.minion_types[0] = Role.SCARLET_WOMAN
-        night2.character_changed[0] = True
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
-        self.assertTrue(result)
+        
+        # 2 minions becoming demon is not okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        imp = 3
+        minion1 = 0
+        minion2 = 1
+        prev.characters[minion1] = Role.BARON
+        prev.characters[minion2] = Role.POISONER
+        prev.characters[imp] = Role.IMP
+        curr.characters[minion1] = Role.IMP
+        curr.characters[minion2] = Role.IMP
+        curr.dead[imp] = True
+        curr.star_passed = True
+        result, _reason = Grimoire.pass_between_pages(prev, curr)
+        self.assertFalse(result, "Expected 2 minions not able to become demon.")
 
         # any other evil to non-demon becomes any other minion
         world = Grimoire()
@@ -110,6 +116,7 @@ class TestPhaseManagement(unittest.TestCase):
         result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
 
+    def test_pass_minion_types(self):
         # same minion types should be okay
         world = Grimoire()
         night1 = world.pages[0]
@@ -148,6 +155,7 @@ class TestPhaseManagement(unittest.TestCase):
         result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
 
+    def test_pass_red_herring(self):
         # red herring should be passed through
         world = Grimoire()
         night1 = world.pages[0]
@@ -166,6 +174,7 @@ class TestPhaseManagement(unittest.TestCase):
         result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
 
+    def test_pass_poisoned(self):
         # poisoned should not be passed through
         world = Grimoire()
         night1 = world.pages[0]
@@ -174,6 +183,7 @@ class TestPhaseManagement(unittest.TestCase):
         _result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(night2.poisoned[0])
 
+    def test_pass_drunk_token(self):
         # drunk token should be passed through
         world = Grimoire()
         night1 = world.pages[0]
@@ -192,6 +202,7 @@ class TestPhaseManagement(unittest.TestCase):
         result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
 
+    def test_pass_chef_number(self):
         # chef number should be passed through
         world = Grimoire()
         night1 = world.pages[0]
@@ -209,6 +220,11 @@ class TestPhaseManagement(unittest.TestCase):
         night2.chef_number = 2
         result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
+
+class TestApply(unittest.TestCase):
+    # TODO: add tests for apply starpass
+    # TODO: add tests for apply sw catch
+    pass
 
 class TestCombine(unittest.TestCase):
     def test_chef_worlds(self):

@@ -172,7 +172,7 @@ def starpass_action(
         page.dead[imp] = True
         if not gamerules.can_imp_starpass(page, imp):
             return False
-        page.apply_starpass(imp)
+        grim.apply_starpass(imp, page)
         return True
     return action
 
@@ -188,13 +188,7 @@ def saint_execution_poisoning_action(
             return True
         if not page.can_be_poisoned(executee):
             return False
-        page.poisoned[executee] = True
-        if not (
-            Role.POISONER in page.minion_types
-            or Role.ANY_OTHER_MINION in page.minion_types
-        ):
-            return False
-        page.add_minion_type(Role.POISONER)
+        page.apply_poisoned(executee)
         return True
     return action
 
@@ -212,6 +206,19 @@ def recluse_death_action(
             return False
         page.dead[target] = True
         grim.apply_character(Role.RECLUSE, target, night, order)
+        return True
+    return action
+
+def slayer_shot_action(
+    target: int,
+    night: int,
+    order: NightOrderPosition,
+) -> BranchAction:
+    def action(grim: Grimoire) -> bool:
+        page = _get_info_page(grim, night, order)
+        if not page.can_be_slayer_shot(target):
+            return False
+        page.apply_slayer_shot(target)
         return True
     return action
     
@@ -417,6 +424,7 @@ def _add_slayer_shot(
     _add_branch(
         new_grims,
         grim,
+        slayer_shot_action(target, night, order),
         sw_catch_action(target, night, order),
     )
 

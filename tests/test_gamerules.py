@@ -319,6 +319,201 @@ class TestScarletWomanCatch(unittest.TestCase):
         page.characters[3] = Role.IMP
         result = gamerules.can_scarlet_woman_catch(page, imp)
         self.assertFalse(result, "Expected a page with no minion candidates to be false.")
+
+class TestCanMinionBecomeDemon(unittest.TestCase):
+    def test_starpass(self):
+        minion = 0
+        imp = 3
+        # 1 minion becoming demon when there was a starpass is okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.BARON
+        prev.characters[imp] = Role.IMP
+        curr.characters[minion] = Role.IMP
+        curr.dead[imp] = True
+        curr.star_passed = True
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertTrue(result, "Expected minion able to become demon when there was a starpass.")
+
+        # Minion becoming demon not in "after imp" phase is not okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.BARON
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[minion] = Role.IMP
+        curr.dead[imp] = True
+        curr.star_passed = True
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected minion not able to become demon when not in after imp phase.")
+
+        # Minion becomes demon without demon dying is not okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.BARON
+        curr.night_order_position = NightOrderPosition.AFTER_IMP
+        curr.characters[minion] = Role.IMP
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected minion not able to become demon when Imp did not starpass.")
+
+    def test_execution(self):
+        minion = 0
+        imp = 3
+        # Scarlet Woman becoming demon after execution
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.SCARLET_WOMAN
+        prev.minion_types[0] = Role.SCARLET_WOMAN
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.executee = imp
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertTrue(result, "Expected Scarlet Woman able to become demon after imp is executed.")
+
+        # Unknown minion becoming demon after execution
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.ANY_OTHER_MINION
+        prev.minion_types[0] = Role.SCARLET_WOMAN
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.executee = imp
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertTrue(result, "Expected unknown minion able to become demon after imp is executed.")
+
+        # Unknown minion becoming demon if Scarlet Woman is not in minion type is not okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.ANY_OTHER_MINION
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[minion] = Role.IMP
+        curr.dead[imp] = True
+        curr.executee = imp
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected unknown minion not able to become Imp if Scarlet Woman is not a minion type.")
+
+        # non-Scarlet Woman minion becomes demon after execution
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.BARON
+        prev.minion_types[0] = Role.SCARLET_WOMAN
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.executee = imp
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected minion not able to become demon after imp executed.")
+
+        # non-Scarlet Woman minion becomes demon after execution if Scarlet Woman alive is not okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        scarlet_woman = 1
+        prev.characters[minion] = Role.BARON
+        prev.characters[scarlet_woman] = Role.SCARLET_WOMAN
+        prev.minion_types[0] = Role.SCARLET_WOMAN
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_EXECUTION
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.executee = imp
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected minion not able to become demon if Scarlet Woman is alive after imp executed.")
+
+    def test_slayer_shot(self):
+        minion = 0
+        imp = 3
+
+        # Scarlet Woman becoming demon after slayer shot
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.SCARLET_WOMAN
+        prev.minion_types[0] = Role.SCARLET_WOMAN
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.slayer_shot[imp] = True
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertTrue(result, "Expected Scarlet Woman able to become demon after Imp is slayer shot.")
+
+        # Scarlet Woman becoming demon after slayer shot someone else is not okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.SCARLET_WOMAN
+        prev.minion_types[0] = Role.SCARLET_WOMAN
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.slayer_shot[4] = True
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected not able to become demon after non-demon is slayer shot.")
+
+        # Unknown minion becoming demon after slayer shot
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.ANY_OTHER_MINION
+        prev.minion_types[0] = Role.SCARLET_WOMAN
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.slayer_shot[imp] = True
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertTrue(result, "Expected unknown minion able to become demon after imp is slayer shot.")
+
+        # Unknown minion becoming demon if Scarlet Woman is not in minion type is not okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.ANY_OTHER_MINION
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[minion] = Role.IMP
+        curr.dead[imp] = True
+        curr.slayer_shot[imp] = True
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected unknown minion not able to become Imp if Scarlet Woman is not a minion type.")
+
+        # non-Scarlet Woman minion becomes demon after slayer shot
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = Role.BARON
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.slayer_shot[imp] = True
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected non-Scarlet Woman minion not able to become demon after imp slayer shot.")
+
+        # non-Scarlet Woman minion becomes demon after slayer shot if Scarlet Woman alive is not okay
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        scarlet_woman = 1
+        prev.characters[minion] = Role.BARON
+        prev.characters[scarlet_woman] = Role.SCARLET_WOMAN
+        prev.characters[imp] = Role.IMP
+        curr.night_order_position = NightOrderPosition.AFTER_SLAYER
+        curr.characters[minion] = Role.IMP
+        curr.minion_types[0] = Role.SCARLET_WOMAN
+        curr.dead[imp] = True
+        curr.slayer_shot[imp] = True
+        result = gamerules.can_minion_become_demon(prev, curr, minion)
+        self.assertFalse(result, "Expected minion not able to become demon if Scarlet Woman is alive after imp slayer shot.")
         
 if __name__ == '__main__':
     _ = unittest.main()

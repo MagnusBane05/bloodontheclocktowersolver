@@ -234,3 +234,8 @@ def _get_overlapping_other(c2: Role, specific: bool) -> Role | None:
         return c2 if specific else Role.ANY_OTHER
     return c2 if specific else Role.ANY_OTHER
 
+
+GENERIC_MINION_SET = MINIONS_SET | {
+    Role.ANY_OTHER_MINION,
+}
+

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .role import GENERIC_MINION_SET
+
 from . import helper
 
 
@@ -34,16 +36,19 @@ SCARLET_WOMAN_CANDIDATE_SET = {
     Role.ANY_OTHER
 }
 
-GENERIC_MINION_SET = MINIONS_SET | {
-    Role.ANY_OTHER_MINION,
-}
-
 GENERIC_TOWNSFOLK_SET = TOWNSFOLK_SET | {
     Role.ANY_OTHER_TOWNSFOLK,
 }
 
 GENERIC_OUTSIDER_SET = OUTSIDERS_SET | {
     Role.ANY_OTHER_OUTSIDER,
+}
+
+SLAYER_CANDIDATE_SET = {
+    Role.SLAYER,
+    Role.ANY_OTHER_TOWNSFOLK,
+    Role.ANY_OTHER_GOOD,
+    Role.ANY_OTHER
 }
 
 class GrimoirePage:
@@ -198,6 +203,9 @@ class GrimoirePage:
         self.poisoned[player] = True
         self.add_minion_type(Role.POISONER)
 
+    def apply_slayer_shot(self, player: int):
+        self.slayer_shot[player] = True
+
     def can_be_character(self, character: Role, player: int) -> bool:
         original = self.characters[player]
         if original == character:
@@ -292,6 +300,20 @@ class GrimoirePage:
         return (
             Role.POISONER in self.minion_types
             or Role.ANY_OTHER_MINION in self.minion_types
+        )
+    
+    def can_be_slayer_shot(self, player: int) -> bool:
+        # Can't have other slayer shot
+        for i, p in enumerate(self.slayer_shot):
+            if i == player:
+                continue
+            if p:
+                return False
+            
+        # Must be a Slayer claim or room for a Slayer
+        return any(
+            c in self.characters
+            for c in SLAYER_CANDIDATE_SET
         )
     
     def make_deductions(self):
@@ -496,7 +518,6 @@ class GrimoirePage:
             old_minion = self.characters[alive_minion]
             assert not self.dead[alive_minion]
             self.characters[alive_minion] = Role.IMP
-            self.character_changed[alive_minion] = True
             if old_minion == Role.POISONER:
                 self.poisoned = [False]*self.num_players
             elif old_minion == Role.SPY and self.red_herring[alive_minion]:
