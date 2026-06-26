@@ -112,7 +112,7 @@ class GrimoirePage:
             sum(a or b for a, b in zip(self.poisoned, other.poisoned)) <= 1 and 
             sum(a or b for a, b in zip(self.red_herring, other.red_herring)) <= 1 and
             (self.chef_number is None or other.chef_number is None or self.chef_number == other.chef_number) and
-            (self.chef_number is None or other.drunk_token is None or self.drunk_token == other.drunk_token)
+            (self.drunk_token is None or other.drunk_token is None or self.drunk_token == other.drunk_token)
         )
     
     def subsumes(self, other: GrimoirePage) -> bool:

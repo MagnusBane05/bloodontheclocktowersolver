@@ -603,7 +603,7 @@ class Grimoire:
             # non demon can now be demon
             if (
                 (c1 == Role.ANY_OTHER and c2 == Role.NON_DEMON)
-                or (c1 == Role.ANY_OTHER_EVIL and c2 == Role.ANY_OTHER_MINION)
+                or ((c1 == Role.ANY_OTHER_EVIL or c1 == Role.ANY_OTHER) and c2 == Role.ANY_OTHER_MINION)
             ):
                 if gamerules.can_non_demon_become_potential_demon(prev, curr, i):
                     continue
