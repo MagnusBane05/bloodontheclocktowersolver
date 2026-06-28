@@ -1,15 +1,14 @@
 from typing import TypeVar, Callable
 import logging
 
-from .traces import TrueGrimTrace
 # logging.basicConfig(level=logging.DEBUG)
 
+from .branch_actions import *
 from .info import *
 from .grimoire import *
 from .role import *
+from .traces import TrueGrimTrace
 from .nightOrderPosition import NightOrderPosition
-
-BranchAction = Callable[[Grimoire], bool]
 
 def _finalize(grim: Grimoire) -> Grimoire | None:
     valid, _reason = Grimoire.pass_through_pages(grim)
@@ -59,188 +58,6 @@ def _add_branch(
             trace.record_candidate(label, candidate)
     return candidate
 
-def _get_info_page(
-    grim: Grimoire, 
-    night: int, 
-    order: NightOrderPosition = NightOrderPosition.AFTER_IMP
-) -> GrimoirePage:
-    page = grim.get_page(night, order)
-    if page is not None:
-        return page
-    return grim.add_page(night, order)
-
-def character_action(
-    role: Role,
-    player: int,
-    night: int,
-    order: NightOrderPosition = NightOrderPosition.AFTER_IMP
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        if not grim.can_be_character(role, player, night, order):
-            return False
-        grim.apply_character(role, player, night, order)
-        return True
-    return action
-
-def drunk_action(
-    drunk_token: Role,
-    player: int,
-    night: int,
-    order: NightOrderPosition = NightOrderPosition.AFTER_IMP
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        if not grim.can_be_character(Role.DRUNK, player, night, order):
-            return False
-        grim.apply_drunk(drunk_token, player, night, order)
-        return True
-    return action
-
-def poisoned_action(
-    player: int,
-    night: int,
-    order: NightOrderPosition = NightOrderPosition.AFTER_IMP
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not page.can_be_poisoned(player):
-            return False
-        page.apply_poisoned(player)
-        return True
-    return action
-
-def imp_action(
-    player: int,
-    night: int,
-    order: NightOrderPosition = NightOrderPosition.AFTER_IMP
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not page.can_be_character(Role.IMP, player):
-            return False
-        page.apply_character(Role.IMP, player)
-        return True
-    return action
-
-def red_herring_action(
-    player: int,
-    night: int,
-    order: NightOrderPosition = NightOrderPosition.AFTER_IMP
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        if not grim.can_be_red_herring(player, night, order):
-            return False
-        page = _get_info_page(grim, night, order)
-        page.apply_red_herring(player)
-        return True
-    return action
-
-def mark_dead_action(
-    player: int,
-    night: int,
-    order: NightOrderPosition,
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if page.dead[player]:
-            return False
-        page.dead[player] = True
-        return True
-    return action
-
-
-def mark_executee_action(
-    executee: int,
-    night: int,
-    order: NightOrderPosition,
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if page.executee is not None:
-            return False
-        page.executee = executee
-        return True
-    return action
-
-
-def sw_catch_action(
-    demon: int,
-    night: int,
-    order: NightOrderPosition,
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if page.dead[demon]:
-            return False
-        if not gamerules.can_scarlet_woman_catch(page, demon):
-            return False
-        page.dead[demon] = True
-        grim.apply_sw_catch(demon, page)
-        return True
-    return action
-
-
-def starpass_action(
-    imp: int,
-    night: int,
-    order: NightOrderPosition,
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if page.dead[imp]:
-            return False
-        page.dead[imp] = True
-        if not gamerules.can_imp_starpass(page, imp):
-            return False
-        grim.apply_starpass(imp, page)
-        return True
-    return action
-
-
-def saint_execution_poisoning_action(
-    executee: int,
-    night: int,
-    order: NightOrderPosition,
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if page.characters[executee] != Role.SAINT:
-            return True
-        if not page.can_be_poisoned(executee):
-            return False
-        page.apply_poisoned(executee)
-        return True
-    return action
-
-
-def recluse_death_action(
-    target: int,
-    night: int,
-    order: NightOrderPosition,
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not grim.can_be_character(Role.RECLUSE, target, night, order):
-            return False
-        if page.dead[target]:
-            return False
-        page.dead[target] = True
-        grim.apply_character(Role.RECLUSE, target, night, order)
-        return True
-    return action
-
-def slayer_shot_action(
-    target: int,
-    night: int,
-    order: NightOrderPosition,
-) -> BranchAction:
-    def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not page.can_be_slayer_shot(target):
-            return False
-        page.apply_slayer_shot(target)
-        return True
-    return action
-    
 def _add_drunk_evil_poisoned(
     player: int, 
     claim: Role, 
@@ -299,14 +116,14 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Gr
 
     if ping:
         for target in (a, b):
-            # target is the demon
+            # Target is the demon
             _add_branch(
                 out,
                 ft_base,
                 imp_action(target, night, order)
             )
 
-            # target is the red herring and Spy
+            # Target is the red herring and Spy
             _add_branch(
                 out,
                 ft_base,
@@ -314,7 +131,7 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Gr
                 red_herring_action(target, night, order)
             )
 
-            # target is the red herring and good
+            # Target is the red herring and good
             _add_branch(
                 out,
                 ft_base,
@@ -322,7 +139,7 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Gr
                 red_herring_action(target, night, order)
             )
 
-            # target is Recluse registering as demon
+            # Target is Recluse registering as demon
             _add_branch(
                 out,
                 ft_base,
@@ -330,6 +147,7 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Gr
             )
 
     else:
+        # Both targets are not the demon
         _add_branch(
             out,
             ft_base,
@@ -337,6 +155,113 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Gr
             character_action(Role.NON_DEMON, b, night, order)
         )
 
+    return list(out)
+
+def _add_empath_info(info: EmpathInfo, grim: Grimoire) -> list[Grimoire]:
+    player = info["empath"]
+    night = info["night"]
+    order = NightOrderPosition.AFTER_IMP
+    number = info["number"]
+    left = info["left_neighbour"]
+    right = info["right_neighbour"]
+
+    out, empath_base = _add_drunk_evil_poisoned(
+        player,
+        Role.EMPATH,
+        grim,
+        night
+    )
+
+    if empath_base is None:
+        return list(out)
+    
+    if number == 0:
+        # Both neighbours are good
+        _add_branch(
+            out,
+            empath_base,
+            character_action(Role.ANY_OTHER_GOOD, left, night, order),
+            character_action(Role.ANY_OTHER_GOOD, right, night, order),
+        )
+
+        # Left neighbour is the Spy
+        _add_branch(
+            out,
+            empath_base,
+            character_action(Role.SPY, left, night, order),
+            character_action(Role.ANY_OTHER_GOOD, right, night, order),
+        )
+
+        # Right neighbour is the Spy
+        _add_branch(
+            out,
+            empath_base,
+            character_action(Role.SPY, right, night, order),
+            character_action(Role.ANY_OTHER_GOOD, left, night, order),
+        )
+
+    elif number == 1:
+        for a, b in ((left, right), (right, left)):
+            # Neighbour a is evil and b is good
+            _add_branch(
+                out,
+                empath_base,
+                character_action(Role.ANY_OTHER_EVIL, a, night, order),
+                character_action(Role.ANY_OTHER_GOOD, b, night, order),
+            )
+
+            # Neighbour a is evil and b is the Spy
+            _add_branch(
+                out,
+                empath_base,
+                character_action(Role.ANY_OTHER_EVIL, a, night, order),
+                character_action(Role.SPY, b, night, order),
+            )
+
+            # Neighbour a is the Recluse and b is good
+            _add_branch(
+                out,
+                empath_base,
+                character_action(Role.RECLUSE, a, night, order),
+                character_action(Role.ANY_OTHER_GOOD, b, night, order),
+            )
+
+            # Neighbour a is Revluse and b is the Spy
+            _add_branch(
+                out,
+                empath_base,
+                character_action(Role.RECLUSE, a, night, order),
+                character_action(Role.SPY, b, night, order),
+            )
+
+    elif number == 2:
+        # Both neighbours are evil
+        _add_branch(
+            out,
+            empath_base,
+            character_action(Role.ANY_OTHER_EVIL, left, night, order),
+            character_action(Role.ANY_OTHER_EVIL, right, night, order),
+        )
+
+        # Left is evil and right is Recluse
+        _add_branch(
+            out,
+            empath_base,
+            character_action(Role.ANY_OTHER_EVIL, left, night, order),
+            character_action(Role.RECLUSE, right, night, order),
+        )
+
+        # Right is evil and left is Recluse
+        _add_branch(
+            out,
+            empath_base,
+            character_action(Role.RECLUSE, left, night, order),
+            character_action(Role.ANY_OTHER_EVIL, right, night, order),
+        )
+
+    else:
+        raise RuntimeError("Empath number cannot be greater than 2.")
+    
     return list(out)
 
 Y = TypeVar("Y", bound=Info)
@@ -364,8 +289,10 @@ def add_info_to_grims(
     grims: list[Grimoire], 
     trace: TrueGrimTrace | None = None
 ):
-    if info['kind'] == "fortune teller":
+    if info["kind"] == "fortune teller":
         return _apply_info(info, grims, _add_fortune_teller_info, trace)
+    elif info["kind"] == "empath":
+        return _apply_info(info, grims, _add_empath_info, trace)
     else:
         raise RuntimeError(f"{info['kind']} info type not handled.")
     
@@ -456,7 +383,8 @@ def _add_slayer_shot(
     _add_branch(
         new_grims,
         grim,
-        recluse_death_action(target, night, order),
+        mark_dead_action(target, night, order),
+        character_action(Role.RECLUSE, target, night, order),
     )
 
     return list(new_grims)

@@ -17,6 +17,8 @@ from .add_info_to_grims import add_death_info_to_grims, add_info_to_grims
 
 SAMPLE_CHANCE = 0
 
+BRANCHING_INFO = ["fortune teller", "empath"]
+
 class GrimoireManager():
     
     def __init__(self, game: Game, true_grim: Grimoire | None = None):
@@ -67,7 +69,7 @@ class GrimoireManager():
             for info in info_list:
                 if night == 1 and info["kind"] in FIRST_NIGHT_INFO:
                     self.add_info(info)
-                elif info["kind"] == "fortune teller" and "night" in info and info['night'] == night:
+                elif info["kind"] in BRANCHING_INFO and "night" in info and info['night'] == night:
                     self._add_branching_info(info, f"night {night} Fortune Teller info.")
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
                     self.add_info(info)
