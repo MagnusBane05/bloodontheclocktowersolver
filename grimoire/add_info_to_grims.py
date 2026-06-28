@@ -38,6 +38,12 @@ def _try_branch(
     except (RuntimeError, ValueError):
         return None
     
+def _try_intermediate_branch(
+    base: Grimoire,
+    *actions: BranchAction,
+) -> Grimoire | None:
+    return _try_branch(base, *actions, finalize=False)
+    
 def _add_branch(
     out: set[Grimoire],
     base: Grimoire,
@@ -99,6 +105,19 @@ def poisoned_action(
         if not page.can_be_poisoned(player):
             return False
         page.apply_poisoned(player)
+        return True
+    return action
+
+def imp_action(
+    player: int,
+    night: int,
+    order: NightOrderPosition = NightOrderPosition.AFTER_IMP
+) -> BranchAction:
+    def action(grim: Grimoire) -> bool:
+        page = _get_info_page(grim, night, order)
+        if not page.can_be_character(Role.IMP, player):
+            return False
+        page.apply_character(Role.IMP, player)
         return True
     return action
 
@@ -255,7 +274,7 @@ def _add_drunk_evil_poisoned(
         poisoned_action(player, night, order)
     )
 
-    real_base = _try_branch(
+    real_base = _try_intermediate_branch(
         grim,
         character_action(claim, player, night, order),
     )
@@ -284,7 +303,7 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Gr
             _add_branch(
                 out,
                 ft_base,
-                character_action(Role.IMP, target, night, order)
+                imp_action(target, night, order)
             )
 
             # target is the red herring and Spy
@@ -324,7 +343,8 @@ Y = TypeVar("Y", bound=Info)
 def _apply_info(
     info: Y, 
     grims: list[Grimoire], 
-    add_info_fn: Callable[[Y, Grimoire], list[Grimoire]]
+    add_info_fn: Callable[[Y, Grimoire], list[Grimoire]],
+    trace: TrueGrimTrace | None = None
 ) -> list[Grimoire]:
     new_grims: set[Grimoire] = set()
     before = len(grims)
@@ -339,9 +359,13 @@ def _apply_info(
     )
     return list(new_grims)
 
-def add_info_to_grims(info: Info, grims: list[Grimoire]):
+def add_info_to_grims(
+    info: Info, 
+    grims: list[Grimoire], 
+    trace: TrueGrimTrace | None = None
+):
     if info['kind'] == "fortune teller":
-        return _apply_info(info, grims, _add_fortune_teller_info)
+        return _apply_info(info, grims, _add_fortune_teller_info, trace)
     else:
         raise RuntimeError(f"{info['kind']} info type not handled.")
     

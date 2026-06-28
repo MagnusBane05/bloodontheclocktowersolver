@@ -31,6 +31,19 @@ class GrimoireManager():
             true_grim=self.true_grim,
             stage=stage,
         )
+    
+    def _add_branching_info(self, info: Info, stage: str | None = None):
+        before = self.grims
+        if len(before) == 0:
+            self.grims.append(Grimoire(self.game["players"]))
+        night = info['night'] if "night" in info else 1
+        trace = self._make_trace(f"night {night} {info['kind']} info")
+        new_grims = add_info_to_grims(info, self.grims, trace)
+        self._set_grims_checked(
+            new_grims,
+            stage or f"info {info}",
+            previous_grims=before,
+        )
 
     def add_full_game(self, info_list: list[Info], death_info: list[DeathInfo], nights: int):
         for night in range(1,nights+1):
@@ -41,7 +54,9 @@ class GrimoireManager():
                 and d["night"] == night
             ]:
                 before = self.grims
-                new_grims = add_death_info_to_grims(imp_kill, self.grims)
+                stage = f"night {night} imp kill {imp_kill}"
+                trace = self._make_trace(stage)
+                new_grims = add_death_info_to_grims(imp_kill, self.grims, trace)
                 self._set_grims_checked(
                     new_grims,
                     f"night {night} demon kill {imp_kill}",
@@ -52,8 +67,8 @@ class GrimoireManager():
             for info in info_list:
                 if night == 1 and info["kind"] in FIRST_NIGHT_INFO:
                     self.add_info(info)
-                # elif info["kind"] == "fortune teller":
-                #     add_info_to_grims(info, self.grims)
+                elif info["kind"] == "fortune teller" and "night" in info and info['night'] == night:
+                    self._add_branching_info(info, f"night {night} Fortune Teller info.")
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
                     self.add_info(info)
 
@@ -116,6 +131,9 @@ class GrimoireManager():
         *,
         previous_grims: list[Grimoire] | None = None,
     ):
+        if len(new_grims) > 250000:
+            raise RuntimeError(f"{len(new_grims)} is too many solutions.")
+
         if self.true_grim is not None and not self._contains_true_grim(new_grims):
             previous = previous_grims if previous_grims is not None else self.grims
 
