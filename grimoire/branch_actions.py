@@ -25,7 +25,9 @@ def character_action(
     def action(grim: Grimoire) -> bool:
         if not grim.can_be_character(role, player, night, order):
             return False
-        grim.apply_character(role, player, night, order)
+        deduce = grim.apply_character(role, player, night, order)
+        if deduce:
+            grim.make_deductions()
         return True
     return action
 
@@ -88,7 +90,7 @@ def mark_dead_action(
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
         page = _get_info_page(grim, night, order)
-        if page.dead[player]:
+        if not page.can_be_dead(player):
             return False
         page.dead[player] = True
         return True
@@ -114,11 +116,8 @@ def sw_catch_action(
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
         page = _get_info_page(grim, night, order)
-        if page.dead[demon]:
-            return False
         if not gamerules.can_scarlet_woman_catch(page, demon):
             return False
-        page.dead[demon] = True
         grim.apply_sw_catch(demon, page)
         return True
     return action
@@ -130,9 +129,6 @@ def starpass_action(
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
         page = _get_info_page(grim, night, order)
-        if page.dead[imp]:
-            return False
-        page.dead[imp] = True
         if not gamerules.can_imp_starpass(page, imp):
             return False
         grim.apply_starpass(imp, page)

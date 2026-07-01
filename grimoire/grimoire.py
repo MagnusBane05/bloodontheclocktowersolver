@@ -142,6 +142,7 @@ class Grimoire:
         new_page.night_order_position = night_order_position
         if page is None:
             new_page.poisoned = [False]*len(new_page.poisoned)
+        new_page.chef_number = None
         self.pages.insert(i, new_page)
         self.keys.insert(i, key)
         return new_page
@@ -196,13 +197,15 @@ class Grimoire:
         night: int, 
         night_order_position: NightOrderPosition
     ):
+        deduce = False
         for page in self.pages:
             if (
                 page.night >= night 
                 and page.night_order_position > night_order_position
             ):
                 continue
-            page.apply_character(character, player)
+            deduce = deduce or page.apply_character(character, player)
+        return deduce
 
     def apply_drunk(
         self, 
@@ -315,6 +318,9 @@ class Grimoire:
             return w1, False, "invalid grim"
 
         Grimoire.make_deductions(new_world)
+
+        if not gamerules.is_grim_valid(new_world):
+            return w1, False, "invalid grim after deducing"
 
         return new_world, True, ""
 
@@ -628,14 +634,7 @@ class Grimoire:
             if curr.drunk_token is None:
                 curr.drunk_token = prev.drunk_token
             elif prev.drunk_token != curr.drunk_token:
-                return False, "mismatched drunk token between pages"        
-
-        # pass chef number
-        if prev.chef_number is not None:
-            if curr.chef_number is None:
-                curr.chef_number = prev.chef_number
-            elif prev.chef_number != curr.chef_number:
-                return False, "mismatched chef number between pages"
+                return False, "mismatched drunk token between pages"
             
         # pass deaths            
         curr.dead = [a or b for a, b in zip(curr.dead, prev.dead)]
@@ -647,7 +646,7 @@ class Grimoire:
             and prev.poisoned.index(True) != curr.poisoned.index(True)):
             return False, "mismatched poisoned between pages"
         
-        valid = gamerules.is_page_valid(curr)
+        valid, reason = gamerules.is_page_valid(curr)
         if not valid:
-            return False, "page validity check failed"
+            return False, f"night {curr.night} {curr.night_order_position.name} page validity check failed. {reason}" 
         return True, ""

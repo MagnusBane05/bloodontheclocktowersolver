@@ -51,6 +51,12 @@ SLAYER_CANDIDATE_SET = {
     Role.ANY_OTHER
 }
 
+NON_RECLUSE_OUTSIDERS = {
+    Role.SAINT,
+    Role.DRUNK,
+    Role.BUTLER
+}
+
 class GrimoirePage:
     def __init__(self, num_players: int=5, night: int=1, night_order_position: NightOrderPosition=NightOrderPosition.AFTER_IMP):
         self.num_players = num_players
@@ -191,6 +197,7 @@ class GrimoirePage:
                 and Role.BARON not in self.minion_types
             ):
                 self.add_minion_type(Role.BARON)
+        return overlapping != original
 
     def apply_drunk(self, character: Role, player: int):
         self.apply_character(Role.DRUNK, player)
@@ -218,7 +225,7 @@ class GrimoirePage:
         if overlapping == original:
             return True
         # New character is more specific
-        if not self._can_be_type(character, player):
+        if not self._can_be_type(overlapping, player):
             return False
         # No repeats
         for i, c in enumerate(self.characters):
@@ -266,6 +273,8 @@ class GrimoirePage:
             max_townsfolk = gamerules.get_townsfolk_count(num_players, baron)
             return townsfolk < max_townsfolk
         elif type == CharacterType.OUTSIDER:
+            if self.no_outsiders and character in NON_RECLUSE_OUTSIDERS:
+                return False
             outsiders = self.get_characters_of_type(CharacterType.OUTSIDER)
             baron = Role.BARON in self.minion_types or Role.ANY_OTHER_MINION in self.minion_types
             max_outsiders = gamerules.get_outsider_count(num_players, baron)
@@ -297,11 +306,23 @@ class GrimoirePage:
                 return False
             
         # Poisoner must be in minion types or can be added to minion types
-        return (
+        if not (
             Role.POISONER in self.minion_types
             or Role.ANY_OTHER_MINION in self.minion_types
-        )
+        ) :
+            return False
     
+        # Poisoner can't be dead
+        dead_characters = [c for i, c in enumerate(self.characters) if self.dead[i]]
+        if Role.POISONER in dead_characters:
+            return False
+        
+        # false if all minions are dead (check evil roles, not just minions, in case of star passes)
+        if sum(1 for c in dead_characters if c in EVIL_ROLES) == gamerules.get_minion_count(self.num_players):
+            return False
+        
+        return True
+
     def can_be_slayer_shot(self, player: int) -> bool:
         # Can't have other slayer shot
         for i, p in enumerate(self.slayer_shot):
@@ -315,6 +336,15 @@ class GrimoirePage:
             c in self.characters
             for c in SLAYER_CANDIDATE_SET
         )
+    
+    def can_be_dead(self, player: int) -> bool:
+        # Can't be dead already
+        if self.dead[player]:
+            return False
+        # Poisoner can't die if poisoning is active
+        if self.characters[player] == Role.POISONER and True in self.poisoned:
+            return False
+        return True
     
     def make_deductions(self):
         max_depth = 5
@@ -546,7 +576,7 @@ class GrimoirePage:
         return list(compress(range(len(self.characters)), self.dead))
     
     def get_potential_alive_demons(self):
-        alive_demons = [i for i in self.get_alive_players() if helper.roleLooseEquals(Role.IMP, self.characters[i])]
+        alive_demons = [i for i, c in enumerate(self.characters) if not self.dead[i] and helper.roleLooseEquals(Role.IMP, c)]
         return alive_demons
     
     def get_known_evil_team(self):

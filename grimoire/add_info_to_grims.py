@@ -13,8 +13,11 @@ from .nightOrderPosition import NightOrderPosition
 def _finalize(grim: Grimoire) -> Grimoire | None:
     valid, _reason = Grimoire.pass_through_pages(grim)
     if not valid:
+        # logging.warning(_reason)
         return None
     grim.make_deductions()
+    if not gamerules.is_grim_valid(grim):
+        return None
     return grim
 
 def _try_branch(
@@ -311,6 +314,7 @@ def _add_demon_kill(
     _add_branch(
         new_grims,
         grim,
+        mark_dead_action(player, night, order),
         starpass_action(player, night, order),
         label=f"player {player} is Imp who starpassed",
     )
@@ -340,6 +344,7 @@ def _add_execution(
     _add_branch(
         new_grims,
         grim,
+        mark_dead_action(executee, night, order),
         sw_catch_action(executee, night, order),
         mark_executee_action(executee, night, order),
         label=f"execution: player {executee} was the demon",
@@ -376,6 +381,7 @@ def _add_slayer_shot(
         new_grims,
         grim,
         slayer_shot_action(target, night, order),
+        mark_dead_action(target, night, order),
         sw_catch_action(target, night, order),
     )
 

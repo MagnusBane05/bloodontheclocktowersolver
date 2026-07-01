@@ -14,13 +14,14 @@ class TestValidation(unittest.TestCase):
         valid = gamerules.is_grim_valid(world)
         self.assertTrue(valid)
 
-        # Only 1 alive imp is okay
+        # 2 alive Imps is not valid
         world = Grimoire()
         phase = world.pages[0]
         phase.characters = [Role.IMP, Role.IMP, Role.FORTUNE_TELLER, Role.SLAYER, Role.CHEF]
         valid = gamerules.is_grim_valid(world)
         self.assertFalse(valid)
 
+        # Only 1 alive imp is okay
         world = Grimoire()
         phase = world.pages[0]
         phase.characters = [Role.IMP, Role.IMP, Role.FORTUNE_TELLER, Role.SLAYER, Role.CHEF]
@@ -289,20 +290,28 @@ class TestScarletWomanCatch(unittest.TestCase):
         result = gamerules.can_scarlet_woman_catch(page, imp)
         self.assertFalse(result, "Expected a page with no Scarlet Woman candidates to be false.")
 
+        page = GrimoirePage(5)
+        page.characters[0] = Role.IMP
+        page.characters[2] = Role.ANY_OTHER_TOWNSFOLK
+        page.characters[4] = Role.ANY_OTHER_TOWNSFOLK
+        page.dead[0] = True
+        result = gamerules.can_scarlet_woman_catch(page, imp)
+        self.assertFalse(result, "Expected an unknown character being executed with all evils dead can't be the Imp.")
+
     def test_can_imp_starpass(self):
         imp = 3
         page = GrimoirePage(10)
         result = gamerules.can_imp_starpass(page, imp)
-        self.assertTrue(result, "Expected blank pagee to be true.")
+        self.assertTrue(result, "Expected blank page to be true.")
 
         scarlet_woman = 0
         page.characters[scarlet_woman] = Role.SCARLET_WOMAN
         page.characters[imp] = Role.IMP
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_imp_starpass(page, imp)
         self.assertTrue(result, "Expected page with known Imp and Scarlet Woman to be true.")
 
         page.characters[imp] = Role.NON_DEMON
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_imp_starpass(page, imp)
         self.assertFalse(result, "Expected executing a non-demon to be false.")
 
         page = GrimoirePage(10)
@@ -310,15 +319,23 @@ class TestScarletWomanCatch(unittest.TestCase):
         page.characters[1] = Role.ANY_OTHER_MINION
         page.dead[0] = True
         page.dead[1] = True
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_imp_starpass(page, imp)
         self.assertFalse(result, "Expected a page with all minions dead to be false.")
 
         page.characters = [Role.ANY_OTHER_GOOD] * 10
         page.characters[0] = Role.IMP
         page.characters[1] = Role.IMP
         page.characters[3] = Role.IMP
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_imp_starpass(page, imp)
         self.assertFalse(result, "Expected a page with no minion candidates to be false.")
+
+        page = GrimoirePage(5)
+        page.characters[0] = Role.IMP
+        page.characters[2] = Role.ANY_OTHER_TOWNSFOLK
+        page.characters[4] = Role.ANY_OTHER_TOWNSFOLK
+        page.dead[0] = True
+        result = gamerules.can_imp_starpass(page, imp)
+        self.assertFalse(result, "Expected an unknown character with all evils dead can't be the Imp who starpassed.")
 
 class TestCanMinionBecomeDemon(unittest.TestCase):
     def test_starpass(self):

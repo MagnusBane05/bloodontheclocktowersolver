@@ -242,6 +242,41 @@ class TestPage(unittest.TestCase):
         self.assertEqual(new_imp, minion_candidate_3, "Expected new imp to be the last minion candidate.")
         self.assertEqual(page.characters[minion_candidate_3], Role.IMP, "Expected last alive minion candidate to become the Imp.")
 
+class TestCanBeCharacter(unittest.TestCase):
+    def test_unknown_character(self):
+        page = GrimoirePage()
+        character = Role.ANY_OTHER
+        player = 0
+        result = page.can_be_character(character, player)
+        self.assertTrue(result, "Expected unknown character to be valid.")
+
+    def test_outsider(self):
+        page = GrimoirePage(10)
+        character = Role.ANY_OTHER_OUTSIDER
+        player = 0
+        result = page.can_be_character(character, player)
+        self.assertTrue(result, "Expected player able to be outsider when Baron could still be a minion type.")
+
+        page.minion_types = [Role.POISONER, Role.SCARLET_WOMAN]
+        result = page.can_be_character(character, player)
+        self.assertFalse(result, "Expected player not able to be outsider when Baron is not a minion type.")
+
+        page = GrimoirePage(10)
+        page.characters[1] = Role.RECLUSE
+        page.characters[2] = Role.DRUNK
+        result = page.can_be_character(character, player)
+        self.assertFalse(result, "Expected player not able to be outsider when 2 other players already outsiders.")
+
+        page = GrimoirePage(10)
+        page.no_outsiders = True
+        result = page.can_be_character(Role.SAINT, player)
+        self.assertFalse(result, "Expected player not able to be outsider when librarian shown no outsiders.")
+
+        page = GrimoirePage(8)
+        page.no_outsiders = True
+        result = page.can_be_character(Role.RECLUSE, player)
+        self.assertTrue(result, "Expected Recluse able to register as non-outsider to Librarian.")
+
 
 
 if __name__ == "__main__":

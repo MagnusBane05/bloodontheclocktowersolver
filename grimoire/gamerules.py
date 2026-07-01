@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import Counter
 from typing import TYPE_CHECKING, Literal
 
 from grimoire.nightOrderPosition import NightOrderPosition
@@ -86,6 +87,7 @@ ROLE_BREAKDOWNS: dict[
 }
 
 ALLOWED_MULTIPLES = {Role.IMP} | ANY_OTHER_ROLES_SET
+EVIL_PLAYERS_WITHOUT_SPY = EVIL_ROLES_SET - {Role.SPY}
 
 def can_scarlet_woman_catch(page: GrimoirePage, dead_player: int) -> bool:
     # known non-demon player died
@@ -97,9 +99,14 @@ def can_scarlet_woman_catch(page: GrimoirePage, dead_player: int) -> bool:
         if c == Role.SCARLET_WOMAN and page.dead[i]:
             return False
     
-    # all minions are dead already
-    dead_minions = page.get_dead_characters_of_type(MINIONS_SET | {Role.ANY_OTHER_MINION})
-    if len(dead_minions) >= len(page.minion_types):
+    # all evils are dead already
+    dead_evil_count = sum(
+        1 for i, c in enumerate(page.characters) 
+        if page.dead[i] and c in EVIL_ROLES_SET
+    )
+    dead = page.dead[dead_player]
+    max_evils = get_evil_count(page.num_players)
+    if dead_evil_count + (1 if not dead else 0) >= max_evils:
         return False
 
     # none of the alive players could be a scarlet woman
@@ -117,9 +124,16 @@ def can_imp_starpass(page: GrimoirePage, dead_player: int) -> bool:
     if not can_player_be_demon(page.characters[dead_player]):
         return False
     
-    # all minions are dead already
-    dead_minions = page.get_dead_characters_of_type(MINIONS_SET | {Role.ANY_OTHER_MINION})
-    if len(dead_minions) >= len(page.minion_types):
+    # all evils are dead already (assume dead player is the dead Imp)
+    dead_evil_count = sum(
+        1 for i, c in enumerate(page.characters) 
+        if (
+            page.dead[i] 
+            and c in EVIL_ROLES_SET
+            or i == dead_player)
+    )
+    max_evils = get_evil_count(page.num_players)
+    if dead_evil_count >= max_evils:
         return False
     
     # none of the alive players could be a minion
@@ -204,28 +218,36 @@ def can_non_demon_become_potential_demon(prev: GrimoirePage, curr: GrimoirePage,
             return False
     return True
 
-
-
 def is_grim_valid(grim: Grimoire):
     for page in grim.pages:
-        if not is_page_valid(page):
+        valid, _reason = is_page_valid(page)
+        if not valid:
             return False
     return True
 
-def is_page_valid(page: GrimoirePage) -> bool:
+def is_page_valid(page: GrimoirePage) -> tuple[bool, str]:
     num_players = page.num_players
     # Check outsider count on first night only
     if page.night == 1 and page.night_order_position == NightOrderPosition.AFTER_IMP:
         if not is_outsider_count_valid(page, num_players):
-            return False
-    return (
-        is_evil_count_valid(page, num_players) and
-        is_good_count_valid(page, num_players) and
-        are_minion_types_valid(page) and
-        is_poisoning_valid(page, num_players) and
-        is_no_invalid_duplicates(page) and
-        is_no_sober_saint_executed(page)
-    )
+            return False, "invalid outsider count"
+        elif not is_chef_number_valid(page):
+            return False, "invalid chef number"
+    if not is_evil_count_valid(page, num_players):
+        return False, "invalid evil count"
+    elif not is_good_count_valid(page, num_players):
+        return False, "invalid good count"
+    elif not are_minion_types_valid(page):
+        return False, "invalid minion types"
+    elif not is_poisoning_valid(page, num_players):
+        return False, "invalid poisoning"
+    elif not is_no_invalid_duplicates(page):
+        return False, "invalid duplicates"
+    elif not is_no_sober_saint_executed(page):
+        return False, "sober Saint executed"
+    elif not is_red_herring_valid(page):
+        return False, "invalid red herring"
+    return True, ""
 
 def is_outsider_count_valid(first_page: GrimoirePage, num_players: int):
     # librarian told no outsiders
@@ -238,7 +260,7 @@ def is_outsider_count_valid(first_page: GrimoirePage, num_players: int):
         if can_player_be_recluse(c):
             recluse = True
             break
-    # no outsiders and at least 1 non-recluse outsider
+    # Recluse can register as non-outsider to Librarian
     non_recluse_outsiders = base_outsider_count - 1 if recluse else base_outsider_count
     if first_page.no_outsiders and non_recluse_outsiders > 0:
         return False
@@ -357,6 +379,130 @@ def is_no_sober_saint_executed(page: GrimoirePage) -> bool:
     if page.characters[page.executee] != Role.SAINT:
         return True
     return page.poisoned[page.executee]
+
+def is_chef_number_valid(page: GrimoirePage) -> bool:
+    chef_number = page.chef_number
+    if chef_number is None:
+        return True
+    characters = page.characters
+    minion_types = page.minion_types
+    num_players = page.num_players
+
+    # Could an unknown player be the spy
+    spy_possible = (
+        Role.SPY not in characters 
+        and (
+            Role.SPY in minion_types 
+            or Role.ANY_OTHER_MINION in minion_types)
+    )
+
+    # Could an unknown player be the recluse
+    known_outsiders = sum(1 for c in characters if c in OUTSIDERS)
+    baron_possible = Role.BARON in minion_types or Role.ANY_OTHER_MINION in minion_types
+    max_outsiders = get_outsider_count(num_players, baron_possible)
+    recluse_possible = Role.RECLUSE not in characters and known_outsiders < max_outsiders
+
+    # Precompute predicates for each character
+    definitely_evil = [False] * num_players
+    possibly_evil = [False] * num_players
+    could_be_recluse = [False] * num_players
+    evil_could_be_spy = [False] * num_players
+
+    for i in range(num_players):
+        role = characters[i]
+        if role == Role.SPY:
+            definitely_evil[i] = False
+            possibly_evil[i] = True
+            could_be_recluse[i] = False
+            evil_could_be_spy[i] = False
+        elif role in EVIL_CHARACTERS:
+            definitely_evil[i] = True
+            possibly_evil[i] = True
+            could_be_recluse[i] = False
+            evil_could_be_spy[i] = False
+        elif not spy_possible and role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
+            definitely_evil[i] = True
+            possibly_evil[i] = True
+            could_be_recluse[i] = False
+            evil_could_be_spy[i] = False
+        elif role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
+            definitely_evil[i] = False
+            possibly_evil[i] = True
+            could_be_recluse[i] = False
+            evil_could_be_spy[i] = True
+        elif role in [Role.ANY_OTHER, Role.NON_DEMON]:
+            definitely_evil[i] = False
+            possibly_evil[i] = True
+            could_be_recluse[i] = True
+            evil_could_be_spy[i] = False
+        elif role == Role.RECLUSE:
+            definitely_evil[i] = False
+            possibly_evil[i] = True
+            could_be_recluse[i] = False
+            evil_could_be_spy[i] = False
+        else:
+            definitely_evil[i] = False
+            possibly_evil[i] = False
+            could_be_recluse[i] = role in [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_OUTSIDER]
+            evil_could_be_spy[i] = False
+
+    pairs = [(i, (i + 1) % num_players) for i in range(num_players)]
+
+    min_pairs = 0
+    max_pairs = 0
+
+    recluse_needed: list[int] = []
+    possible_spies: list[int] = []
+    spies_needed = 0
+
+    for i, j in pairs:
+        if definitely_evil[i] and definitely_evil[j]:
+            min_pairs += 1
+        elif definitely_evil[i] and evil_could_be_spy[j]:
+            possible_spies.append(j)
+            spies_needed += 1
+        elif evil_could_be_spy[i] and definitely_evil[j]:
+            possible_spies.append(i)
+            spies_needed += 1
+        elif evil_could_be_spy[i] and evil_could_be_spy[j]:
+            possible_spies.extend([i, j])
+            spies_needed += 1
+
+        if possibly_evil[i] and possibly_evil[j]:
+            max_pairs += 1
+        elif possibly_evil[i] and could_be_recluse[j]:
+            recluse_needed.append(j)
+        elif could_be_recluse[i] and possibly_evil[j]:
+            recluse_needed.append(i)
+
+    recluse_counter = Counter(recluse_needed)
+    recluse_impact = max(recluse_counter.values()) if recluse_counter else 0
+    max_pairs += recluse_impact if recluse_possible else 0
+
+    spy_counter = Counter(possible_spies)
+    spy_impact = max(spy_counter.values()) if spy_counter else 0
+    min_pairs += spies_needed - spy_impact if spy_possible else 0
+
+    # Global evil count constraint
+    max_evils = ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']
+    max_pairs = min(max_pairs, max_evils)
+
+    return min_pairs <= chef_number <= max_pairs
+
+def is_red_herring_valid(page: GrimoirePage) -> bool:
+    red_herring = page.red_herring
+    num_rh = sum(1 for rh in red_herring if rh)
+    if num_rh == 0:
+        return True
+    # No more than 1 red herring
+    if num_rh > 1:
+        return False
+    # Red herring isn't on an evil character
+    rh_player = red_herring.index(True)
+    character = page.characters[rh_player]
+    if character in EVIL_PLAYERS_WITHOUT_SPY:
+        return False
+    return True
 
 def get_characters_of_type(characters: list[Role], type: set[Role]):
     return [c for c in characters if c in type]

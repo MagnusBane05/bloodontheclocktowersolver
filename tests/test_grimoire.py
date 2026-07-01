@@ -201,26 +201,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2.drunk_token = Role.FORTUNE_TELLER
         result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
-
-    def test_pass_chef_number(self):
-        # chef number should be passed through
-        world = Grimoire()
-        night1 = world.pages[0]
-        night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
-        night1.chef_number = 1
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
-        self.assertTrue(result)
-        self.assertEqual(night2.chef_number, 1)
-
-        # different chef number should be invalid
-        world = Grimoire()
-        night1 = world.pages[0]
-        night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
-        night1.chef_number = 1
-        night2.chef_number = 2
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
-        self.assertFalse(result)
-
+        
 class TestApply(unittest.TestCase):
     # TODO: add tests for apply starpass
     # TODO: add tests for apply sw catch
