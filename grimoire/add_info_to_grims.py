@@ -285,11 +285,18 @@ def _add_undertaker_info(info: UndertakerInfo, grim: Grimoire) -> list[Grimoire]
         return list(out)
     
     # World where the undertaker sees the actual token (body is that token)
-    _add_branch(
-        out,
-        ut_base,
-        character_action(character, executee, night, order)
-    )
+    if character == Role.IMP:
+        _add_branch(
+            out,
+            ut_base,
+            imp_action(executee, night, order)
+        )
+    else:
+        _add_branch(
+            out,
+            ut_base,
+            character_action(character, executee, night, order)
+        )
 
     # If the token is an evil character, the body could be the Recluse (registering as evil)
     if character in EVIL_CHARACTERS_SET:
@@ -307,6 +314,154 @@ def _add_undertaker_info(info: UndertakerInfo, grim: Grimoire) -> list[Grimoire]
         )
 
     return list(out)
+
+def _add_ravenkeeper_info(info: RavenkeeperInfo, grim: Grimoire) -> list[Grimoire]:
+    player=  info["ravenkeeper"]
+    night = info["night"]
+    character = info["token"]
+    chosen = info["chosen"]
+    order = NightOrderPosition.AFTER_IMP
+
+    out, rk_base = _add_drunk_evil_poisoned(
+        player,
+        Role.RAVENKEEPER,
+        grim,
+        night
+    )
+
+    if rk_base is None:
+        return list(out)
+    
+    # World where the Ravenkeeper sees the actual token (chosen player is that token)
+    if character == Role.IMP:
+        _add_branch(
+            out,
+            rk_base,
+            imp_action(chosen, night, order)
+        )
+    else:
+        _add_branch(
+            out,
+            rk_base,
+            character_action(character, chosen, night, order)
+        )
+
+    # If the token is an evil character, the body could be the Recluse (registering as evil)
+    if character in EVIL_CHARACTERS_SET:
+        _add_branch(
+            out,
+            rk_base,
+            character_action(Role.RECLUSE, chosen, night, order)
+        )
+
+    elif character in GOOD_CHARACTERS_SET:
+        _add_branch(
+            out,
+            rk_base,
+            character_action(Role.SPY, chosen, night, order)
+        )
+
+    return list(out)   
+
+def _add_virgin_info(info: VirginInfo, grim: Grimoire)  -> list[Grimoire]:
+    player=  info["virgin"]
+    night = info["night"]
+    nominator = info["nominator"]
+    executed = info["executed"]
+    order = NightOrderPosition.AFTER_IMP
+
+    if executed:
+        out: set[Grimoire] = set()
+
+        # Townsfolk nominated virgin
+        _add_branch(
+            out,
+            grim,
+            character_action(Role.VIRGIN, player, night, order),
+            character_action(Role.ANY_OTHER_TOWNSFOLK, nominator, night, order)
+        )
+
+        # Spy nominated virgin
+        _add_branch(
+            out,
+            grim,
+            character_action(Role.VIRGIN, player, night, order),
+            character_action(Role.SPY, nominator, night, order)
+        )
+
+    else:
+        out, virgin_base = _add_drunk_evil_poisoned(
+            player,
+            Role.VIRGIN,
+            grim,
+            night
+        )
+
+        if virgin_base is None or nominator == player:
+            return list(out)
+
+        # Evil nominated Virgin
+        _add_branch(
+            out,
+            virgin_base,
+            character_action(Role.ANY_OTHER_EVIL, nominator, night, order)
+        )
+
+        # Outsider nominated Virgin
+        _add_branch(
+            out,
+            virgin_base,
+            character_action(Role.ANY_OTHER_OUTSIDER, nominator, night, order)
+        )
+
+    return list(out)
+
+def _add_slayer_info(info: SlayerInfo, grim: Grimoire) -> list[Grimoire]:
+    player=  info["slayer"]
+    night = info["night"]
+    target = info["target"]
+    successful = info["successful"]
+    order = NightOrderPosition.AFTER_IMP
+
+    if successful:
+        out: set[Grimoire] = set()
+        
+        # World where the Slayer killed the Imp
+        _add_branch(
+            out,
+            grim,
+            character_action(Role.SLAYER, player, night, order),
+            character_action(Role.IMP, target, night, order)
+        )
+
+        # World where the Slayer killed the Recluse (registering as the demon)
+        _add_branch(
+            out,
+            grim,
+            character_action(Role.SLAYER, player, night, order),
+            character_action(Role.RECLUSE, target, night, order)
+        )
+
+    else:
+        out, slayer_base = _add_drunk_evil_poisoned(
+            player,
+            Role.SLAYER,
+            grim,
+            night
+        )
+
+        if slayer_base is None or target == player:
+            return list(out)
+
+        # World where the slayer's shot hit a non-demon
+        _add_branch(
+            out,
+            slayer_base,
+            character_action(Role.NON_DEMON, target, night, order)
+        )
+
+    return list(out)
+
 
 Y = TypeVar("Y", bound=Info)
 def _apply_info(
@@ -339,6 +494,12 @@ def add_info_to_grims(
         return _apply_info(info, grims, _add_empath_info, trace)
     elif info["kind"] == "undertaker":
         return _apply_info(info, grims, _add_undertaker_info, trace)
+    elif info["kind"] == "ravenkeeper":
+        return _apply_info(info, grims, _add_ravenkeeper_info, trace)
+    elif info["kind"] == "virgin":
+        return _apply_info(info, grims, _add_virgin_info, trace)
+    elif info["kind"] == "slayer":
+        return _apply_info(info, grims, _add_slayer_info, trace)
     else:
         raise RuntimeError(f"{info['kind']} info type not handled.")
     
