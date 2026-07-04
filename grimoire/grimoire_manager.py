@@ -17,7 +17,7 @@ from .add_info_to_grims import add_death_info_to_grims, add_info_to_grims
 
 SAMPLE_CHANCE = 0
 
-BRANCHING_INFO = ["fortune teller", "empath"]
+BRANCHING_INFO = ["fortune teller", "empath", "undertaker"]
 
 class GrimoireManager():
     

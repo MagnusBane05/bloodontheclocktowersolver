@@ -267,6 +267,47 @@ def _add_empath_info(info: EmpathInfo, grim: Grimoire) -> list[Grimoire]:
     
     return list(out)
 
+def _add_undertaker_info(info: UndertakerInfo, grim: Grimoire) -> list[Grimoire]:
+    player = info["undertaker"]
+    night = info["night"]
+    character = info["token"]
+    executee = info["body"]
+    order = NightOrderPosition.AFTER_IMP
+
+    out, ut_base = _add_drunk_evil_poisoned(
+        player,
+        Role.UNDERTAKER,
+        grim,
+        night
+    )
+
+    if ut_base is None:
+        return list(out)
+    
+    # World where the undertaker sees the actual token (body is that token)
+    _add_branch(
+        out,
+        ut_base,
+        character_action(character, executee, night, order)
+    )
+
+    # If the token is an evil character, the body could be the Recluse (registering as evil)
+    if character in EVIL_CHARACTERS_SET:
+        _add_branch(
+            out,
+            ut_base,
+            character_action(Role.RECLUSE, executee, night, order)
+        )
+
+    elif character in GOOD_CHARACTERS_SET:
+        _add_branch(
+            out,
+            ut_base,
+            character_action(Role.SPY, executee, night, order)
+        )
+
+    return list(out)
+
 Y = TypeVar("Y", bound=Info)
 def _apply_info(
     info: Y, 
@@ -296,6 +337,8 @@ def add_info_to_grims(
         return _apply_info(info, grims, _add_fortune_teller_info, trace)
     elif info["kind"] == "empath":
         return _apply_info(info, grims, _add_empath_info, trace)
+    elif info["kind"] == "undertaker":
+        return _apply_info(info, grims, _add_undertaker_info, trace)
     else:
         raise RuntimeError(f"{info['kind']} info type not handled.")
     
