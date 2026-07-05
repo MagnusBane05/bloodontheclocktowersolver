@@ -279,8 +279,13 @@ class GrimoirePage:
             max_townsfolk = gamerules.get_townsfolk_count(num_players, baron)
             return townsfolk < max_townsfolk
         elif type == CharacterType.OUTSIDER:
-            if self.no_outsiders and character in NON_RECLUSE_OUTSIDERS:
-                return False
+            if self.no_outsiders:
+                if character in NON_RECLUSE_OUTSIDERS:
+                    return False
+                # Recluse with outsider count of 0 or 2 with Librarian None
+                no_baron_outsider_count = gamerules.get_outsider_count(num_players, False)
+                if no_baron_outsider_count == 0 or no_baron_outsider_count == 2:
+                    return False
             outsiders = self.get_characters_of_type(CharacterType.OUTSIDER)
             baron = Role.BARON in self.minion_types or Role.ANY_OTHER_MINION in self.minion_types
             max_outsiders = gamerules.get_outsider_count(num_players, baron)
