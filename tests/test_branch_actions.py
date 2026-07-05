@@ -76,6 +76,7 @@ class TestCharacterActionParityWithValidation(unittest.TestCase):
         assert len(characters) == num_players
 
         page.characters = random.sample(characters, num_players)  # shuffle characters
+        grim.make_deductions()
 
         if Role.CHEF in characters:
             possible_chef_numbers: list[int] = []
@@ -91,7 +92,5 @@ class TestCharacterActionParityWithValidation(unittest.TestCase):
                 page.no_outsiders = random.choice([True, False])
             else:
                 page.no_outsiders = False
-
-        grim.make_deductions()
         assert gamerules.is_grim_valid(grim), "Randomly generated grim is not valid"
         return grim

@@ -242,6 +242,12 @@ class GrimoirePage:
                 or Role.ANY_OTHER_MINION in self.minion_types
             ):
                 return False
+        # If minion is Baron, make sure +2 outsiders is possible
+        if overlapping == Role.BARON:
+            townsfolk_count = self.get_characters_of_type(CharacterType.TOWNSFOLK)
+            max_townsfolk_count_baron = gamerules.get_townsfolk_count(self.num_players, True)
+            if townsfolk_count > max_townsfolk_count_baron:
+                return False
         return True
 
     def _can_be_type(self, character: Role, player: int) -> bool:
