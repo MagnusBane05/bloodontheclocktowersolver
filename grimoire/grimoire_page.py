@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .role import GENERIC_MINION_SET
+from .role import GENERIC_MINION_SET, GENERIC_OUTSIDER_SET, GENERIC_TOWNSFOLK_SET
 
 from collections import Counter
 
@@ -36,14 +36,6 @@ SCARLET_WOMAN_CANDIDATE_SET = {
     Role.ANY_OTHER_EVIL,
     Role.NON_DEMON,
     Role.ANY_OTHER
-}
-
-GENERIC_TOWNSFOLK_SET = TOWNSFOLK_SET | {
-    Role.ANY_OTHER_TOWNSFOLK,
-}
-
-GENERIC_OUTSIDER_SET = OUTSIDERS_SET | {
-    Role.ANY_OTHER_OUTSIDER,
 }
 
 SLAYER_CANDIDATE_SET = {
@@ -564,15 +556,20 @@ class GrimoirePage:
                     self.characters[i] = Role.ANY_OTHER_GOOD
                     deduced = True
 
+        known_townsfolk_count = 0
+        for c in characters:
+            if c in GENERIC_TOWNSFOLK_SET:
+                known_townsfolk_count += 1
+        townsfolk_count_with_baron = gamerules.get_townsfolk_count(num_players, True)
         # assign leftover outsiders to good players if outsider count is known
-        outsider_count_known = Role.BARON in minion_types or Role.ANY_OTHER_MINION not in minion_types
+        outsider_count_known = (
+            Role.BARON in minion_types 
+            or Role.ANY_OTHER_MINION not in minion_types
+            or known_townsfolk_count > townsfolk_count_with_baron
+        )
+
         if outsider_count_known:
             townsfolk_count = ROLE_BREAKDOWNS[num_players]["townsfolk"]-2 if Role.BARON in minion_types else ROLE_BREAKDOWNS[num_players]["townsfolk"]
-            # known_townsfolk_count = sum(1 for c in characters if c in GENERIC_TOWNSFOLK_SET)
-            known_townsfolk_count = 0
-            for c in characters:
-                if c in GENERIC_TOWNSFOLK_SET:
-                    known_townsfolk_count += 1
             if known_townsfolk_count == townsfolk_count:
                 for i,c in enumerate(characters):
                     if c == Role.ANY_OTHER_GOOD:
@@ -582,7 +579,6 @@ class GrimoirePage:
         # assign townsfolk to good players if outsider count is known
         if outsider_count_known:
             outsider_count = gamerules.get_outsider_count(num_players, Role.BARON in self.minion_types)
-            # known_outsider_count = sum(1 for c in characters if c in GENERIC_OUTSIDER_SET)
             known_outsider_count = 0
             for c in characters:
                 if c in GENERIC_OUTSIDER_SET:

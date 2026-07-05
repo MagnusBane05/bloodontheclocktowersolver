@@ -120,8 +120,12 @@ class TestPage(unittest.TestCase):
         phase.make_deductions()
         self.assertEqual(Role.ANY_OTHER_TOWNSFOLK, phase.characters[3])
         self.assertEqual(Role.ANY_OTHER_TOWNSFOLK, phase.characters[4])
+        # if Baron is not possible, assign townsfolk to unknown good players
+        page = GrimoirePage(5)
+        page.characters = [Role.IMP, Role.RAVENKEEPER, Role.ANY_OTHER_GOOD, Role.SOLDIER, Role.ANY_OTHER_MINION]
+        page.make_deductions()
+        self.assertEqual(Role.ANY_OTHER_TOWNSFOLK, page.characters[2])
 
-        # TODO: deduce minion types from characters?
         # TODO: deduce evil / good players from chef number
 
         # multi-stage deductions

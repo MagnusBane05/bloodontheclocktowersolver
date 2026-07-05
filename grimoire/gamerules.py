@@ -250,9 +250,6 @@ def is_page_valid(page: GrimoirePage) -> tuple[bool, str]:
     return True, ""
 
 def is_outsider_count_valid(first_page: GrimoirePage, num_players: int):
-    # librarian told no outsiders
-    if first_page.no_outsiders and len(get_characters_of_type(first_page.characters, OUTSIDERS_SET)) > 0:
-        return False
     # base outsider count or if a Baron is in play, base outsider count plus 2
     base_outsider_count = get_outsider_count(num_players, Role.BARON in first_page.minion_types)
     recluse = False

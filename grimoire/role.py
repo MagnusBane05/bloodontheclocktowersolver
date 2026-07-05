@@ -91,6 +91,16 @@ ANY_OTHER_ROLES = [Role.ANY_OTHER, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Rol
 ANY_OTHER_ROLES_SET = set(ANY_OTHER_ROLES)
 ROLE_CATEGORIES = [Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_MINION, Role.IMP]
 
+GENERIC_MINION_SET = MINIONS_SET | {
+    Role.ANY_OTHER_MINION,
+}
+GENERIC_TOWNSFOLK_SET = TOWNSFOLK_SET | {
+    Role.ANY_OTHER_TOWNSFOLK,
+}
+GENERIC_OUTSIDER_SET = OUTSIDERS_SET | {
+    Role.ANY_OTHER_OUTSIDER,
+}
+
 def get_overlapping(c1: Role, c2: Role, specific: bool = True) -> Role | None:
     if c1 == c2:
         return c1
@@ -235,7 +245,4 @@ def _get_overlapping_other(c2: Role, specific: bool) -> Role | None:
     return c2 if specific else Role.ANY_OTHER
 
 
-GENERIC_MINION_SET = MINIONS_SET | {
-    Role.ANY_OTHER_MINION,
-}
 
