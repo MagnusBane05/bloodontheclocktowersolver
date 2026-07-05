@@ -2,7 +2,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import TYPE_CHECKING, Literal
 
-from grimoire.nightOrderPosition import NightOrderPosition
+from .role import NON_RECLUSE_OUTSIDERS
+from .nightOrderPosition import NightOrderPosition
 
 if TYPE_CHECKING:
     from .grimoire import Grimoire
@@ -250,6 +251,9 @@ def is_page_valid(page: GrimoirePage) -> tuple[bool, str]:
     return True, ""
 
 def is_outsider_count_valid(first_page: GrimoirePage, num_players: int):
+    # librarian told no outsiders
+    if first_page.no_outsiders and len(get_characters_of_type(first_page.characters, NON_RECLUSE_OUTSIDERS)) > 0:
+        return False
     # base outsider count or if a Baron is in play, base outsider count plus 2
     base_outsider_count = get_outsider_count(num_players, Role.BARON in first_page.minion_types)
     recluse = False

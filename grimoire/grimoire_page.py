@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from .role import GENERIC_MINION_SET, GENERIC_OUTSIDER_SET, GENERIC_TOWNSFOLK_SET
-
 from collections import Counter
 
 from . import helper
@@ -43,12 +41,6 @@ SLAYER_CANDIDATE_SET = {
     Role.ANY_OTHER_TOWNSFOLK,
     Role.ANY_OTHER_GOOD,
     Role.ANY_OTHER
-}
-
-NON_RECLUSE_OUTSIDERS = {
-    Role.SAINT,
-    Role.DRUNK,
-    Role.BUTLER
 }
 
 class GrimoirePage:
@@ -288,6 +280,11 @@ class GrimoirePage:
                     return False
             outsiders = self.get_characters_of_type(CharacterType.OUTSIDER)
             baron = Role.BARON in self.minion_types or Role.ANY_OTHER_MINION in self.minion_types
+            # check that there aren't too many townsfolk for a Baron
+            townsfolk_count = self.get_characters_of_type(CharacterType.TOWNSFOLK)
+            townsfolk_count_with_baron = gamerules.get_townsfolk_count(num_players, True)
+            if townsfolk_count > townsfolk_count_with_baron:
+                baron = False
             max_outsiders = gamerules.get_outsider_count(num_players, baron)
             return outsiders < max_outsiders
         elif type == CharacterType.MINION:

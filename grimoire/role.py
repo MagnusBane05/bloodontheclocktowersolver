@@ -100,6 +100,11 @@ GENERIC_TOWNSFOLK_SET = TOWNSFOLK_SET | {
 GENERIC_OUTSIDER_SET = OUTSIDERS_SET | {
     Role.ANY_OTHER_OUTSIDER,
 }
+NON_RECLUSE_OUTSIDERS = {
+    Role.SAINT,
+    Role.DRUNK,
+    Role.BUTLER
+}
 
 def get_overlapping(c1: Role, c2: Role, specific: bool = True) -> Role | None:
     if c1 == c2:
@@ -243,6 +248,3 @@ def _get_overlapping_other(c2: Role, specific: bool) -> Role | None:
     if c2 == Role.IMP:
         return c2 if specific else Role.ANY_OTHER
     return c2 if specific else Role.ANY_OTHER
-
-
-
