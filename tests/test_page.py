@@ -277,6 +277,69 @@ class TestCanBeCharacter(unittest.TestCase):
         result = page.can_be_character(Role.RECLUSE, player)
         self.assertTrue(result, "Expected Recluse able to register as non-outsider to Librarian.")
 
+class TestCanHaveNoOutsiders(unittest.TestCase):
+    def test_all(self):
+        page = GrimoirePage(5)
+        result = page.can_have_no_outsiders()
+        self.assertTrue(result, "Expected no-outsiders to be valid for a 5-player game.")
+
+        page = GrimoirePage(6)
+        result = page.can_have_no_outsiders()
+        self.assertTrue(result, "Expected no-outsiders to be valid on 6 players when an unknown player could be Recluse.")
+
+        page = GrimoirePage(9)
+        result = page.can_have_no_outsiders()
+        self.assertFalse(result, "Expected no-outsiders to be invalid on 9 players (base 2 outsiders).")
+
+        page = GrimoirePage(6)
+        page.characters[0] = Role.RECLUSE
+        result = page.can_have_no_outsiders()
+        self.assertTrue(result, "Expected no-outsiders to be valid when the only outsider is a Recluse.")
+
+        page = GrimoirePage(6)
+        page.characters[0] = Role.SAINT
+        result = page.can_have_no_outsiders()
+        self.assertFalse(result, "Expected no-outsiders to be invalid when a known outsider is already present.")
+
+        page = GrimoirePage(5)
+        page.minion_types[0] = Role.BARON
+        result = page.can_have_no_outsiders()
+        self.assertFalse(result, "Expected no-outsiders to be invalid when a Baron is in the game.")
+
+class TestCanHaveChefNumber(unittest.TestCase):
+    def test_all(self):
+        page = GrimoirePage(5)
+        self.assertTrue(page.can_have_chef_number(2), "Expected a chef number of 2 to be valid for a 5-player game.")
+        self.assertFalse(page.can_have_chef_number(3), "Expected a chef number of 3 to be invalid for a 5-player game.")
+
+        page = GrimoirePage(5)
+        page.characters = [Role.IMP, Role.ANY_OTHER_MINION, Role.MONK, Role.EMPATH, Role.SLAYER]
+        self.assertTrue(page.can_have_chef_number(1), "Expected a chef number of 1 to be valid for the provided role setup.")
+        self.assertFalse(page.can_have_chef_number(2), "Expected a chef number of 2 to be invalid for the provided role setup.")
+
+        page = GrimoirePage(5)
+        page.characters = [Role.RECLUSE, Role.SPY, Role.MONK, Role.MONK, Role.MONK]
+        self.assertTrue(page.can_have_chef_number(0), "Expected chef number 0 to be valid when a known Recluse is adjacent to a known Spy.")
+        self.assertTrue(page.can_have_chef_number(1), "Expected chef number 1 to be valid when a known Recluse and Spy can still form one evil adjacency pair.")
+        self.assertFalse(page.can_have_chef_number(2), "Expected chef number 2 to be invalid for the provided Recluse/Spy layout.")
+
+        page = GrimoirePage(5)
+        page.minion_types[0] = Role.SCARLET_WOMAN
+        page.characters = [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
+        self.assertFalse(page.can_have_chef_number(0), "Expected a chef number of 0 to be invalid when 2 non-Spy evils next to each other")
+        self.assertTrue(page.can_have_chef_number(1), "Expected a chef 1 to be valid with 2 non-Spy evils next to each other.")
+
+        page = GrimoirePage(5)
+        page.minion_types[0] = Role.SPY
+        page.characters = [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
+        self.assertTrue(page.can_have_chef_number(0), "Expected a chef number of 0 to be valid when 2 possible spies next to each other")
+        self.assertTrue(page.can_have_chef_number(1), "Expected a chef 1 to be valid with 2 possible spies next to each other.")
+        self.assertFalse(page.can_have_chef_number(2), "Expected a chef 2 to be invalid with 2 evils next to non-reclus.")
+
+        page = GrimoirePage(5)
+        page.minion_types[0] = Role.BARON
+        page.characters = [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
+        self.assertTrue(page.can_have_chef_number(2), "Expected a chef 2 to be valid with 2 evils next to a possible recluse.")
 
 
 if __name__ == "__main__":

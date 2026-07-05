@@ -83,6 +83,24 @@ def imp_action(
         return True
     return action
 
+def no_outsiders_action() -> BranchAction:
+    def action(grim: Grimoire) -> bool:
+        first_page = grim.get_first_page()
+        if not first_page.can_have_no_outsiders():
+            return False
+        first_page.apply_no_outsiders()
+        return True
+    return action
+
+def chef_number_action(number: int) -> BranchAction:
+    def action(grim: Grimoire) -> bool:
+        first_page = grim.get_first_page()
+        if not first_page.can_have_chef_number(number):
+            return False
+        first_page.apply_chef_number(number)
+        return True
+    return action
+
 def mark_dead_action(
     player: int,
     night: int,

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from .role import GENERIC_MINION_SET
 
+from collections import Counter
+
 from . import helper
 
 
@@ -210,6 +212,12 @@ class GrimoirePage:
         self.poisoned[player] = True
         self.add_minion_type(Role.POISONER)
 
+    def apply_no_outsiders(self):
+        self.no_outsiders = True
+
+    def apply_chef_number(self, number: int):
+        self.chef_number = number
+
     def apply_slayer_shot(self, player: int):
         self.slayer_shot[player] = True
 
@@ -322,6 +330,125 @@ class GrimoirePage:
             return False
         
         return True
+    
+    def can_have_no_outsiders(self) -> bool:
+        # Can't have any non-recluse outsiders
+        if any(c in NON_RECLUSE_OUTSIDERS for c in self.characters):
+            return False
+        
+        # Can't have Baron
+        if Role.BARON in self.minion_types:
+            return False
+
+        base_outsider_count = gamerules.get_outsider_count(self.num_players, False)
+        recluse = any(gamerules.can_player_be_recluse(c) for c in self.characters)
+        non_recluse_outsiders = base_outsider_count - 1 if recluse else base_outsider_count
+        return non_recluse_outsiders <= 0
+    
+    def can_have_chef_number(self, number: int) -> bool:
+        if number < 0:
+            return False
+        if self.chef_number is not None and self.chef_number != number:
+            return False
+
+        characters = self.characters
+        minion_types = self.minion_types
+        num_players = self.num_players
+
+        spy_possible = (
+            Role.SPY not in characters
+            and (Role.SPY in minion_types or Role.ANY_OTHER_MINION in minion_types)
+        )
+
+        known_outsiders = sum(1 for c in characters if c in OUTSIDERS)
+        baron_possible = Role.BARON in minion_types or Role.ANY_OTHER_MINION in minion_types
+        max_outsiders = gamerules.get_outsider_count(num_players, baron_possible)
+        recluse_possible = Role.RECLUSE not in characters and known_outsiders < max_outsiders
+
+        definitely_evil = [False] * num_players
+        possibly_evil = [False] * num_players
+        could_be_recluse = [False] * num_players
+        evil_could_be_spy = [False] * num_players
+
+        for i in range(num_players):
+            role = characters[i]
+            if role == Role.SPY:
+                definitely_evil[i] = False
+                possibly_evil[i] = True
+                could_be_recluse[i] = False
+                evil_could_be_spy[i] = False
+            elif role in EVIL_CHARACTERS:
+                definitely_evil[i] = True
+                possibly_evil[i] = True
+                could_be_recluse[i] = False
+                evil_could_be_spy[i] = False
+            elif not spy_possible and role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
+                definitely_evil[i] = True
+                possibly_evil[i] = True
+                could_be_recluse[i] = False
+                evil_could_be_spy[i] = False
+            elif role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
+                definitely_evil[i] = False
+                possibly_evil[i] = True
+                could_be_recluse[i] = False
+                evil_could_be_spy[i] = True
+            elif role in [Role.ANY_OTHER, Role.NON_DEMON]:
+                definitely_evil[i] = False
+                possibly_evil[i] = True
+                could_be_recluse[i] = True
+                evil_could_be_spy[i] = False
+            elif role == Role.RECLUSE:
+                definitely_evil[i] = False
+                possibly_evil[i] = True
+                could_be_recluse[i] = False
+                evil_could_be_spy[i] = False
+            else:
+                definitely_evil[i] = False
+                possibly_evil[i] = False
+                could_be_recluse[i] = role in [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_OUTSIDER]
+                evil_could_be_spy[i] = False
+
+        pairs = [(i, (i + 1) % num_players) for i in range(num_players)]
+
+        min_pairs = 0
+        max_pairs = 0
+
+        recluse_needed: list[int] = []
+        possible_spies: list[int] = []
+        spies_needed = 0
+
+        for i, j in pairs:
+            if definitely_evil[i] and definitely_evil[j]:
+                min_pairs += 1
+            elif definitely_evil[i] and evil_could_be_spy[j]:
+                possible_spies.append(j)
+                spies_needed += 1
+            elif evil_could_be_spy[i] and definitely_evil[j]:
+                possible_spies.append(i)
+                spies_needed += 1
+            elif evil_could_be_spy[i] and evil_could_be_spy[j]:
+                possible_spies.extend([i, j])
+                spies_needed += 1
+
+            if possibly_evil[i] and possibly_evil[j]:
+                max_pairs += 1
+            elif possibly_evil[i] and could_be_recluse[j]:
+                recluse_needed.append(j)
+            elif could_be_recluse[i] and possibly_evil[j]:
+                recluse_needed.append(i)
+
+        recluse_counter = Counter(recluse_needed)
+        recluse_impact = max(recluse_counter.values()) if recluse_counter else 0
+        max_pairs += recluse_impact if recluse_possible else 0
+
+        spy_counter = Counter(possible_spies)
+        spy_impact = max(spy_counter.values()) if spy_counter else 0
+        min_pairs += spies_needed - spy_impact if spy_possible else 0
+
+        max_evils = gamerules.get_evil_count(num_players)
+        max_pairs = min(max_pairs, max_evils)
+
+        return min_pairs <= number <= max_pairs
 
     def can_be_slayer_shot(self, player: int) -> bool:
         # Can't have other slayer shot

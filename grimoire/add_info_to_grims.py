@@ -101,6 +101,180 @@ def _add_drunk_evil_poisoned(
 
     return out, real_base
 
+def _add_claim(info: Claim, grim: Grimoire) -> list[Grimoire]:
+    player = info["player"]
+    claim = info["character"]
+    night = 1
+    order = NightOrderPosition.AFTER_IMP
+
+    out: set[Grimoire] = set()
+
+    # World where the player is the Drunk
+    if claim in TOWNSFOLK_SET:
+        _add_branch(
+            out,
+            grim,
+            character_action(Role.DRUNK, player, night, order)
+        )
+
+    # World where the player is an unspecified evil character
+    _add_branch(
+        out,
+        grim,
+        character_action(Role.ANY_OTHER_EVIL, player, night, order)
+    )
+
+    # World where the player is exactly the claimed character
+    _add_branch(
+        out,
+        grim,
+        character_action(claim, player, night, order)
+    )
+
+    return list(out)
+
+def _add_investigator_info(info: InvestigatorInfo, grim: Grimoire) -> list[Grimoire]:
+    player = info["investigator"]
+    a = info["first_player"]
+    b = info["second_player"]
+    minion = info["minion"]
+    night = 1
+    order = NightOrderPosition.AFTER_IMP
+
+    out, base = _add_drunk_evil_poisoned(
+        player, 
+        Role.INVESTIGATOR,
+        grim,
+        night
+    )
+
+    if base is None:
+        return list(out)
+    
+    for target in (a, b):
+        # Target is the minion
+        _add_branch(
+            out,
+            base,
+            character_action(minion, target, night, order)
+        )
+
+        # Target is the Recluse
+        _add_branch(
+            out,
+            base,
+            character_action(Role.RECLUSE, target, night, order)
+        )
+
+    return list(out)
+
+def _add_washerwoman_info(info: WasherwomanInfo, grim: Grimoire) -> list[Grimoire]:
+    player = info["washerwoman"]
+    a = info["first_player"]
+    b = info["second_player"]
+    townsfolk = info["townsfolk"]
+    night = 1
+    order = NightOrderPosition.AFTER_IMP
+
+    out, base = _add_drunk_evil_poisoned(
+        player, 
+        Role.WASHERWOMAN,
+        grim,
+        night
+    )
+
+    if base is None:
+        return list(out)
+    
+    for target in (a, b):
+        # Target is the townsfolk
+        _add_branch(
+            out,
+            base,
+            character_action(townsfolk, target, night, order)
+        )
+
+        # Target is the Spy
+        _add_branch(
+            out,
+            base,
+            character_action(Role.SPY, target, night, order)
+        )
+
+    return list(out)
+
+def _add_librarian_info(info: LibrarianInfo, grim: Grimoire) -> list[Grimoire]:
+    player = info["librarian"]
+    a = info["first_player"]
+    b = info["second_player"]
+    outsider = info["token"]
+    night = 1
+    order = NightOrderPosition.AFTER_IMP
+
+    out, base = _add_drunk_evil_poisoned(
+        player, 
+        Role.LIBRARIAN,
+        grim,
+        night
+    )
+
+    if base is None:
+        return list(out)
+    
+    if outsider is None:
+        _add_branch(
+            out,
+            base,
+            no_outsiders_action()
+        )
+        return list(out)
+    
+    if a is None or b is None:
+        raise RuntimeError(f"Librarian info with token {outsider} shown but no players.")
+    
+    for target in (a, b):
+        # Target is the outsider
+        _add_branch(
+            out,
+            base,
+            character_action(outsider, target, night, order)
+        )
+
+        # Target is the Spy
+        _add_branch(
+            out,
+            base,
+            character_action(Role.SPY, target, night, order)
+        )
+
+    return list(out)
+
+def _add_chef_info(info: ChefInfo, grim: Grimoire) -> list[Grimoire]:
+    player = info["chef"]
+    number = info["number"]
+    night = 1
+
+    out, base = _add_drunk_evil_poisoned(
+        player,
+        Role.CHEF,
+        grim,
+        night
+    )
+
+    if base is None:
+        return list(out)
+    
+    _add_branch(
+        out,
+        base,
+        chef_number_action(number)
+    )
+
+    return list(out)
+
+
+
+
 def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Grimoire]:
     player = info['fortune_teller']
     night = info['night']
@@ -488,7 +662,17 @@ def add_info_to_grims(
     grims: list[Grimoire], 
     trace: TrueGrimTrace | None = None
 ):
-    if info["kind"] == "fortune teller":
+    if info["kind"] == "claim":
+        return _apply_info(info, grims, _add_claim, trace)
+    elif info["kind"] == "investigator":
+        return _apply_info(info, grims, _add_investigator_info, trace)
+    elif info["kind"] == "washerwoman":
+        return _apply_info(info, grims, _add_washerwoman_info, trace)
+    elif info["kind"] == "librarian":
+        return _apply_info(info, grims, _add_librarian_info, trace)
+    elif info["kind"] == "chef":
+        return _apply_info(info, grims, _add_chef_info, trace)
+    elif info["kind"] == "fortune teller":
         return _apply_info(info, grims, _add_fortune_teller_info, trace)
     elif info["kind"] == "empath":
         return _apply_info(info, grims, _add_empath_info, trace)

@@ -68,11 +68,11 @@ class GrimoireManager():
             # add info
             for info in info_list:
                 if night == 1 and info["kind"] in FIRST_NIGHT_INFO:
-                    self.add_info(info)
-                elif info["kind"] in BRANCHING_INFO and "night" in info and info['night'] == night:
-                    self._add_branching_info(info, f"night {night} {info["kind"]} info.")
+                    self._add_branching_info(info)
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
-                    self.add_info(info)
+                    self._add_branching_info(info, f"night {night} {info["kind"]} info.")
+                # elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
+                #     self.add_info(info)
 
             for death in [d for d in death_info if d["night"] == night]:
                 # add slayer shot and execution
