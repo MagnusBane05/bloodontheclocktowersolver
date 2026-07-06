@@ -43,6 +43,11 @@ SLAYER_CANDIDATE_SET = {
     Role.ANY_OTHER
 }
 
+POSSIBLE_CHEF_PAIR_ROLES = EVIL_ROLES_SET | {
+    Role.NON_DEMON,
+    Role.ANY_OTHER,
+}
+
 class GrimoirePage:
     def __init__(self, num_players: int=5, night: int=1, night_order_position: NightOrderPosition=NightOrderPosition.AFTER_IMP):
         self.num_players = num_players
@@ -596,6 +601,91 @@ class GrimoirePage:
                     if c == Role.ANY_OTHER_GOOD:
                         self.characters[i] = Role.ANY_OTHER_TOWNSFOLK
                         deduced = True
+
+        if self.chef_number is not None:
+            # maximum evil pairs used, all ambiguous players must be good
+            known_evil_pairs = 0
+            known_spy = False
+            for i in range(num_players):
+                if characters[i] in NON_SPY_EVIL_CHARACTERS:
+                    j = (i + 1) % num_players
+                    if characters[j] in NON_SPY_EVIL_CHARACTERS:
+                        known_evil_pairs += 1
+                elif characters[i] == Role.SPY:
+                    known_spy = True
+            if known_evil_pairs == self.chef_number:
+                spy_possible = any(c in self.minion_types for c in (Role.SPY, Role.ANY_OTHER_MINION))
+                for i in range(num_players):
+                    if (
+                        characters[i] in NON_SPY_EVIL_CHARACTERS 
+                        or (
+                            not spy_possible 
+                            and characters[i] in (Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION)
+                        )
+                    ):
+                        for j in ((i + 1) % num_players, (i - 1) % num_players):
+                            if characters[j] in (Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION):
+                                self.characters[j] = Role.SPY
+                                deduced = True
+                            elif (
+                                characters[j] in (Role.ANY_OTHER, Role.NON_DEMON)
+                                and (
+                                    known_spy
+                                    or not spy_possible
+                                )
+                            ):
+                                self.characters[j] = Role.ANY_OTHER_GOOD
+                                deduced = True
+
+            # if # of ambiguous pairs is equal to the chef number, all ambiguous pairs must be evil / Recluse
+            ambiguous_pairs: list[tuple[int, int]] = []
+            max_possible_outsiders = gamerules.get_outsider_count(
+                num_players, Role.BARON in self.minion_types or Role.ANY_OTHER_MINION in self.minion_types
+            )
+            recluse_possible = (
+                Role.RECLUSE not in characters
+                and self.get_characters_of_type(CharacterType.OUTSIDER) < max_possible_outsiders
+            )
+            recluse_needed: list[int] = []
+            evils_available = evil_count - known_evil_count
+            for i in range(num_players):
+                j = (i + 1) % num_players
+                if (
+                    characters[i] in POSSIBLE_CHEF_PAIR_ROLES
+                    and characters[j] in POSSIBLE_CHEF_PAIR_ROLES
+                ):
+                    evils_needed = (
+                        (1 if characters[i] not in EVIL_ROLES else 0)
+                        + (1 if characters[j] not in EVIL_ROLES else 0)
+                    )
+                    if evils_needed <= evils_available:
+                        ambiguous_pairs.append((i, j))
+                elif (
+                    recluse_possible
+                    and characters[i] in POSSIBLE_CHEF_PAIR_ROLES
+                    and characters[j] in (Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_GOOD)
+                ):
+                    recluse_needed.append(j)
+                    ambiguous_pairs.append((i, j))
+                elif (
+                    recluse_possible
+                    and characters[j] in POSSIBLE_CHEF_PAIR_ROLES
+                    and characters[i] in (Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_GOOD)
+                ):
+                    recluse_needed.append(j)
+                    ambiguous_pairs.append((i, j))
+
+            if len(ambiguous_pairs) == self.chef_number:
+                if len(recluse_needed) == 1:
+                    self.characters[recluse_needed[0]] = Role.RECLUSE
+                    deduced = True
+                for i, j in ambiguous_pairs:
+                    if characters[i] in (Role.ANY_OTHER, Role.NON_DEMON):
+                        self.characters[i] = Role.ANY_OTHER_EVIL
+                        deduced = True
+                    if characters[j] in (Role.ANY_OTHER, Role.NON_DEMON):
+                        self.characters[j] = Role.ANY_OTHER_EVIL
+                        deduced = True   
         
         return deduced
     

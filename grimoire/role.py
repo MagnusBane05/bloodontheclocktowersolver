@@ -105,6 +105,7 @@ NON_RECLUSE_OUTSIDERS = {
     Role.DRUNK,
     Role.BUTLER
 }
+NON_SPY_EVIL_CHARACTERS = {Role.POISONER, Role.BARON, Role.SCARLET_WOMAN, Role.IMP}
 
 def get_overlapping(c1: Role, c2: Role, specific: bool = True) -> Role | None:
     if c1 == c2:

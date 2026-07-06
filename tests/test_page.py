@@ -4,8 +4,8 @@ from grimoire.grimoire_page import GrimoirePage
 from grimoire.role import *
 
 
-class TestPage(unittest.TestCase):
-    def test_deduce_phase(self):
+class TestDeducePage(unittest.TestCase):
+    def test_sanity_check(self):
         # saninty check, a fully deduced world should have no changes made
         phase = GrimoirePage()
         phase.make_deductions()
@@ -18,6 +18,7 @@ class TestPage(unittest.TestCase):
         phase.make_deductions()
         self.assertListEqual(phase.characters, characters)
 
+    def test_deduce_minion_from_minion_type(self):
         # if there is one unknown minion and minion types are known, assign the type to the minion
         # case with 1 minion
         phase = GrimoirePage()
@@ -34,6 +35,7 @@ class TestPage(unittest.TestCase):
         phase.make_deductions()
         self.assertEqual(Role.BARON, phase.characters[2])
 
+    def test_deduce_alignment(self):
         # if all good players are accounted for, assign evil roles to the unknown players
         phase = GrimoirePage()
         phase.characters = [Role.MONK, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER]
@@ -47,6 +49,29 @@ class TestPage(unittest.TestCase):
         phase.make_deductions()
         self.assertEqual(Role.ANY_OTHER_MINION, phase.characters[3])
 
+        # if all minions are known and some players have NON_DEMON role, assign ANY_OTHER_GOOD to those players
+        phase = GrimoirePage()
+        phase.characters[0] = Role.ANY_OTHER_MINION
+        phase.characters[1] = Role.NON_DEMON
+        phase.make_deductions()
+        self.assertEqual(Role.ANY_OTHER_GOOD, phase.characters[1])
+
+        # if all evils are known, assign ANY_OTHER_GOOD to NON_DEMON roles
+        phase = GrimoirePage()
+        phase.characters[0] = Role.ANY_OTHER_EVIL
+        phase.characters[1] = Role.ANY_OTHER_EVIL
+        phase.characters[2] = Role.NON_DEMON
+        phase.make_deductions()
+        self.assertEqual(Role.ANY_OTHER_GOOD, phase.characters[2])
+
+        # if all evils are accounted for, assign good roles to any unknowns
+        phase = GrimoirePage()
+        phase.characters = [Role.IMP, Role.ANY_OTHER_MINION, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER]
+        phase.make_deductions()
+        self.assertEqual(Role.ANY_OTHER_GOOD, phase.characters[3])
+        self.assertEqual(Role.ANY_OTHER_GOOD, phase.characters[4])
+
+    def test_deduce_from_known_imp(self):
         # if there is only 1 spot left for an alive demon, assign Imp to that player
         # case with no dead players
         phase = GrimoirePage()
@@ -78,28 +103,7 @@ class TestPage(unittest.TestCase):
         self.assertEqual(Role.ANY_OTHER_MINION, phase.characters[2])
         self.assertEqual(Role.ANY_OTHER_MINION, phase.characters[3])
 
-        # if all minions are known and some players have NON_DEMON role, assign ANY_OTHER_GOOD to those players
-        phase = GrimoirePage()
-        phase.characters[0] = Role.ANY_OTHER_MINION
-        phase.characters[1] = Role.NON_DEMON
-        phase.make_deductions()
-        self.assertEqual(Role.ANY_OTHER_GOOD, phase.characters[1])
-
-        # if all evils are known, assign ANY_OTHER_GOOD to NON_DEMON roles
-        phase = GrimoirePage()
-        phase.characters[0] = Role.ANY_OTHER_EVIL
-        phase.characters[1] = Role.ANY_OTHER_EVIL
-        phase.characters[2] = Role.NON_DEMON
-        phase.make_deductions()
-        self.assertEqual(Role.ANY_OTHER_GOOD, phase.characters[2])
-
-        # if all evils are accounted for, assign good roles to any unknowns
-        phase = GrimoirePage()
-        phase.characters = [Role.IMP, Role.ANY_OTHER_MINION, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER]
-        phase.make_deductions()
-        self.assertEqual(Role.ANY_OTHER_GOOD, phase.characters[3])
-        self.assertEqual(Role.ANY_OTHER_GOOD, phase.characters[4])
-
+    def deduce_from_outsider_count(self):
         # if outsider count is known, assign leftover outsiders to unknown good players
         # case with Baron
         phase = GrimoirePage()
@@ -120,14 +124,54 @@ class TestPage(unittest.TestCase):
         phase.make_deductions()
         self.assertEqual(Role.ANY_OTHER_TOWNSFOLK, phase.characters[3])
         self.assertEqual(Role.ANY_OTHER_TOWNSFOLK, phase.characters[4])
-        # if Baron is not possible, assign townsfolk to unknown good players
+        # if Baron is not possible, assign townsfolk 
         page = GrimoirePage(5)
         page.characters = [Role.IMP, Role.RAVENKEEPER, Role.ANY_OTHER_GOOD, Role.SOLDIER, Role.ANY_OTHER_MINION]
         page.make_deductions()
         self.assertEqual(Role.ANY_OTHER_TOWNSFOLK, page.characters[2])
 
-        # TODO: deduce evil / good players from chef number
+    def deduce_from_chef_number(self):
+        # unknown player has to be evil
+        page = GrimoirePage(5)
+        page.characters = [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER]
+        page.minion_types = [Role.SCARLET_WOMAN]
+        page.chef_number = 1
+        page.make_deductions()
+        self.assertEqual(Role.ANY_OTHER_EVIL, page.characters[3])
 
+        # unknown player has to be Recluse
+        page = GrimoirePage(5)
+        page.characters = [Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER]
+        page.chef_number = 2
+        page.make_deductions()
+        self.assertEqual(Role.RECLUSE, page.characters[3])
+
+        # unknown player has to be good when Spy is not possible
+        page = GrimoirePage(5)
+        page.characters = [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER]
+        page.minion_types = [Role.BARON]
+        page.chef_number = 0
+        page.make_deductions()
+        self.assertEqual(Role.ANY_OTHER_GOOD, page.characters[3])
+
+        # unknown player has to be Spy
+        page = GrimoirePage(5)
+        page.characters = [Role.ANY_OTHER_TOWNSFOLK, Role.IMP, Role.ANY_OTHER_MINION, Role.ANY_OTHER, Role.ANY_OTHER]
+        page.chef_number = 0
+        page.make_deductions()
+        self.assertEqual(Role.SPY, page.characters[2])
+
+        # unknown player has to be good when Spy is elsewhere
+        page = GrimoirePage(10)
+        page.characters = [
+            Role.ANY_OTHER, Role.SPY, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER,
+            Role.ANY_OTHER_GOOD, Role.IMP, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER,
+        ]
+        page.chef_number = 0
+        page.make_deductions()
+        self.assertEqual(Role.ANY_OTHER_GOOD, page.characters[7])
+
+    def test_multi_stage_deductions(self):
         # multi-stage deductions
         phase = GrimoirePage()
         phase.characters = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
@@ -136,6 +180,8 @@ class TestPage(unittest.TestCase):
         self.assertEqual(Role.IMP, phase.characters[0])
         self.assertEqual(Role.POISONER, phase.characters[1])
         self.assertEqual(Role.ANY_OTHER_TOWNSFOLK, phase.characters[4])
+
+class TestPage(unittest.TestCase):
 
     def test_apply_starpass(self):
         imp = 3
