@@ -27,7 +27,7 @@ class TestCreatorWithSimulator(unittest.TestCase):
         times: list[float] = []
         grims: list[int] = []
         for i, ((info_list, death_info), true_world) in tqdm(enumerate(result)):
-        # (info_list, death_info), true_world = result[6]
+        # (info_list, death_info), true_world = result[165]
             grim_manager = GrimoireManager(game, true_world)
 
             nights = len(true_world.get_unique_nights())

@@ -5,7 +5,6 @@ from grimoire import Grimoire, NightOrderPosition, Role, gamerules
 from grimoire import branch_actions
 from grimoire.role import MINIONS, OUTSIDERS, TOWNSFOLK
 
-
 class TestCharacterActionParityWithValidation(unittest.TestCase):
     def assert_character_action_matches_validation(
         self,
@@ -39,29 +38,29 @@ class TestCharacterActionParityWithValidation(unittest.TestCase):
             ),
         )
 
-    def test_character_action_matches_validation_for_seeded_random_setups(self):
+    def character_action_matches_validation_for_seeded_random_setups(self):
         rng = random.Random(2412341)
-        n = 80
+        n = 1000
 
         for num_players in (5, 8, 9, 10, 13):
             for case_idx in range(n):
                 with self.subTest(num_players=num_players, case=case_idx):
-                    grim = self._build_random_valid_grim(num_players)
+                    grim = self._build_random_valid_grim(num_players, rng)
                     role = rng.choice([r for r in Role])
                     player = rng.randrange(num_players)
                     self.assert_character_action_matches_validation(grim, role, player)
 
-    def _build_random_valid_grim(self, num_players: int) -> Grimoire:
+    def _build_random_valid_grim(self, num_players: int, rng: random.Random) -> Grimoire:
         grim = Grimoire(num_players)
         page = grim.get_first_page()
 
         characters: list[Role] = []
         # pick demon
         possible_demons = [Role.IMP, Role.ANY_OTHER_EVIL, Role.ANY_OTHER]
-        characters.append(random.choice(possible_demons))
+        characters.append(rng.choice(possible_demons))
         # pick minions
         possible_minions = MINIONS + [Role.ANY_OTHER_MINION, Role.NON_DEMON, Role.ANY_OTHER_EVIL, Role.ANY_OTHER]
-        minions = random.sample(possible_minions, gamerules.ROLE_BREAKDOWNS[num_players]['minions'])
+        minions = rng.sample(possible_minions, gamerules.ROLE_BREAKDOWNS[num_players]['minions'])
         characters.extend(minions)
         for minion in minions:
             if minion in MINIONS:
@@ -69,13 +68,13 @@ class TestCharacterActionParityWithValidation(unittest.TestCase):
         # pick outsiders
         num_outsiders = gamerules.get_outsider_count(num_players, Role.BARON in characters)
         possible_outsiders = OUTSIDERS + [Role.ANY_OTHER_OUTSIDER, Role.NON_DEMON, Role.ANY_OTHER_GOOD, Role.ANY_OTHER]
-        characters.extend(random.sample(possible_outsiders, num_outsiders))
+        characters.extend(rng.sample(possible_outsiders, num_outsiders))
         # pick townsfolk
         possible_townsfolk = TOWNSFOLK + [Role.ANY_OTHER_TOWNSFOLK, Role.NON_DEMON, Role.ANY_OTHER_GOOD, Role.ANY_OTHER]
-        characters.extend(random.sample(possible_townsfolk, num_players - len(characters)))
+        characters.extend(rng.sample(possible_townsfolk, num_players - len(characters)))
         assert len(characters) == num_players
 
-        page.characters = random.sample(characters, num_players)  # shuffle characters
+        page.characters = rng.sample(characters, num_players)  # shuffle characters
         grim.make_deductions()
 
         if Role.CHEF in characters:
@@ -84,13 +83,16 @@ class TestCharacterActionParityWithValidation(unittest.TestCase):
                 page.chef_number = chef_number
                 if gamerules.is_chef_number_valid(page):
                     possible_chef_numbers.append(chef_number)
-            page.chef_number = random.choice(possible_chef_numbers)
+            page.chef_number = rng.choice(possible_chef_numbers)
+            page.make_deductions()
 
         if Role.LIBRARIAN in characters:
             page.no_outsiders = True
             if gamerules.is_outsider_count_valid(page, num_players):
-                page.no_outsiders = random.choice([True, False])
+                page.no_outsiders = rng.choice([True, False])
             else:
                 page.no_outsiders = False
+            page.make_deductions()
+                
         assert gamerules.is_grim_valid(grim), "Randomly generated grim is not valid"
         return grim

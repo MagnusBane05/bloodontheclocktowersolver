@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections import Counter
+from typing import NamedTuple
 
 from . import helper
 
 
 from .gamerules import ROLE_BREAKDOWNS
 from . import gamerules, role, character_type
-from itertools import compress
+from itertools import combinations, compress
 from .role import *
 from grimoire.nightOrderPosition import NightOrderPosition
 from .character_type import CharacterType
@@ -48,6 +49,11 @@ POSSIBLE_CHEF_PAIR_ROLES = EVIL_ROLES_SET | {
     Role.ANY_OTHER,
 }
 
+DEDUCIBLE_UNKNOWN_ROLES = {
+    Role.ANY_OTHER,
+    Role.NON_DEMON,
+}
+
 class GrimoirePage:
     def __init__(self, num_players: int=5, night: int=1, night_order_position: NightOrderPosition=NightOrderPosition.AFTER_IMP):
         self.num_players = num_players
@@ -58,6 +64,8 @@ class GrimoirePage:
         self.dead: list[bool] = [False]*num_players
         self.drunk_token: Role | None = None
         self.chef_number: int | None = None
+        self.in_chef_pair: int = 0
+        self.not_in_chef_pair: int = 0
         self.no_outsiders: bool = False
         self.night: int = night
         self.night_order_position: NightOrderPosition = night_order_position
@@ -96,6 +104,8 @@ class GrimoirePage:
         page.slayer_shot = list(self.slayer_shot)
         page.drunk_token = self.drunk_token
         page.chef_number = self.chef_number
+        page.in_chef_pair = self.in_chef_pair
+        page.not_in_chef_pair = self.not_in_chef_pair
         page.no_outsiders = self.no_outsiders
         page.star_passed = self.star_passed
         page.executee = self.executee
@@ -244,6 +254,14 @@ class GrimoirePage:
             townsfolk_count = self.get_characters_of_type(CharacterType.TOWNSFOLK)
             max_townsfolk_count_baron = gamerules.get_townsfolk_count(self.num_players, True)
             if townsfolk_count > max_townsfolk_count_baron:
+                return False
+        # If player is in Chef pair, make sure character is evil or Recluse
+        if self.in_chef_pair & (1 << player):
+            if (
+                overlapping != Role.RECLUSE
+                and overlapping not in EVIL_ROLES_SET
+                and overlapping not in (Role.NON_DEMON, Role.ANY_OTHER)
+            ):
                 return False
         return True
 
@@ -601,92 +619,413 @@ class GrimoirePage:
                     if c == Role.ANY_OTHER_GOOD:
                         self.characters[i] = Role.ANY_OTHER_TOWNSFOLK
                         deduced = True
-
-        if self.chef_number is not None:
-            # maximum evil pairs used, all ambiguous players must be good
-            known_evil_pairs = 0
-            known_spy = False
-            for i in range(num_players):
-                if characters[i] in NON_SPY_EVIL_CHARACTERS:
-                    j = (i + 1) % num_players
-                    if characters[j] in NON_SPY_EVIL_CHARACTERS:
-                        known_evil_pairs += 1
-                elif characters[i] == Role.SPY:
-                    known_spy = True
-            if known_evil_pairs == self.chef_number:
-                spy_possible = any(c in self.minion_types for c in (Role.SPY, Role.ANY_OTHER_MINION))
-                for i in range(num_players):
-                    if (
-                        characters[i] in NON_SPY_EVIL_CHARACTERS 
-                        or (
-                            not spy_possible 
-                            and characters[i] in (Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION)
-                        )
-                    ):
-                        for j in ((i + 1) % num_players, (i - 1) % num_players):
-                            if characters[j] in (Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION):
-                                self.characters[j] = Role.SPY
-                                deduced = True
-                            elif (
-                                characters[j] in (Role.ANY_OTHER, Role.NON_DEMON)
-                                and (
-                                    known_spy
-                                    or not spy_possible
-                                )
-                            ):
-                                self.characters[j] = Role.ANY_OTHER_GOOD
-                                deduced = True
-
-            # if # of ambiguous pairs is equal to the chef number, all ambiguous pairs must be evil / Recluse
-            ambiguous_pairs: list[tuple[int, int]] = []
-            max_possible_outsiders = gamerules.get_outsider_count(
-                num_players, Role.BARON in self.minion_types or Role.ANY_OTHER_MINION in self.minion_types
-            )
-            recluse_possible = (
-                Role.RECLUSE not in characters
-                and self.get_characters_of_type(CharacterType.OUTSIDER) < max_possible_outsiders
-            )
-            recluse_needed: list[int] = []
-            evils_available = evil_count - known_evil_count
-            for i in range(num_players):
-                j = (i + 1) % num_players
-                if (
-                    characters[i] in POSSIBLE_CHEF_PAIR_ROLES
-                    and characters[j] in POSSIBLE_CHEF_PAIR_ROLES
-                ):
-                    evils_needed = (
-                        (1 if characters[i] not in EVIL_ROLES else 0)
-                        + (1 if characters[j] not in EVIL_ROLES else 0)
-                    )
-                    if evils_needed <= evils_available:
-                        ambiguous_pairs.append((i, j))
-                elif (
-                    recluse_possible
-                    and characters[i] in POSSIBLE_CHEF_PAIR_ROLES
-                    and characters[j] in (Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_GOOD)
-                ):
-                    recluse_needed.append(j)
-                    ambiguous_pairs.append((i, j))
-                elif (
-                    recluse_possible
-                    and characters[j] in POSSIBLE_CHEF_PAIR_ROLES
-                    and characters[i] in (Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER_GOOD)
-                ):
-                    recluse_needed.append(j)
-                    ambiguous_pairs.append((i, j))
-
-            if len(ambiguous_pairs) == self.chef_number:
-                if len(recluse_needed) == 1:
-                    self.characters[recluse_needed[0]] = Role.RECLUSE
-                    deduced = True
-                for i, j in ambiguous_pairs:
-                    if characters[i] in (Role.ANY_OTHER, Role.NON_DEMON):
-                        self.characters[i] = Role.ANY_OTHER_EVIL
-                        deduced = True
-                    if characters[j] in (Role.ANY_OTHER, Role.NON_DEMON):
-                        self.characters[j] = Role.ANY_OTHER_EVIL
-                        deduced = True   
         
+        if self.chef_number is not None:
+            deduced |= self._deduce_from_chef_number()
+
+        return deduced
+    
+    def _deduce_from_chef_number(self) -> bool:
+        deduced = False
+        chef_number = self.chef_number
+        if chef_number == None:
+            return False
+
+        class ChefPair(NamedTuple):
+            a: int
+            b: int
+            a_evil: bool = False
+            b_evil: bool = False
+            a_spy: bool = False
+            b_spy: bool = False
+            a_recluse: bool = False
+            b_recluse: bool = False
+            a_unknown: bool = False
+            b_unknown: bool = False
+
+        def get_chef_pairs(
+            spy_possible: bool,
+            recluse_possible: bool,
+            evils_available: int,
+            new_outsider_possible: bool,
+            spy_and_new_outsider_possible: bool,
+        ) -> tuple[list[ChefPair], list[ChefPair]]:
+            known_pairs: list[ChefPair] = []
+            possible_pairs: list[ChefPair] = []
+            unknown_can_be_evil = evils_available >= 1
+            unknown_can_be_recluse = recluse_possible and new_outsider_possible
+
+            def is_known_non_spy_evil(character: Role) -> bool:
+                return (
+                    character in NON_SPY_EVIL_CHARACTERS
+                    or (
+                        not spy_possible
+                        and character != Role.SPY
+                        and character in EVIL_ROLES_SET
+                    )
+                )
+            def can_be_recluse(character: Role) -> bool:
+                return (
+                    character == Role.RECLUSE
+                    or (
+                        recluse_possible
+                        and (
+                            character == Role.ANY_OTHER_OUTSIDER
+                            or (
+                                new_outsider_possible
+                                and character == Role.ANY_OTHER_GOOD
+                            )
+                        )
+                    )
+                )
+            def can_be_spy(
+                character: Role,
+                *,
+                allow_any_evil_role: bool,
+            ) -> bool:
+                if character == Role.SPY:
+                    return True
+                if not spy_possible:
+                    return False
+                if allow_any_evil_role:
+                    return character in EVIL_ROLES_SET
+                return character in (
+                    Role.ANY_OTHER_MINION,
+                    Role.ANY_OTHER_EVIL,
+                )
+
+            def classify_pair(
+                player: int,
+                partner: int,
+            ) -> tuple[ChefPair, bool] | None:
+                """
+                Returns (pair, is_known), or None if this orientation cannot
+                produce a Chef pair.
+                """
+                a = self.characters[player]
+                b = self.characters[partner]
+                a_unknown = a in DEDUCIBLE_UNKNOWN_ROLES
+                b_unknown = b in DEDUCIBLE_UNKNOWN_ROLES
+
+                # Partner is definitely evil
+                if is_known_non_spy_evil(b):
+                    if is_known_non_spy_evil(a):
+                        return (
+                            ChefPair(
+                                player,
+                                partner,
+                                a_evil=True,
+                                b_evil=True,
+                            ),
+                            True,
+                        )
+                    if can_be_spy(a, allow_any_evil_role=True):
+                        return (
+                            ChefPair(
+                                player,
+                                partner,
+                                a_spy=True,
+                                b_evil=True,
+                            ),
+                            False,
+                        )
+                    if can_be_recluse(a):
+                        return (
+                            ChefPair(
+                                player,
+                                partner,
+                                a_recluse=True,
+                                b_evil=True,
+                            ),
+                            False,
+                        )
+                    if a_unknown:
+                        if unknown_can_be_evil:
+                            return (
+                                ChefPair(
+                                    player,
+                                    partner,
+                                    a_unknown=True,
+                                    b_evil=True,
+                                ),
+                                False,
+                            )
+                        if unknown_can_be_recluse:
+                            return (
+                                ChefPair(
+                                    player,
+                                    partner,
+                                    a_recluse=True,
+                                    b_evil=True,
+                                ),
+                                False,
+                            )
+                    return None
+
+                # Partner is evil and possible Spy.
+                if b == Role.SPY or b in EVIL_ROLES_SET:
+                    if can_be_spy(a, allow_any_evil_role=False):
+                        return (
+                            ChefPair(
+                                player,
+                                partner,
+                                a_spy=True,
+                                b_spy=True,
+                            ),
+                            False,
+                        )
+                    if can_be_recluse(a):
+                        if spy_and_new_outsider_possible:
+                            return (
+                                ChefPair(
+                                    player,
+                                    partner,
+                                    a_recluse=True,
+                                    b_spy=True,
+                                ),
+                                False,
+                            )
+                        return (
+                            ChefPair(
+                                player,
+                                partner,
+                                a_recluse=True,
+                                b_evil=True,
+                            ),
+                            False,
+                        )
+                    if a_unknown:
+                        if unknown_can_be_evil:
+                            return (
+                                ChefPair(
+                                    player,
+                                    partner,
+                                    a_unknown=True,
+                                    b_spy=True,
+                                ),
+                                False,
+                            )
+                        if unknown_can_be_recluse:
+                            return (
+                                ChefPair(
+                                    player,
+                                    partner,
+                                    a_recluse=True,
+                                    b_spy=True,
+                                ),
+                                False,
+                            )
+                    return None
+
+                # Partner is possibly Recluse
+                if can_be_recluse(b):
+                    if a_unknown and unknown_can_be_evil:
+                        return (
+                            ChefPair(
+                                player,
+                                partner,
+                                a_unknown=True,
+                                b_recluse=True,
+                            ),
+                            False,
+                        )
+                    return None
+
+                # Both players could be evil or Recluse
+                if b_unknown and a_unknown:
+                    evil_and_recluse_possible = (
+                        evils_available == 1
+                        and unknown_can_be_recluse
+                    )
+                    if evils_available >= 2 or evil_and_recluse_possible:
+                        return (
+                            ChefPair(
+                                player,
+                                partner,
+                                a_unknown=True,
+                                b_unknown=True,
+                            ),
+                            False,
+                        )
+                return None
+
+            for i in range(self.num_players):
+                j = (i + 1) % self.num_players
+                for player, partner in ((i, j), (j, i)):
+                    result = classify_pair(player, partner)
+                    if result is None:
+                        continue
+                    pair, is_known = result
+                    if is_known:
+                        known_pairs.append(pair)
+                    else:
+                        possible_pairs.append(pair)
+                    break
+            return known_pairs, possible_pairs
+        
+        spy_possible = (
+            Role.SPY not in self.characters
+            and (
+                Role.SPY in self.minion_types
+                or Role.ANY_OTHER_MINION in self.minion_types
+            )
+        )
+        baron_possible = (
+            Role.BARON in self.minion_types
+            or Role.ANY_OTHER_MINION in self.minion_types
+        )
+        recluse_possible = (
+            Role.RECLUSE not in self.characters
+            and gamerules.get_outsider_count(self.num_players, baron_possible) > 0
+        )
+        evil_count = self.get_evil_count()
+        evils_available = gamerules.get_evil_count(self.num_players) - evil_count
+        outsider_count = sum(1 for c in self.characters if c in GENERIC_OUTSIDER_SET)
+        new_outsider_possible = (
+            gamerules.get_outsider_count(self.num_players, baron_possible) >= outsider_count + 1
+        )
+        baron_needed = (
+            gamerules.get_outsider_count(self.num_players, False) < outsider_count + 1
+        )
+        spy_and_new_outsider_possible = (
+            new_outsider_possible
+            and (
+                Role.SPY in self.minion_types
+                or (
+                    Role.BARON in self.minion_types
+                    or not baron_needed
+                    or self.minion_types.count(Role.ANY_OTHER_MINION) >= 2
+                )
+            )
+        )
+
+        if (
+            chef_number == gamerules.get_evil_count(self.num_players)
+            and Role.BARON not in self.minion_types
+            and Role.RECLUSE not in self.characters 
+            and Role.ANY_OTHER_OUTSIDER not in self.characters
+            and gamerules.get_outsider_count(self.num_players, False) - outsider_count == 0
+        ):
+            self.add_minion_type(Role.BARON)
+
+        known_pairs, possible_pairs = get_chef_pairs(
+            spy_possible, 
+            recluse_possible, 
+            evils_available, 
+            new_outsider_possible, 
+            spy_and_new_outsider_possible
+        )
+
+        def is_spy_needed(pair: ChefPair) -> tuple[bool, ...]:
+            """
+            Returns is_spy_needed, is_spy_found
+            """
+            # Either player could be the Spy
+            if pair.a_spy and pair.b_spy:
+                return True, False
+            # B has to be the Spy
+            if pair.a_evil and pair.b_spy:
+                self.characters[pair.b] = Role.SPY
+                self.add_minion_type(Role.SPY)
+                return False, True
+            # A has to be the Spy
+            if pair.b_evil and pair.a_spy:
+                self.characters[pair.a] = Role.SPY
+                self.add_minion_type(Role.SPY)
+                return False, True
+            return False, False
+
+        def handle_pair_not_in_chef_number(pair: ChefPair, spy_possible: bool) -> bool:
+            if spy_possible:
+                return False
+            # B has to be good
+            if pair.a_evil and pair.b_unknown:
+                self.characters[pair.b] = Role.ANY_OTHER_GOOD
+                return True
+            # A has to be good
+            if pair.b_evil and pair.a_unknown:
+                self.characters[pair.a] = Role.ANY_OTHER_GOOD
+                return True
+            return False  
+        
+        def add_baron_if_needed(player: int):
+            if Role.BARON in self.minion_types:
+                return
+            if self.characters[player] in GENERIC_OUTSIDER_SET:
+                return
+            outsider_count = self.get_characters_of_type(CharacterType.OUTSIDER)
+            max_outsider_count = gamerules.get_outsider_count(self.num_players, False)
+            if outsider_count + 1 > max_outsider_count:
+                self.add_minion_type(Role.BARON)
+
+        def handle_pair_in_chef_number(pair: ChefPair, recluse_possible: bool) -> bool:
+            # B has to be the Recluse
+            if pair.b_recluse: # I don't think it's possible for a_recluse and b_recluse to be contributing to a Chef number
+                self.characters[pair.b] = Role.RECLUSE
+                add_baron_if_needed(pair.b)
+                return True
+            # A has to be the Recluse
+            if pair.a_recluse: # I don't think it's possible for a_recluse and b_recluse to be contributing to a Chef number
+                self.characters[pair.a] = Role.RECLUSE
+                add_baron_if_needed(pair.a)
+                return True
+            if pair.a_unknown and not recluse_possible:
+                self.apply_character(Role.ANY_OTHER_EVIL, pair.a)
+                return True
+            if pair.b_unknown and not recluse_possible:
+                self.apply_character(Role.ANY_OTHER_EVIL, pair.b)
+                return True
+            # Recluse or evil is possible, but they're definitely in the chef number
+            if (
+                recluse_possible
+                and (
+                    pair.a_unknown
+                    or pair.b_unknown
+                )
+            ):
+                if pair.a_unknown:
+                    self.in_chef_pair |= 1 << pair.a
+                if pair.b_unknown:
+                    self.in_chef_pair |= 1 << pair.b
+                return True
+            return False
+
+        # All pairs explained by definite pairs, possible pairs can't be contributing to the number
+        if len(known_pairs) == chef_number:
+            spy_candidates: list[ChefPair] = []
+            spy_found = False
+            for pair in possible_pairs:
+                spy_needed, spy_in_pair = is_spy_needed(pair)
+                spy_found |= spy_in_pair
+                if spy_needed and not spy_found:
+                    spy_candidates.append(pair)
+                if not spy_needed and not spy_in_pair:
+                    pair_deduced = handle_pair_not_in_chef_number(pair, spy_possible)
+                    deduced |= pair_deduced
+            deduced |= spy_found
+            if len(spy_candidates) > 1:
+                for spy_candidate in {player for pair in spy_candidates for player in (pair.a, pair.b)}:
+                    if all(spy_candidate in (pair.a, pair.b) for pair in spy_candidates):
+                        self.characters[spy_candidate] = Role.SPY
+                        self.add_minion_type(Role.SPY)
+                        deduced = True
+
+        # Not all pairs explained by definite pairs, some possible pairs must contribute to the number
+        else:
+            effective_chef_number = chef_number - len(known_pairs) # effective chef number is > 0
+            pair_combinations = [
+                combination
+                for combination in combinations(possible_pairs, effective_chef_number)
+            ]
+            for pair in possible_pairs:
+                a, b = pair.a, pair.b
+                if all(
+                    any(p.a == a or p.b == a for p in pairs)
+                    and any(p.a == b or p.b == b for p in pairs)
+                    for pairs in pair_combinations
+                ):
+                    deduced |= handle_pair_in_chef_number(pair, recluse_possible)
+
         return deduced
     
     # returns the index of the new demon if known

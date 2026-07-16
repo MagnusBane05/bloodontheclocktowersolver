@@ -1,9 +1,8 @@
 from __future__ import annotations
-from collections import Counter
 from typing import TYPE_CHECKING, Literal
 
-from .role import NON_RECLUSE_OUTSIDERS
 from .nightOrderPosition import NightOrderPosition
+from . import helper
 
 if TYPE_CHECKING:
     from .grimoire import Grimoire
@@ -398,97 +397,90 @@ def is_chef_number_valid(page: GrimoirePage) -> bool:
     )
 
     # Could an unknown player be the recluse
-    known_outsiders = sum(1 for c in characters if c in OUTSIDERS)
+    known_outsiders = sum(1 for c in characters if c in GENERIC_OUTSIDER_SET)
     baron_possible = Role.BARON in minion_types or Role.ANY_OTHER_MINION in minion_types
     max_outsiders = get_outsider_count(num_players, baron_possible)
-    recluse_possible = Role.RECLUSE not in characters and known_outsiders < max_outsiders
+    outsiders_known = known_outsiders == max_outsiders
+    recluse_known = Role.RECLUSE in characters
 
     # Precompute predicates for each character
-    definitely_evil = [False] * num_players
-    possibly_evil = [False] * num_players
-    could_be_recluse = [False] * num_players
-    evil_could_be_spy = [False] * num_players
+    definitely_evil: set[int] = set()
+    possibly_evil: set[int] = set()
+    could_be_recluse: set[int] = set()
+    evil_could_be_spy: set[int] = set()
 
     for i in range(num_players):
         role = characters[i]
         if role == Role.SPY:
-            definitely_evil[i] = False
-            possibly_evil[i] = True
-            could_be_recluse[i] = False
-            evil_could_be_spy[i] = False
+            evil_could_be_spy.add(i)
         elif role in EVIL_CHARACTERS:
-            definitely_evil[i] = True
-            possibly_evil[i] = True
-            could_be_recluse[i] = False
-            evil_could_be_spy[i] = False
+            definitely_evil.add(i)
         elif not spy_possible and role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
-            definitely_evil[i] = True
-            possibly_evil[i] = True
-            could_be_recluse[i] = False
-            evil_could_be_spy[i] = False
+            definitely_evil.add(i)
         elif role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
-            definitely_evil[i] = False
-            possibly_evil[i] = True
-            could_be_recluse[i] = False
-            evil_could_be_spy[i] = True
-        elif role in [Role.ANY_OTHER, Role.NON_DEMON]:
-            definitely_evil[i] = False
-            possibly_evil[i] = True
-            could_be_recluse[i] = True
-            evil_could_be_spy[i] = False
+            evil_could_be_spy.add(i)
         elif role == Role.RECLUSE:
-            definitely_evil[i] = False
-            possibly_evil[i] = True
-            could_be_recluse[i] = False
-            evil_could_be_spy[i] = False
-        else:
-            definitely_evil[i] = False
-            possibly_evil[i] = False
-            could_be_recluse[i] = role in [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_OUTSIDER]
-            evil_could_be_spy[i] = False
+            could_be_recluse.add(i)
+        elif not outsiders_known and not recluse_known and role in [Role.ANY_OTHER, Role.NON_DEMON]:
+            possibly_evil.add(i)
+            could_be_recluse.add(i)
+        elif role in [Role.ANY_OTHER, Role.NON_DEMON]:
+            possibly_evil.add(i)
+        elif not recluse_known and role == Role.ANY_OTHER_OUTSIDER:
+            could_be_recluse.add(i)
+        elif not outsiders_known and not recluse_known and role == Role.ANY_OTHER_GOOD:
+            could_be_recluse.add(i)
 
-    pairs = [(i, (i + 1) % num_players) for i in range(num_players)]
-
-    min_pairs = 0
-    max_pairs = 0
-
-    recluse_needed: list[int] = []
-    possible_spies: list[int] = []
-    spies_needed = 0
-
-    for i, j in pairs:
-        if definitely_evil[i] and definitely_evil[j]:
-            min_pairs += 1
-        elif definitely_evil[i] and evil_could_be_spy[j]:
-            possible_spies.append(j)
-            spies_needed += 1
-        elif evil_could_be_spy[i] and definitely_evil[j]:
-            possible_spies.append(i)
-            spies_needed += 1
-        elif evil_could_be_spy[i] and evil_could_be_spy[j]:
-            possible_spies.extend([i, j])
-            spies_needed += 1
-
-        if possibly_evil[i] and possibly_evil[j]:
-            max_pairs += 1
-        elif possibly_evil[i] and could_be_recluse[j]:
-            recluse_needed.append(j)
-        elif could_be_recluse[i] and possibly_evil[j]:
-            recluse_needed.append(i)
-
-    recluse_counter = Counter(recluse_needed)
-    recluse_impact = max(recluse_counter.values()) if recluse_counter else 0
-    max_pairs += recluse_impact if recluse_possible else 0
-
-    spy_counter = Counter(possible_spies)
-    spy_impact = max(spy_counter.values()) if spy_counter else 0
-    min_pairs += spies_needed - spy_impact if spy_possible else 0
+    evil_count = ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']
+    min_pairs = _get_min_pairs_from_positions(
+        definitely_evil | evil_could_be_spy,
+        evil_could_be_spy,
+        possibly_evil,
+        num_players,
+        evil_count
+    )
 
     # Global evil count constraint
-    max_evils = ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']
-    max_pairs = min(max_pairs, max_evils)
+    max_pairs = _get_max_pairs_from_positions(
+        possibly_evil | evil_could_be_spy, 
+        definitely_evil,
+        could_be_recluse, 
+        num_players, 
+        evil_count
+    )
 
     return min_pairs <= chef_number <= max_pairs
+
+def _get_min_pairs_from_positions(known_evils: set[int], possible_spies: set[int], possible_evils: set[int], num_players: int, evil_count: int):
+    """
+    known_evils and possible_evils are mutually exclusive
+    known evils contains all of possible_spies
+    """
+    _, total, evils, _ = helper.minimum_possible_runs(known_evils | possible_spies, possible_evils, evil_count, num_players)
+    spy_impact = 0
+    for spy in possible_spies:
+        if (
+            (spy - 1) % num_players in evils
+            and (spy + 1) % num_players in evils
+        ):
+            spy_impact = 2
+        elif (
+            (spy - 1) % num_players in evils
+            or (spy + 1) % num_players in evils
+        ):
+            spy_impact = 1
+        
+    pairs = total - spy_impact
+    return max(pairs, 0)
+
+def _get_max_pairs_from_positions(possible_evils: set[int], known_evils: set[int], recluse_positions: set[int], num_players: int, max_evils: int) -> int:
+    _, total, _, selected = helper.longest_runs_with_one_insert(known_evils | possible_evils, recluse_positions, num_players)
+    recluse_in_runs = any(recluse in selected for recluse in recluse_positions)
+    evils_outside_run = sum(1 if evil not in selected else 0 for evil in known_evils)
+    evils_over_total = len(selected) - (1 if recluse_in_runs else 0) - (max_evils - evils_outside_run)
+    if evils_over_total > 0:
+        total -= evils_over_total
+    return max(0, total)
 
 def is_red_herring_valid(page: GrimoirePage) -> bool:
     red_herring = page.red_herring

@@ -248,6 +248,474 @@ class TestValidation(unittest.TestCase):
         result = gamerules.is_no_sober_saint_executed(page)
         self.assertTrue(result, "Expected non-execution page to be valid.")
 
+class TestIsChefNumberValid(unittest.TestCase):
+    def make_page(
+        self,
+        characters: list[Role],
+        chef_number: int | None,
+        minion_types: list[Role] | None = None,
+    ) -> GrimoirePage:
+        page = GrimoirePage(len(characters))
+        page.characters = characters
+        page.chef_number = chef_number
+
+        if minion_types is not None:
+            page.minion_types = minion_types
+
+        return page
+
+    def assertChefValid(
+        self,
+        characters: list[Role],
+        chef_number: int | None,
+        expected: bool,
+        minion_types: list[Role] | None = None,
+    ) -> None:
+        page = self.make_page(characters, chef_number, minion_types)
+        self.assertEqual(
+            expected,
+            gamerules.is_chef_number_valid(page),
+            msg=(
+                f"Expected Chef {chef_number} validity to be {expected}, "
+                f"but got {not expected}. Characters: {[c.name for c in characters]}, "
+                f"minion_types: {[m.name for m in page.minion_types]}"
+            ),
+        )
+
+    def assertChefOutcomes(
+        self,
+        characters: list[Role],
+        expected_by_number: dict[int | None, bool],
+        minion_types: list[Role] | None = None,
+    ) -> None:
+        for chef_number, expected in expected_by_number.items():
+            with self.subTest(chef_number=chef_number):
+                self.assertChefValid(
+                    characters=characters,
+                    chef_number=chef_number,
+                    expected=expected,
+                    minion_types=minion_types,
+                )
+
+    def test_no_chef_number_is_always_valid(self):
+        self.assertChefValid(
+            characters=[
+                Role.IMP,
+                Role.POISONER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.POISONER],
+            chef_number=None,
+            expected=True,
+        )
+
+    def test_negative_chef_number_is_invalid(self):
+        self.assertChefValid(
+            characters=[
+                Role.IMP,
+                Role.POISONER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.POISONER],
+            chef_number=-1,
+            expected=False,
+        )
+
+    def test_known_adjacent_evil_pair_requires_at_least_one(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.POISONER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.POISONER],
+            expected_by_number={
+                0: False,
+                1: True,
+                2: False,
+            },
+        )
+
+    def test_known_evil_pair_wraps_around_table(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.POISONER,
+            ],
+            minion_types=[Role.POISONER],
+            expected_by_number={
+                0: False,
+                1: True,
+                2: False,
+            },
+        )
+
+    def test_known_evil_players_not_adjacent_can_have_chef_zero(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_GOOD,
+                Role.POISONER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.POISONER],
+            expected_by_number={
+                0: True,
+                1: False,
+            },
+        )
+
+    def test_known_spy_next_to_demon_can_make_zero_or_one_possible(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.SPY,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.SPY],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: False,
+            },
+        )
+
+    def test_unknown_minion_next_to_demon_can_be_spy_when_spy_possible(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_MINION,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.ANY_OTHER_MINION],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: True,
+            },
+        )
+
+    def test_unknown_minion_next_to_demon_is_definitely_chef_evil_when_spy_impossible(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_MINION,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.BARON],
+            expected_by_number={
+                0: False,
+                1: True,
+                2: True,
+            },
+        )
+
+    def test_unknown_evil_next_to_demon_can_be_spy_when_spy_possible(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.ANY_OTHER_MINION],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: True,
+            },
+        )
+
+    def test_unknown_evil_next_to_demon_is_definitely_chef_evil_when_spy_impossible(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.BARON],
+            expected_by_number={
+                0: False,
+                1: True,
+                2: True,
+            },
+        )
+
+    def test_unknown_minion_cannot_be_spy_when_spy_is_already_elsewhere(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_MINION,
+                Role.SPY,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.SPY, Role.ANY_OTHER_MINION],
+            expected_by_number={
+                0: False,
+                1: True,
+                2: True,
+            },
+        )
+
+    def test_good_unknown_can_be_recluse_when_baron_is_possible(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.ANY_OTHER_MINION],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: False,
+            },
+        )
+
+    def test_good_unknown_cannot_be_recluse_when_no_outsider_slots_available(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_GOOD,
+                Role.DRUNK,
+                Role.ANY_OTHER,
+                Role.SAINT,
+            ],
+            minion_types=[Role.BARON],
+            expected_by_number={
+                0: True,
+                1: False,
+            },
+        )
+
+    def test_known_recluse_next_to_evil_can_make_zero_or_one_possible(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.RECLUSE,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.BARON],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: False,
+            },
+        )
+
+    def test_only_one_unknown_recluse_can_exist(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.POISONER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.BARON, Role.POISONER],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: False,
+            },
+        )
+
+    def test_all_unknowns_are_limited_by_global_evil_count(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+            ],
+            minion_types=[Role.ANY_OTHER_MINION],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: True,
+                3: False,
+            },
+        )
+
+    def test_all_good_players_cannot_make_chef_pair_without_recluse(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.POISONER],
+            expected_by_number={
+                0: True,
+                1: False,
+            },
+        )
+
+    def test_evil_count_limits_evil_contributions_to_chef_number(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER,
+                Role.NON_DEMON,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.SPY,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+            ],
+            minion_types=[Role.SPY, Role.ANY_OTHER_MINION],
+            expected_by_number={
+                3: False
+            }
+        )
+
+    def test_all_unknown_evils_next_to_evil_increases_minimum_number(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.SCARLET_WOMAN],
+            expected_by_number={
+                0: False,
+                1: True
+            }
+        )
+
+    def test_all_unknown_evils_make_line_with_known_evil_increases_minimum_number(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER_GOOD,
+            ],
+            minion_types=[Role.SCARLET_WOMAN, Role.POISONER, Role.BARON],
+            expected_by_number={
+                0: False,
+                1: False,
+                2: True
+            }
+        )
+
+    def test_evil_outside_run_still_counts_towards_max(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.IMP,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+            ],
+            minion_types=[Role.ANY_OTHER_MINION],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: False
+            }
+        )
+
+    def test_any_other_not_recluse_when_outsider_count_elsewhere(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.POISONER,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_OUTSIDER,
+            ],
+            minion_types=[Role.POISONER],
+            expected_by_number={
+                0: True,
+                1: False,
+            }
+        )
+
+    def test_two_seperate_runs_of_evils(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.SAINT,
+                Role.BUTLER,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER_EVIL,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+            ],
+            minion_types=[Role.POISONER, Role.BARON, Role.SCARLET_WOMAN],
+            expected_by_number={
+                0: False,
+                1: False,
+                2: True,
+                3: False
+            }
+        )
+
+
 class TestScarletWomanCatch(unittest.TestCase):
     def test_can_scarlet_woman_catch(self):
         imp = 3
