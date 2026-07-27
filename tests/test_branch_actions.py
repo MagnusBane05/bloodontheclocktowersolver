@@ -1,6 +1,8 @@
 import random
 import unittest
 
+from tqdm import tqdm
+
 from grimoire import Grimoire, NightOrderPosition, Role, gamerules
 from grimoire import branch_actions
 from grimoire.role import MINIONS, OUTSIDERS, TOWNSFOLK
@@ -38,12 +40,12 @@ class TestCharacterActionParityWithValidation(unittest.TestCase):
             ),
         )
 
-    def character_action_matches_validation_for_seeded_random_setups(self):
+    def test_character_action_matches_validation_for_seeded_random_setups(self):
         rng = random.Random(2412341)
-        n = 1000
+        n = 10000
 
         for num_players in (5, 8, 9, 10, 13):
-            for case_idx in range(n):
+            for case_idx in tqdm(range(n)):
                 with self.subTest(num_players=num_players, case=case_idx):
                     grim = self._build_random_valid_grim(num_players, rng)
                     role = rng.choice([r for r in Role])

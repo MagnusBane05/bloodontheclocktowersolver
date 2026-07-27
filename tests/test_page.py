@@ -146,12 +146,35 @@ class TestDeducePage(unittest.TestCase):
         page.make_deductions()
         self.assertEqual(Role.ANY_OTHER_EVIL, page.characters[3])
 
+        # unknown player with known recluse and minion has to be Imp
+        page = GrimoirePage(8)
+        page.characters = [
+            Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.RECLUSE, Role.ANY_OTHER_OUTSIDER, 
+            Role.BARON, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_OUTSIDER, Role.ANY_OTHER
+        ]
+        page.minion_types[0] = Role.BARON
+        page.chef_number = 1
+        page.make_deductions()
+        self.assertEqual(Role.IMP, page.characters[1])
+
         # unknown player has to be Recluse
         page = GrimoirePage(5)
         page.characters = [Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER]
         page.chef_number = 2
         page.make_deductions()
         self.assertEqual(Role.RECLUSE, page.characters[3])
+
+        # unknown player has to be Recluse when player is in any possible Chef number
+        page = GrimoirePage(10)
+        page.characters = [
+            Role.ANY_OTHER_TOWNSFOLK, Role.SCARLET_WOMAN, Role.ANY_OTHER_GOOD, Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK,
+            Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_EVIL
+        ]
+        page.chef_number = 1
+        page.minion_types[0] = Role.SCARLET_WOMAN
+        page.make_deductions()
+        self.assertEqual(Role.RECLUSE, page.characters[2])
+        self.assertEqual(Role.BARON, page.minion_types[1])
 
         # unknown player has to be good when Spy is not possible
         page = GrimoirePage(5)
@@ -160,6 +183,16 @@ class TestDeducePage(unittest.TestCase):
         page.chef_number = 0
         page.make_deductions()
         self.assertEqual(Role.ANY_OTHER_GOOD, page.characters[3])
+
+        # if evils are accounted for from in_chef_pair, assign good roles to unknowns
+        page = GrimoirePage(10)
+        page.characters = [
+            Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_MINION,
+            Role.IMP, Role.NON_DEMON, Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_TOWNSFOLK
+        ]
+        page.chef_number = 3
+        page.make_deductions()
+        self.assertEqual(Role.ANY_OTHER_OUTSIDER, page.characters[2])
 
         # unknown player has to be Spy
         page = GrimoirePage(5)
@@ -184,6 +217,18 @@ class TestDeducePage(unittest.TestCase):
 
         ]
         page.chef_number = 0
+        page.make_deductions()
+        self.assertEqual(Role.SPY, page.characters[7])
+
+        # evil player between two evils must by Spy when Chef 1
+        page = GrimoirePage(10)
+        page.characters = [
+            Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD,
+            Role.ANY_OTHER_GOOD, Role.IMP, Role.ANY_OTHER_EVIL, Role.BARON, Role.ANY_OTHER_GOOD
+
+        ]
+        page.chef_number = 1
+        page.minion_types[0] = Role.BARON
         page.make_deductions()
         self.assertEqual(Role.SPY, page.characters[7])
 
@@ -220,6 +265,30 @@ class TestDeducePage(unittest.TestCase):
         page.make_deductions()
         self.assertEqual(Role.BARON, page.minion_types[0])
 
+        # Chef number only possible with Recluse when evil configuration isn't enough
+        page = GrimoirePage(13)
+        page.characters = [
+            Role.ANY_OTHER_GOOD, Role.ANY_OTHER_TOWNSFOLK, Role.NON_DEMON, Role.ANY_OTHER_MINION, Role.IMP,
+            Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_TOWNSFOLK,
+            Role.ANY_OTHER_TOWNSFOLK, Role.NON_DEMON, Role.SPY
+        ]
+        page.chef_number = 3
+        page.minion_types[0] = Role.SPY
+        page.make_deductions()
+        self.assertIn(Role.BARON, page.minion_types)
+
+        # 2 seperate pairs is too many evils/Recluse, the only option is 1 continuous pair
+        page = GrimoirePage(8)
+        page.characters = [
+            Role.ANY_OTHER_GOOD, Role.ANY_OTHER, Role.BARON, Role.ANY_OTHER_TOWNSFOLK, 
+            Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER_OUTSIDER, Role.BUTLER
+        ]
+        page.chef_number = 2
+        page.minion_types = [Role.BARON]
+        page.make_deductions()
+        self.assertEqual(Role.RECLUSE, page.characters[0])
+        self.assertEqual(Role.IMP, page.characters[1])
+
         # unknown player has to be in chef number, but not sure whether Recluse or evil
         page = GrimoirePage(8)
         page.characters = [
@@ -250,7 +319,17 @@ class TestDeducePage(unittest.TestCase):
         page.chef_number = 2
         page.make_deductions()
         self.assertTrue(page.in_chef_pair & (1 << 6))
-        self.assertTrue(page.in_chef_pair & (1 << 7))        
+        self.assertTrue(page.in_chef_pair & (1 << 7))    
+
+        # player who is in all possible chef pairs, but not sure which one or evil/Recluse
+        page = GrimoirePage(8)
+        page.characters = [
+            Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK,
+            Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER
+        ]
+        page.chef_number = 1
+        page.make_deductions()
+        self.assertTrue(page.in_chef_pair & (1 << 7))
 
     def test_multi_stage_deductions(self):
         # multi-stage deductions
@@ -407,6 +486,19 @@ class TestCanBeCharacter(unittest.TestCase):
         page.no_outsiders = True
         result = page.can_be_character(Role.RECLUSE, player)
         self.assertTrue(result, "Expected Recluse able to register as non-outsider to Librarian.")
+
+        page = GrimoirePage(8)
+        page.characters[1] = Role.ANY_OTHER_OUTSIDER
+        page.no_outsiders = True
+        result = page.can_be_character(Role.ANY_OTHER_OUTSIDER, player)
+        self.assertFalse(result, "Expected 2 outsiders not able to register as non-outsider to Librarian.")
+
+    def test_baron(self):
+        page = GrimoirePage(5)
+        page.no_outsiders = True
+        player = 0
+        result = page.can_be_character(Role.BARON, player)
+        self.assertFalse(result)
 
 class TestCanHaveNoOutsiders(unittest.TestCase):
     def test_all(self):

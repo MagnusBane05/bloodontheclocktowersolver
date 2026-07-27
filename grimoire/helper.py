@@ -132,6 +132,157 @@ def longest_runs_with_one_insert(
 
     return best_runs, best_total, best_candidate, best_selected
 
+def wrapped_pair_count(nums: set[int], upper_bound: int) -> int:
+    return sum(
+        (position + 1) % upper_bound in nums
+        for position in nums
+    )
+
+def maximum_possible_runs(
+    known: set[int],
+    possible: set[int],
+    count: int,
+    upper_bound: int,
+    *,
+    insert_nums: set[int] | None = None,
+    constrained_positions: set[int] | None = None,
+    max_constrained: int | None = None,
+) -> tuple[
+    list[list[int]],
+    int,
+    set[int],
+    set[int],
+    int | None,
+]:
+    """
+    Select exactly `count` positions from `known | possible` while
+    maximizing the number of wrapped adjacent pairs.
+
+    `known` positions are always selected.
+
+    At most one position from `insert_nums` may be added for scoring,
+    but it does not count toward `count`. This represents the Recluse.
+
+    At most `max_constrained` selected positions may come from
+    `constrained_positions`. This can represent positions that must
+    consume a minion slot when selected as evil.
+    """
+    known = set(known)
+    possible = set(possible)
+    insert_nums = set() if insert_nums is None else set(insert_nums)
+    constrained_positions = (
+        set()
+        if constrained_positions is None
+        else set(constrained_positions)
+    )
+
+    if known & possible:
+        raise ValueError("known and possible must not overlap")
+
+    all_positions = (
+        known
+        | possible
+        | insert_nums
+        | constrained_positions
+    )
+
+    if any(
+        position < 0 or position >= upper_bound
+        for position in all_positions
+    ):
+        raise ValueError(
+            f"All positions must be in range 0 to {upper_bound - 1}"
+        )
+
+    needed_from_possible = count - len(known)
+
+    if needed_from_possible < 0:
+        raise ValueError("count cannot be smaller than len(known)")
+
+    if needed_from_possible > len(possible):
+        raise ValueError(
+            "Not enough possible positions to reach count"
+        )
+
+    if (
+        max_constrained is not None
+        and len(known & constrained_positions) > max_constrained
+    ):
+        raise ValueError(
+            "Known positions exceed the constrained-position limit"
+        )
+
+    best_total = -1
+    best_selected: set[int] | None = None
+    best_added: set[int] | None = None
+    best_insert: int | None = None
+    best_scoring_positions: set[int] | None = None
+
+    for added_tuple in combinations(
+        sorted(possible),
+        needed_from_possible,
+    ):
+        added = set(added_tuple)
+        selected = known | added
+
+        if (
+            max_constrained is not None
+            and len(selected & constrained_positions) > max_constrained
+        ):
+            continue
+
+        # The inserted position represents the Recluse. A player who
+        # was selected as an actual evil cannot also be the Recluse.
+        insert_candidates: list[int | None] = [
+            None,
+            *sorted(insert_nums - selected),
+        ]
+
+        for inserted in insert_candidates:
+            scoring_positions = (
+                selected
+                if inserted is None
+                else selected | {inserted}
+            )
+
+            total = wrapped_pair_count(
+                scoring_positions,
+                upper_bound,
+            )
+
+            if total > best_total:
+                best_total = total
+                best_selected = selected
+                best_added = added
+                best_insert = inserted
+                best_scoring_positions = scoring_positions
+
+    if (
+        best_selected is None
+        or best_added is None
+        or best_scoring_positions is None
+    ):
+        raise ValueError(
+            "No selection satisfies the supplied constraints"
+        )
+
+    best_runs = [
+        run
+        for run in wrapped_consecutive_subsets(
+            best_scoring_positions,
+            upper_bound,
+        )
+        if len(run) > 1
+    ]
+
+    return (
+        best_runs,
+        best_total,
+        best_selected,
+        best_added,
+        best_insert,
+    )
+
 def longest_wrapped_consecutive(nums: set[int], upper_bound: int) -> list[int]:
     if not nums:
         return []
@@ -153,6 +304,102 @@ def longest_wrapped_consecutive(nums: set[int], upper_bound: int) -> list[int]:
                 longest = current
 
     return longest
+
+def minimum_possible_runs_with_one_remove(
+    known: set[int],
+    possible: set[int],
+    remove_nums: set[int],
+    count: int,
+    upper_bound: int,
+) -> tuple[
+    list[list[int]],
+    int,
+    set[int],
+    set[int],
+    int | None,
+]:
+    known = set(known)
+    possible = set(possible)
+    remove_nums = set(remove_nums)
+
+    if known & possible:
+        raise ValueError("known and possible must not overlap")
+
+    if any(
+        n < 0 or n >= upper_bound
+        for n in known | possible | remove_nums
+    ):
+        raise ValueError(
+            f"All numbers must be in range 0 to {upper_bound - 1}"
+        )
+
+    needed_from_possible = count - len(known)
+
+    if needed_from_possible < 0:
+        raise ValueError("count cannot be smaller than len(known)")
+
+    if needed_from_possible > len(possible):
+        raise ValueError("Not enough possible numbers to reach count")
+
+    best_runs: list[list[int]] | None = None
+    best_selected: set[int] | None = None
+    best_added: set[int] | None = None
+    best_removed: int | None = None
+    best_total = math.inf
+
+    for added_tuple in combinations(
+        sorted(possible),
+        needed_from_possible,
+    ):
+        added = set(added_tuple)
+        selected = known | added
+
+        removal_candidates: list[int | None] = [
+            None,
+            *sorted(remove_nums & selected),
+        ]
+
+        for removed in removal_candidates:
+            registered_evils = (
+                selected
+                if removed is None
+                else selected - {removed}
+            )
+
+            runs = wrapped_consecutive_subsets(
+                registered_evils,
+                upper_bound,
+            )
+
+            total = sum(
+                len(run) - 1
+                for run in runs
+            )
+
+            if best_runs is None or total < best_total:
+                best_runs = runs
+                best_selected = selected
+                best_added = added
+                best_removed = removed
+                best_total = total
+
+    if (
+        best_runs is None
+        or best_selected is None
+        or best_added is None
+        or best_total == math.inf
+    ):
+        raise ValueError(
+            "No valid selection could be constructed"
+        )
+
+    return (
+        best_runs,
+        int(best_total),
+        best_selected,
+        best_added,
+        best_removed,
+    )
 
 def minimum_possible_runs(
     known: set[int],

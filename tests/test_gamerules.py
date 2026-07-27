@@ -715,6 +715,87 @@ class TestIsChefNumberValid(unittest.TestCase):
             }
         )
 
+    def test_spy_outside_run_contributes_to_evil_count(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.SPY,
+                Role.DRUNK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.NON_DEMON
+            ],
+            minion_types=[Role.ANY_OTHER_MINION],
+            expected_by_number={
+                0: True,
+                1: False,
+            }
+        )
+
+    def test_temp_name(self): # What is this testing??
+        self.assertChefOutcomes(
+            characters=[
+                Role.ANY_OTHER_GOOD,
+                Role.ANY_OTHER,
+                Role.BARON,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.BUTLER,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.SAINT,
+                Role.ANY_OTHER_OUTSIDER
+            ],
+            minion_types=[Role.BARON],
+            expected_by_number={
+                0: False,
+                1: True,
+                2: False,
+            }
+        )
+
+    def test_two_adjacent_non_demons_are_not_both_evil(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.RECLUSE,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.NON_DEMON,
+                Role.NON_DEMON,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER,
+                Role.ANY_OTHER_TOWNSFOLK,
+            ],
+            minion_types=[
+                Role.ANY_OTHER_MINION
+            ],
+            expected_by_number={
+                0: True,
+                1: False,
+                2: False
+            }
+        )
+
+    def test_imp_between_2_unknown_possible_minions(self):
+        self.assertChefOutcomes(
+            characters=[
+                Role.IMP,
+                Role.NON_DEMON,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER_TOWNSFOLK,
+                Role.ANY_OTHER
+            ],
+            minion_types=[
+                Role.ANY_OTHER_MINION
+            ],
+            expected_by_number={
+                0: True,
+                1: True,
+                2: False
+            }
+        )
+
 
 class TestScarletWomanCatch(unittest.TestCase):
     def test_can_scarlet_woman_catch(self):
