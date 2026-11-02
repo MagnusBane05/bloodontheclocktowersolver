@@ -20,3 +20,34 @@
 2. `unittest-parallel -t . -s tests`
 3. To test memory usage: `/usr/bin/time -v python -m unittest tests.testCreatorWithSimulator.TestCreatorWithSimulator.test_15_player`
 4. To profile: `python -m cProfile -o profile10player.prof tests/testCreatorWithSimulator.py`
+
+## Benchmarking
+Commit the code before running a benchmark you want to keep; runs from a working tree with uncommitted changes are marked as `dirty` in the results.
+
+Run these from the project root with the venv active. 
+
+Quick check after a change (~10 seconds):
+`python -m bench run --tier smoke --label "Describe the change"`
+
+Before committing a performance change (~5 minutes):
+`python -m bench run --tier standard --label "Describe the change"`
+
+Occasional full run (10 player and 15 player games take much longer):
+`python -m bench run --tier full --label "Describe the change"`
+
+### Other bench run options
+- `--no-csv`: don't append the run to `bench/results.csv`, e.g. while experimenting
+- `--players 5 10`: only run some of the tier's player counts
+- `--repeat 3`: run each game 3 times and keep the fastest time, to reduce timing noise
+- `--timeout 15=3600`: per game timeout in seconds for a player count (defaults: 5=60, 10=300, 15=1800)
+- `--memory-gb 16`: memory limit per worker process (default 12). Games that run out are recorded as `oom` and the run continues
+- `--asserts`: keep asserts on (benchmarks run with `python -O` by default)
+- `--version v2`: use a different scenario version
+
+### Generating scenarios
+The benchmark games are saved in `bench/scenarios/<version>/` so that changes to the simulator can't change the workload. You only need to generate them when creating a new scenario version:
+`python -m bench.scenarios generate --version v2`
+- Existing files are never overwritten; use a new version, or `--force` to replace them
+- `--players 15`: only generate some player counts
+- Generate from a committed working tree so the files record which commit produced them
+- `tests/test_bench_scenarios.py` fails if the simulator no longer matches the saved `v1` games; that means it's time for a new version, not that `v1` should be overwritten

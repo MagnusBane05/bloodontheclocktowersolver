@@ -1,5 +1,8 @@
 import json
+from pathlib import Path
+import tempfile
 import unittest
+from unittest import mock
 
 from analyze.simulator import simulate_single_game
 from bench import scenarios
@@ -93,6 +96,22 @@ class TestScenarioFiles(unittest.TestCase):
     def test_generate_refuses_to_overwrite(self):
         with self.assertRaises(FileExistsError):
             _ = scenarios.generate(5, "v1")
+
+    def test_generate_uses_git_state_from_before_writing(self):
+        # writing the first file used to make the tree look dirty for the next one
+        states = iter([("abc1234", False), ("abc1234", True)])
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(scenarios, "SCENARIOS_DIR", Path(tmp)), \
+                mock.patch.object(scenarios, "_scenario_count", return_value=1), \
+                mock.patch.object(scenarios, "_git_state", side_effect=lambda: next(states)), \
+                mock.patch("sys.argv", ["bench.scenarios", "generate", "--version", "test", "--players", "5", "10"]), \
+                mock.patch("sys.stdout"):
+            scenarios.main()
+            for players in (5, 10):
+                with open(Path(tmp) / "test" / f"{players}p.json") as f:
+                    header = json.load(f)
+                self.assertEqual(header["commit"], "abc1234")
+                self.assertFalse(header["dirty"], f"Expected the {players} player file to record the tree as it was before generating.")
 
 
 if __name__ == "__main__":

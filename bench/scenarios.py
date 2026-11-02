@@ -145,7 +145,9 @@ def _git_state() -> tuple[str, bool]:
     ).stdout.strip() != ""
     return commit, dirty
 
-def generate(players: int, version: str, force: bool = False) -> Path:
+def generate(players: int, version: str, force: bool = False, git_state: tuple[str, bool] | None = None) -> Path:
+    """git_state is (commit, dirty). Pass it in when generating several files, since writing
+    one file would otherwise make the tree look dirty for the next."""
     path = _scenario_path(players, version)
     if path.exists() and not force:
         raise FileExistsError(
@@ -173,7 +175,7 @@ def generate(players: int, version: str, force: bool = False) -> Path:
             raise RuntimeError(f"{players} player game with seed {seed} doesn't survive a save/load round trip")
         games.append(game)
 
-    commit, dirty = _git_state()
+    commit, dirty = git_state if git_state is not None else _git_state()
     data = {
         "version": version,
         "players": players,
@@ -202,11 +204,12 @@ def main():
     args = parser.parse_args()
 
     if args.command == "generate":
-        _, dirty = _git_state()
-        if dirty:
+        # check once, before any files are written
+        git_state = _git_state()
+        if git_state[1]:
             print("Warning: the working tree has uncommitted changes, so these scenarios may not be reproducible.")
         for players in args.players:
-            path = generate(players, args.version, args.force)
+            path = generate(players, args.version, args.force, git_state)
             size_kb = path.stat().st_size / 1024
             print(f"{players} players: {_scenario_count(players)} games -> {path} ({size_kb:.0f} KB)")
 
