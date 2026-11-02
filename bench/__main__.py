@@ -1,6 +1,7 @@
 import argparse
+import sys
 
-from . import runner
+from . import compare, runner
 from .tiers import TIERS
 
 def _parse_timeouts(values: list[str]) -> dict[int, float]:
@@ -25,7 +26,23 @@ def main():
     _ = run.add_argument("--asserts", action="store_true", help="Keep asserts on (workers run with -O by default)")
     _ = run.add_argument("--no-csv", action="store_true", help="Don't append this run to results.csv")
 
+    compare_parser = subparsers.add_parser("compare", help="Compare two runs game by game")
+    _ = compare_parser.add_argument("a", nargs="?", default="baseline", help="Run to compare against: a path, 'baseline', 'latest' or part of a file name (default: baseline)")
+    _ = compare_parser.add_argument("b", nargs="?", default="latest", help="Run to compare (default: latest)")
+    _ = compare_parser.add_argument("--game", help="Show step by step detail for one game, e.g. 10p-0003")
+    _ = compare_parser.add_argument("--force", action="store_true", help="Compare runs that use different scenario versions")
+
+    baseline = subparsers.add_parser("baseline", help="Make a run the baseline (copied to bench/baseline.json)")
+    _ = baseline.add_argument("run", nargs="?", default="latest", help="A path, 'latest' or part of a file name (default: latest)")
+
     args = parser.parse_args()
+    try:
+        _run_command(args)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(2)
+
+def _run_command(args: argparse.Namespace):
     if args.command == "run":
         _ = runner.run(
             tier=args.tier,
@@ -38,6 +55,21 @@ def main():
             asserts=args.asserts,
             write_csv=not args.no_csv,
         )
+    elif args.command == "compare":
+        run_a = compare.load_run(compare.resolve_run(args.a))
+        run_b = compare.load_run(compare.resolve_run(args.b))
+        if args.game:
+            print(compare.format_game_steps(run_a, run_b, args.game))
+        else:
+            comparison = compare.compare_runs(run_a, run_b, force=args.force)
+            print(compare.format_comparison(comparison))
+            # only correctness problems fail the command; timings are too noisy for that
+            if compare.has_regressions(comparison):
+                sys.exit(1)
+    elif args.command == "baseline":
+        path = compare.resolve_run(args.run)
+        compare.set_baseline(path)
+        print(f"Baseline set to {path.name} (copied to {compare.BASELINE_PATH})")
 
 if __name__ == "__main__":
     main()

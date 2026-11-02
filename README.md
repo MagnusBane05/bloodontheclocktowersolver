@@ -21,9 +21,14 @@
 3. To test memory usage: `/usr/bin/time -v python -m unittest tests.testCreatorWithSimulator.TestCreatorWithSimulator.test_15_player`
 4. To profile: `python -m cProfile -o profile10player.prof tests/testCreatorWithSimulator.py`
 
+## Benchmarking workflow
+`python -m bench run --tier smoke --label "..."`      # after a change
+`python -m bench compare`                             # vs. baseline
+`python -m bench compare --game 10p-0003`             # drill into one game
+`python -m bench baseline`                            # when a change is accepted
+
 ## Benchmarking
 Commit the code before running a benchmark you want to keep; runs from a working tree with uncommitted changes are marked as `dirty` in the results.
-
 Run these from the project root with the venv active. 
 
 Quick check after a change (~10 seconds):
@@ -34,6 +39,18 @@ Before committing a performance change (~5 minutes):
 
 Occasional full run (10 player and 15 player games take much longer):
 `python -m bench run --tier full --label "Describe the change"`
+
+Compare the latest run against the baseline (exits with an error if any game stopped finishing or lost the true grim):
+`python -m bench compare`
+
+Make the latest run the new baseline (copied to `bench/baseline.json`, which is committed):
+`python -m bench baseline`
+
+### Other bench compare options
+- `python -m bench compare <A> <B>`: compare any two runs. Each can be a path, `baseline`, `latest`, or part of a run's file name (e.g. `cache-clones`)
+- `--game 10p-0003`: step by step world counts and times for one game in both runs
+- `--force`: compare runs that use different scenario versions
+- `python -m bench baseline <run>`: make a specific run the baseline instead of the latest
 
 ### Other bench run options
 - `--no-csv`: don't append the run to `bench/results.csv`, e.g. while experimenting
