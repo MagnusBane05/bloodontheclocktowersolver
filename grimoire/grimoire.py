@@ -3,6 +3,8 @@ import bisect
 from collections import Counter
 from typing import override
 
+from . import validators
+
 from .gamerules import ROLE_BREAKDOWNS, ALLOWED_MULTIPLES
 
 from .nightOrderPosition import NightOrderPosition
@@ -196,16 +198,17 @@ class Grimoire:
         player: int, 
         night: int, 
         night_order_position: NightOrderPosition
-    ):
-        deduce = False
+    ) -> list[GrimoirePage]:
+        changed_pages: list[GrimoirePage] = []
         for page in self.pages:
             if (
                 page.night >= night 
                 and page.night_order_position > night_order_position
             ):
                 continue
-            deduce = deduce or page.apply_character(character, player)
-        return deduce
+            if page.apply_character(character, player):
+                changed_pages.append(page)
+        return changed_pages
 
     def apply_drunk(
         self, 
@@ -314,13 +317,15 @@ class Grimoire:
                 if not valid:
                     return w1, False, reason
 
-        if not gamerules.is_grim_valid(new_world):
-            return w1, False, "invalid grim"
+        valid, reason = validators.is_grim_valid(new_world)
+        if not valid:
+            return w1, False, reason
 
         Grimoire.make_deductions(new_world)
 
-        if not gamerules.is_grim_valid(new_world):
-            return w1, False, "invalid grim after deducing"
+        valid, reason = validators.is_grim_valid(new_world)
+        if not valid:
+            return w1, False, f"invalid grim after deducing: {reason}"
 
         return new_world, True, ""
 
@@ -359,13 +364,13 @@ class Grimoire:
         # Outsider count only for first night
         if (new_phase.night == 1 
             and new_phase.night_order_position == NightOrderPosition.AFTER_IMP
-            and not gamerules.is_outsider_count_valid(new_phase, num_players)
+            and not validators.is_outsider_count_valid(new_phase, num_players)
         ):
             return False, "invalid outsider count"
 
         # Good and evil player counts
-        if not(gamerules.is_evil_count_valid(new_phase, num_players)
-            and gamerules.is_good_count_valid(new_phase, num_players)
+        if not(validators.is_evil_count_valid(new_phase, num_players)
+            and validators.is_good_count_valid(new_phase, num_players)
         ):
             return False, "invalid good/evil counts"
         
@@ -546,7 +551,7 @@ class Grimoire:
     def _combine_poisoned(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):
         for i in range(num_players):
             new_phase.poisoned[i] = p1.poisoned[i] or p2.poisoned[i]
-        return gamerules.is_poisoning_valid(new_phase, num_players)
+        return validators.is_poisoning_valid(new_phase, num_players)
 
     @staticmethod
     def _combine_red_herring(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):
@@ -646,7 +651,7 @@ class Grimoire:
             and prev.poisoned.index(True) != curr.poisoned.index(True)):
             return False, "mismatched poisoned between pages"
         
-        valid, reason = gamerules.is_page_valid(curr)
+        valid, reason = validators.is_page_valid(curr)
         if not valid:
             return False, f"night {curr.night} {curr.night_order_position.name} page validity check failed. {reason}" 
         return True, ""

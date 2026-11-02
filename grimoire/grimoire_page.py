@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections import Counter
+import copy
 
+from .validators import ChangeType, Validator, get_affected_validators, FIRST_NIGHT_VALIDATORS, run_validators
 from .deduced_page import deduce_from_chef_number
 from . import helper
 from .gamerules import ROLE_BREAKDOWNS
@@ -226,262 +227,65 @@ class GrimoirePage:
         # New character is broader than original        
         if overlapping == original:
             return True
-        # New character is more specific
-        if not self._can_be_type(overlapping, player):
-            return False
-        # No repeats
-        for i, c in enumerate(self.characters):
-            if i == player:
-                continue
-            if character in DEMON_OR_ANY_OTHER_SET:
-                continue
-            if character == c:
-                return False
-        # Minion is in or can be added to minion types
-        if overlapping in MINIONS_SET:
-            if not (
-                overlapping in self.minion_types
-                or Role.ANY_OTHER_MINION in self.minion_types
-            ):
-                return False
-        # If minion is Baron, make sure +2 outsiders is possible
-        if overlapping == Role.BARON:
-            # If librarian shown no outsiders, Baron is not possible
-            if self.no_outsiders:
-                return False
-            townsfolk_count = self.get_characters_of_type(CharacterType.TOWNSFOLK)
-            max_townsfolk_count_baron = gamerules.get_townsfolk_count(self.num_players, True)
-            if townsfolk_count > max_townsfolk_count_baron:
-                return False
-        # If player is in Chef pair, make sure character is evil or Recluse
-        if self.in_chef_pair & (1 << player):
-            if (
-                overlapping != Role.RECLUSE
-                and overlapping not in EVIL_ROLES_SET
-                and overlapping not in (Role.NON_DEMON, Role.ANY_OTHER)
-            ):
-                return False
-        return True
 
-    def _can_be_type(self, character: Role, player: int) -> bool:
-        type = character_type.get_type(character)
-        original_type = character_type.get_type(self.characters[player])
-        num_players = self.num_players
-        # this should be covered by can_be_character
-        if not type.loose_equals(original_type):
+        candidate = copy.copy(self)
+        candidate.characters = self.characters.copy()
+        candidate.minion_types = self.minion_types.copy()
+        prev_minion_types = candidate.minion_types.copy()
+        try:
+            candidate.apply_character(overlapping, player)
+        except:
             return False
-        # same with this
-        if type == original_type:
-            return True
-        # and this
-        if type == CharacterType.ANY:
-            return True
-        elif type == CharacterType.NON_DEMON:
-            return True
-        elif type == CharacterType.ANY_EVIL:
-            evils = self.get_evil_count()
-            max_evils = gamerules.get_evil_count(num_players)
-            return evils < max_evils
-        elif type == CharacterType.ANY_GOOD:
-            goods = self.get_good_count()
-            max_goods = gamerules.get_good_count(num_players)
-            return goods < max_goods
-        elif type == CharacterType.TOWNSFOLK:
-            townsfolk = self.get_characters_of_type(CharacterType.TOWNSFOLK)
-            baron = Role.BARON in self.minion_types
-            max_townsfolk = gamerules.get_townsfolk_count(num_players, baron)
-            return townsfolk < max_townsfolk
-        elif type == CharacterType.OUTSIDER:
-            if self.no_outsiders:
-                if character in NON_RECLUSE_OUTSIDERS:
-                    return False
-                # Recluse with outsider count of 0 or 2 with Librarian None
-                no_baron_outsider_count = gamerules.get_outsider_count(num_players, False)
-                if no_baron_outsider_count == 0 or no_baron_outsider_count == 2:
-                    return False
-                if self.get_characters_of_type(CharacterType.OUTSIDER) > 0:
-                    return False
-            outsiders = self.get_characters_of_type(CharacterType.OUTSIDER)
-            baron = Role.BARON in self.minion_types or Role.ANY_OTHER_MINION in self.minion_types
-            # check that there aren't too many townsfolk for a Baron
-            townsfolk_count = self.get_characters_of_type(CharacterType.TOWNSFOLK)
-            townsfolk_count_with_baron = gamerules.get_townsfolk_count(num_players, True)
-            if townsfolk_count > townsfolk_count_with_baron:
-                baron = False
-            max_outsiders = gamerules.get_outsider_count(num_players, baron)
-            if outsiders + 1 > max_outsiders:
-                return False
-            # If non-Recluse outsider fills up outsider count and Recluse is still needed for Chef number
-            if self.recluse_needed:
-                if (
-                    Role.RECLUSE not in self.characters
-                    and outsiders + 1 == max_outsiders
-                    and character != Role.RECLUSE
-                ):
-                    return False
-            return True
-        elif type == CharacterType.MINION:
-            minions = self.get_characters_of_type(CharacterType.MINION)
-            max_minions = gamerules.get_minion_count(num_players)
-            return  minions < max_minions
-        elif type == CharacterType.DEMON:
-            return not Role.IMP in self.get_alive_characters()
-        else:
-            raise RuntimeError(f"Character cannot be type {type.name}")     
+        validators = get_affected_validators(ChangeType.CHARACTER)
+        if candidate.minion_types != prev_minion_types:
+            validators = tuple(
+                set(validators) | 
+                set(get_affected_validators(ChangeType.MINION_TYPE))
+            )
+        valid, _ = run_validators(candidate, validators)
+        return valid
 
     def can_be_red_herring(self, player: int):
-        # Can't have another red herring
-        for i, rh in enumerate(self.red_herring):
-            if i == player:
-                continue
-            if rh:
-                return False
-        return True
+        candidate = copy.copy(self)
+        candidate.red_herring = self.red_herring.copy()
+        candidate.red_herring[player] = True
+
+        valid, _ = run_validators(
+            candidate,
+            get_affected_validators(ChangeType.RED_HERRING)
+        )
+        return valid        
     
     def can_be_poisoned(self, player: int) -> bool:
-        # Can't have other poisoning
-        for i, p in enumerate(self.poisoned):
-            if i == player:
-                continue
-            if p:
-                return False
-            
-        # Poisoner must be in minion types or can be added to minion types
-        if not (
-            Role.POISONER in self.minion_types
-            or Role.ANY_OTHER_MINION in self.minion_types
-        ) :
-            return False
-    
-        # Poisoner can't be dead
-        dead_characters = [c for i, c in enumerate(self.characters) if self.dead[i]]
-        if Role.POISONER in dead_characters:
-            return False
-        
-        # false if all minions are dead (check evil roles, not just minions, in case of star passes)
-        if sum(1 for c in dead_characters if c in EVIL_ROLES) == gamerules.get_minion_count(self.num_players):
-            return False
-        
-        return True
+        candidate = copy.copy(self)
+        candidate.poisoned = self.poisoned.copy()
+        candidate.poisoned[player] = True
+
+        valid, _ = run_validators(
+            candidate,
+            get_affected_validators(ChangeType.POISONED)
+        )
+        return valid  
     
     def can_have_no_outsiders(self) -> bool:
-        # Can't have any non-recluse outsiders
-        if any(c in NON_RECLUSE_OUTSIDERS for c in self.characters):
-            return False
-        
-        # Can't have Baron
-        if Role.BARON in self.minion_types:
-            return False
+        candidate = copy.copy(self)
+        candidate.no_outsiders = True
 
-        base_outsider_count = gamerules.get_outsider_count(self.num_players, False)
-        recluse = any(gamerules.can_player_be_recluse(c) for c in self.characters)
-        non_recluse_outsiders = base_outsider_count - 1 if recluse else base_outsider_count
-        return non_recluse_outsiders <= 0
+        valid, _ = run_validators(
+            candidate,
+            get_affected_validators(ChangeType.LIBRARIAN_NO)
+        )
+        return valid  
     
     def can_have_chef_number(self, number: int) -> bool:
-        if number < 0:
-            return False
-        if self.chef_number is not None and self.chef_number != number:
-            return False
+        candidate = copy.copy(self)
+        candidate.chef_number = number
 
-        characters = self.characters
-        minion_types = self.minion_types
-        num_players = self.num_players
-
-        spy_possible = (
-            Role.SPY not in characters
-            and (Role.SPY in minion_types or Role.ANY_OTHER_MINION in minion_types)
+        valid, _ = run_validators(
+            candidate,
+            get_affected_validators(ChangeType.CHEF_NUMBER)
         )
-
-        known_outsiders = sum(1 for c in characters if c in OUTSIDERS)
-        baron_possible = Role.BARON in minion_types or Role.ANY_OTHER_MINION in minion_types
-        max_outsiders = gamerules.get_outsider_count(num_players, baron_possible)
-        recluse_possible = Role.RECLUSE not in characters and known_outsiders < max_outsiders
-
-        definitely_evil = [False] * num_players
-        possibly_evil = [False] * num_players
-        could_be_recluse = [False] * num_players
-        evil_could_be_spy = [False] * num_players
-
-        for i in range(num_players):
-            role = characters[i]
-            if role == Role.SPY:
-                definitely_evil[i] = False
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = False
-            elif role in EVIL_CHARACTERS:
-                definitely_evil[i] = True
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = False
-            elif not spy_possible and role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
-                definitely_evil[i] = True
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = False
-            elif role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
-                definitely_evil[i] = False
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = True
-            elif role in [Role.ANY_OTHER, Role.NON_DEMON]:
-                definitely_evil[i] = False
-                possibly_evil[i] = True
-                could_be_recluse[i] = True
-                evil_could_be_spy[i] = False
-            elif role == Role.RECLUSE:
-                definitely_evil[i] = False
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = False
-            else:
-                definitely_evil[i] = False
-                possibly_evil[i] = False
-                could_be_recluse[i] = role in [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_OUTSIDER]
-                evil_could_be_spy[i] = False
-
-        pairs = [(i, (i + 1) % num_players) for i in range(num_players)]
-
-        min_pairs = 0
-        max_pairs = 0
-
-        recluse_needed: list[int] = []
-        possible_spies: list[int] = []
-        spies_needed = 0
-
-        for i, j in pairs:
-            if definitely_evil[i] and definitely_evil[j]:
-                min_pairs += 1
-            elif definitely_evil[i] and evil_could_be_spy[j]:
-                possible_spies.append(j)
-                spies_needed += 1
-            elif evil_could_be_spy[i] and definitely_evil[j]:
-                possible_spies.append(i)
-                spies_needed += 1
-            elif evil_could_be_spy[i] and evil_could_be_spy[j]:
-                possible_spies.extend([i, j])
-                spies_needed += 1
-
-            if possibly_evil[i] and possibly_evil[j]:
-                max_pairs += 1
-            elif possibly_evil[i] and could_be_recluse[j]:
-                recluse_needed.append(j)
-            elif could_be_recluse[i] and possibly_evil[j]:
-                recluse_needed.append(i)
-
-        recluse_counter = Counter(recluse_needed)
-        recluse_impact = max(recluse_counter.values()) if recluse_counter else 0
-        max_pairs += recluse_impact if recluse_possible else 0
-
-        spy_counter = Counter(possible_spies)
-        spy_impact = max(spy_counter.values()) if spy_counter else 0
-        min_pairs += spies_needed - spy_impact if spy_possible else 0
-
-        max_evils = gamerules.get_evil_count(num_players)
-        max_pairs = min(max_pairs, max_evils)
-
-        return min_pairs <= number <= max_pairs
+        return valid  
 
     def can_be_slayer_shot(self, player: int) -> bool:
         # Can't have other slayer shot

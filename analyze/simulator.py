@@ -1,6 +1,6 @@
 import copy
 
-from grimoire import Grimoire, GrimoirePage, Game, NightOrderPosition, GrimoireManager
+from grimoire import Grimoire, GrimoirePage, Game, NightOrderPosition, GrimoireManager, validators
 import grimoire.gamerules as gamerules
 import random
 from itertools import compress
@@ -104,7 +104,7 @@ def simulate_single_game(players: int, preset: list[Role] | None, seed: int | No
         grim.add_page(night+1, NightOrderPosition.AFTER_IMP)
         night += 1
 
-    assert gamerules.is_grim_valid(grim), f"Grim not valid \n {grim}"
+    assert validators.is_grim_valid(grim)[0], f"Grim not valid \n {grim}"
 
     # Night info
     info_list.extend(generate_night_info(grim, bluffs, ravenkeeper_claim, virgin_claim, slayer_claim))

@@ -1,9 +1,12 @@
 from typing import Callable
 
-from grimoire.grimoire import Grimoire, GrimoirePage, NightOrderPosition, Role, gamerules
-from grimoire.info import Role
-from grimoire.nightOrderPosition import NightOrderPosition
-from grimoire.role import Role
+from . import validators
+
+from .grimoire_page import GrimoirePage
+
+from .grimoire import Grimoire, gamerules
+from .nightOrderPosition import NightOrderPosition
+from .role import Role
 BranchAction = Callable[[Grimoire], bool]
 
 def _get_info_page(
@@ -15,6 +18,14 @@ def _get_info_page(
     if page is not None:
         return page
     return grim.add_page(night, order)
+
+def _deduce_and_validate(changed_pages: list[GrimoirePage]) -> bool:
+    for page in changed_pages:
+        page.make_deductions()
+        valid, _reason = validators.is_page_valid(page)
+        if not valid:
+            return False
+    return True
     
 def character_action(
     role: Role,
@@ -25,10 +36,8 @@ def character_action(
     def action(grim: Grimoire) -> bool:
         if not grim.can_be_character(role, player, night, order):
             return False
-        deduce = grim.apply_character(role, player, night, order)
-        if deduce:
-            grim.make_deductions()
-        return True
+        changed_pages = grim.apply_character(role, player, night, order)
+        return _deduce_and_validate(changed_pages)
     return action
 
 def drunk_action(
@@ -79,8 +88,8 @@ def imp_action(
         page = _get_info_page(grim, night, order)
         if not page.can_be_character(Role.IMP, player):
             return False
-        page.apply_character(Role.IMP, player)
-        return True
+        deduced = page.apply_character(Role.IMP, player)
+        return _deduce_and_validate([page] if deduced else [])
     return action
 
 def no_outsiders_action() -> BranchAction:
@@ -89,7 +98,7 @@ def no_outsiders_action() -> BranchAction:
         if not first_page.can_have_no_outsiders():
             return False
         first_page.apply_no_outsiders()
-        return True
+        return _deduce_and_validate([first_page])
     return action
 
 def chef_number_action(number: int) -> BranchAction:
@@ -98,7 +107,7 @@ def chef_number_action(number: int) -> BranchAction:
         if not first_page.can_have_chef_number(number):
             return False
         first_page.apply_chef_number(number)
-        return True
+        return _deduce_and_validate([first_page])
     return action
 
 def mark_dead_action(

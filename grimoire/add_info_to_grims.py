@@ -16,7 +16,8 @@ def _finalize(grim: Grimoire) -> Grimoire | None:
         # logging.warning(_reason)
         return None
     grim.make_deductions()
-    if not gamerules.is_grim_valid(grim):
+    valid, _reason = validators.is_grim_valid(grim)
+    if not valid:
         return None
     return grim
 
