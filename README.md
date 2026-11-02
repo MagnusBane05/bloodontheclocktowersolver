@@ -19,7 +19,7 @@
 1. `cd bloodontheclocktowersolver`
 2. `unittest-parallel -t . -s tests`
 3. To test memory usage: `/usr/bin/time -v python -m unittest tests.testCreatorWithSimulator.TestCreatorWithSimulator.test_15_player`
-4. To profile: `python -m cProfile -o profile10player.prof tests/testCreatorWithSimulator.py`
+4. To profile: see [Profiling](#profiling) below
 
 ## Benchmarking workflow
 `python -m bench run --tier smoke --label "..."`      # after a change
@@ -79,3 +79,32 @@ The benchmark games are saved in `bench/scenarios/<version>/` so that changes to
 - `--players 15`: only generate some player counts
 - Generate from a committed working tree so the files record which commit produced them
 - `tests/test_bench_scenarios.py` fails if the simulator no longer matches the saved `v1` games; that means it's time for a new version, not that `v1` should be overwritten
+
+## Profiling
+Profiles the benchmark games with cProfile, so you see the same games the benchmark runs. Each player count runs in its own process with a memory limit, so a game that runs out of memory is recorded as `oom` (with a profile of the part that ran) and the rest still run.
+
+`python -m bench profile --players 5 10 15`           # 100 5p games, 3 10p games, 1 15p game
+`python -m bench profile --game 10p-0003`             # one game
+`python -m bench profile --game 5p-0074 15p-0001`     # specific games
+`python -m bench profile --players 10 --count 20`     # the first 20 10p games
+`python -m bench profile --players 5 --games 100-199` # a range of games (or e.g. 1,4,9)
+`python -m bench profile --tier smoke`                # the same games as a benchmark tier
+
+Results go to `bench/profiles/<time>_<label>/` (not committed):
+- `5p.prof`, `10p.prof`, `15p.prof`: all of a player count's games merged into one profile. Open with `snakeviz bench/profiles/<run>/10p.prof`, or add `--open`
+- `summary.txt` (also printed):
+  - each game's time under the profiler next to its time in `bench/baseline.json`
+  - time and worlds by kind of step (claim, empath, demon kill, death, ...) over all of the games
+  - the top functions by own time (`tottime`) and by time including what they call (`cumtime`)
+- `meta.json`: every game's status and step by step world counts, times and memory
+
+Times under cProfile are roughly twice the benchmark's, so use `python -m bench run` to measure speed and this to find where the time goes.
+
+### Other bench profile options
+- `--label "..."`: name for the output directory
+- `--filter grimoire/`: only show functions whose `path:line(name)` matches this regex in the tables, e.g. `validators` or `grimoire_page.py`
+- `--top 50`: number of functions in each table (default 30)
+- `--sort tottime` or `--sort cumtime`: only show one table
+- `--per-game`: also keep each game's own profile in `<players>p_games/`
+- `--memory`: also trace memory with tracemalloc. Shows each game's peak memory, the step after which it held the most, and the lines that allocated most of that memory. Makes games about 5 times slower than normal
+- `--timeout 15=7200`, `--memory-gb 16`, `--asserts`, `--version v2`: as for `bench run` (timeouts default to twice the benchmark's)
