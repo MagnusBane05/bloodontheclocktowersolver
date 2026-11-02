@@ -103,6 +103,16 @@ def append_csv(path: Path, row: dict[str, Any]):
 def tsv_line(row: dict[str, Any]) -> str:
     return "\t".join(str(row[c]) for c in COLUMNS)
 
+def failure_location(game: dict[str, Any]) -> str:
+    """Where a game that didn't finish stopped, based on its last recorded step."""
+    if not game["steps"]:
+        return ""
+    last = short_stage(game["steps"][-1][0])
+    # these are raised after the failing step is recorded; anything else happened during the next step
+    if game["status"] in ("true_grim_lost", "too_many"):
+        return f" at {last}"
+    return f" after {last}"
+
 def format_summary(result: dict[str, Any]) -> str:
     meta = result["meta"]
     lines = [
@@ -120,9 +130,8 @@ def format_summary(result: dict[str, Any]) -> str:
         lines.append("")
         lines.append("Games that didn't finish:")
         for _, g in problems:
-            where = f" at {short_stage(g['peak_stage'])}" if g["peak_stage"] else ""
             detail = f": {g['error']}" if g["error"] else ""
-            lines.append(f"  {g['id']} {g['status']}{where}{detail}")
+            lines.append(f"  {g['id']} {g['status']}{failure_location(g)}{detail}")
 
     lines.append("")
     lines.append(f"{'players':>7} {'ok':>9} {'total s':>10} {'median s':>9} {'p95 s':>8} {'max s':>8} {'final avg':>9} {'peak max':>9} {'peak game':>10} {'invalid':>8} {'rss MB':>7}")

@@ -85,6 +85,14 @@ class TestReport(unittest.TestCase):
         self.assertEqual(summary["failures"], "oom:1")
         self.assertNotIn("total_s", summary)
 
+    def test_failure_location(self):
+        steps = [["info {'kind': 'chef'}", 1, 50, 0.1], ["night 2 demon kill {'kind': 'demon'}", 50, 40, 0.1]]
+        lost = _game("10p-0048", status="true_grim_lost") | {"steps": steps, "peak_stage": "info {'kind': 'chef'}"}
+        self.assertEqual(report.failure_location(lost), " at night 2 demon kill", "Expected the failing step, not the peak step.")
+        timed_out = _game("15p-0006", status="timeout") | {"steps": steps}
+        self.assertEqual(report.failure_location(timed_out), " after night 2 demon kill")
+        self.assertEqual(report.failure_location(_game("15p-0006", status="oom")), "", "Expected nothing when no steps were recorded.")
+
     def test_short_stage(self):
         self.assertEqual(report.short_stage("info {'kind': 'washerwoman', 'washerwoman': 1}"), "night 1 washerwoman")
         self.assertEqual(report.short_stage("night 3 fortune teller info."), "night 3 fortune teller info")
