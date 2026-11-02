@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import copy
+from typing import Callable
 
-from .validators import ChangeType, Validator, get_affected_validators, FIRST_NIGHT_VALIDATORS, run_validators
+from .validators import ChangeType, get_affected_validators_forall, run_validators
 from .deduced_page import deduce_from_chef_number
 from . import helper
 from .gamerules import ROLE_BREAKDOWNS
@@ -48,9 +48,34 @@ POSSIBLE_CHEF_PAIR_ROLES = EVIL_ROLES_SET | {
     Role.ANY_OTHER,
 }
 
+_FIELD_CHANGE_TYPES = {
+    'characters': ChangeType.CHARACTER,
+    'minion_types': ChangeType.MINION_TYPE,
+    'no_outsiders': ChangeType.LIBRARIAN_NO,
+    'dead': ChangeType.DEATH,
+    'poisoned': ChangeType.POISONED,
+    'night_order_position': ChangeType.NIGHT_ORDER,
+    'executee': ChangeType.EXECUTEE,
+    'chef_number': ChangeType.CHEF_NUMBER,
+    'in_chef_pair': ChangeType.CHEF_NUMBER,
+    'not_in_chef_pair': ChangeType.CHEF_NUMBER,
+    'recluse_needed': ChangeType.CHEF_NUMBER,
+    'red_herring': ChangeType.RED_HERRING,
+}
+
+_FIELDS_NOT_VALIDATED = {
+    'num_players',
+    'drunk_token',
+    'night',
+    'character_changed',
+    'star_passed',
+    'slayer_shot',
+    'red_herring_moved',
+}
+
 class GrimoirePage:
     def __init__(self, num_players: int=5, night: int=1, night_order_position: NightOrderPosition=NightOrderPosition.AFTER_IMP):
-        self.num_players = num_players
+        self.num_players: int = num_players
         self.characters: list[Role] = [Role.ANY_OTHER]*num_players
         self.poisoned: list[bool] = [False]*num_players
         self.minion_types: list[Role] = [Role.ANY_OTHER_MINION]*ROLE_BREAKDOWNS[num_players]['minions']
@@ -68,7 +93,7 @@ class GrimoirePage:
         self.star_passed: bool = False
         self.executee: int | None = None
         self.slayer_shot: list[bool] = [False]*num_players
-        self.red_herring_moved = False
+        self.red_herring_moved: bool = False
         
     def __eq__(self, other): # type: ignore
         if not isinstance(other, GrimoirePage):
@@ -197,7 +222,7 @@ class GrimoirePage:
         return overlapping != original
 
     def apply_drunk(self, character: Role, player: int):
-        self.apply_character(Role.DRUNK, player)
+        _ = self.apply_character(Role.DRUNK, player)
         self.drunk_token = character
 
     def apply_red_herring(self, player: int):
@@ -216,6 +241,17 @@ class GrimoirePage:
     def apply_slayer_shot(self, player: int):
         self.slayer_shot[player] = True
 
+    def _can_apply(self, apply: Callable[[GrimoirePage], object]) -> bool:
+        candidate = self.clone()
+        try:
+            _ = apply(candidate)
+        except (RuntimeError, ValueError):
+            return False
+        changed = {changeType for field, changeType in _FIELD_CHANGE_TYPES.items()
+                    if getattr(candidate, field) != getattr(self, field)}
+        valid, _ = run_validators(candidate, get_affected_validators_forall(changed))
+        return valid
+
     def can_be_character(self, character: Role, player: int) -> bool:
         original = self.characters[player]
         if original == character:
@@ -228,64 +264,19 @@ class GrimoirePage:
         if overlapping == original:
             return True
 
-        candidate = copy.copy(self)
-        candidate.characters = self.characters.copy()
-        candidate.minion_types = self.minion_types.copy()
-        prev_minion_types = candidate.minion_types.copy()
-        try:
-            candidate.apply_character(overlapping, player)
-        except:
-            return False
-        validators = get_affected_validators(ChangeType.CHARACTER)
-        if candidate.minion_types != prev_minion_types:
-            validators = tuple(
-                set(validators) | 
-                set(get_affected_validators(ChangeType.MINION_TYPE))
-            )
-        valid, _ = run_validators(candidate, validators)
-        return valid
+        return self._can_apply(lambda page: page.apply_character(character, player))
 
     def can_be_red_herring(self, player: int):
-        candidate = copy.copy(self)
-        candidate.red_herring = self.red_herring.copy()
-        candidate.red_herring[player] = True
-
-        valid, _ = run_validators(
-            candidate,
-            get_affected_validators(ChangeType.RED_HERRING)
-        )
-        return valid        
+        return self._can_apply(lambda page: page.apply_red_herring(player))
     
     def can_be_poisoned(self, player: int) -> bool:
-        candidate = copy.copy(self)
-        candidate.poisoned = self.poisoned.copy()
-        candidate.poisoned[player] = True
-
-        valid, _ = run_validators(
-            candidate,
-            get_affected_validators(ChangeType.POISONED)
-        )
-        return valid  
+        return self._can_apply(lambda page: page.apply_poisoned(player))
     
     def can_have_no_outsiders(self) -> bool:
-        candidate = copy.copy(self)
-        candidate.no_outsiders = True
+        return self._can_apply(lambda page: page.apply_no_outsiders())
 
-        valid, _ = run_validators(
-            candidate,
-            get_affected_validators(ChangeType.LIBRARIAN_NO)
-        )
-        return valid  
-    
     def can_have_chef_number(self, number: int) -> bool:
-        candidate = copy.copy(self)
-        candidate.chef_number = number
-
-        valid, _ = run_validators(
-            candidate,
-            get_affected_validators(ChangeType.CHEF_NUMBER)
-        )
-        return valid  
+        return self._can_apply(lambda page: page.apply_chef_number(number))
 
     def can_be_slayer_shot(self, player: int) -> bool:
         # Can't have other slayer shot

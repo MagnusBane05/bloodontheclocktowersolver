@@ -1,6 +1,6 @@
 import unittest
 
-from grimoire.grimoire_page import GrimoirePage
+from grimoire.grimoire_page import GrimoirePage, _FIELDS_NOT_VALIDATED, _FIELD_CHANGE_TYPES  # pyright: ignore[reportPrivateUsage]
 from grimoire.role import *
 
 
@@ -569,6 +569,50 @@ class TestCanHaveChefNumber(unittest.TestCase):
         page.characters = [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_GOOD]
         self.assertTrue(page.can_have_chef_number(2), "Expected a chef 2 to be valid with 2 evils next to a possible recluse.")
 
+class TestCanBePoisoned(unittest.TestCase):
+    def test_all(self):
+        page = GrimoirePage(5)
+        result = page.can_be_poisoned(0)
+        self.assertTrue(result, "Expected poisoning to be valid when the Poisoner can still be added as a minion type.")
+        self.assertEqual(page.minion_types, [Role.ANY_OTHER_MINION], "Expected can_be_poisoned not to modify the page's minion types.")
+        self.assertEqual(page.poisoned, [False]*5, "Expected can_be_poisoned not to modify the page's poisoned players.")
+
+        page = GrimoirePage(5)
+        page.minion_types[0] = Role.POISONER
+        result = page.can_be_poisoned(0)
+        self.assertTrue(result, "Expected poisoning to be valid when the Poisoner is a known minion type.")
+
+        page = GrimoirePage(5)
+        page.minion_types[0] = Role.BARON
+        result = page.can_be_poisoned(0)
+        self.assertFalse(result, "Expected poisoning to be invalid when all minion types are known and none is the Poisoner.")
+        self.assertEqual(page.minion_types, [Role.BARON], "Expected can_be_poisoned not to modify the page's minion types.")
+
+        page = GrimoirePage(5)
+        page.apply_poisoned(1)
+        result = page.can_be_poisoned(0)
+        self.assertFalse(result, "Expected poisoning to be invalid when another player is already poisoned.")
+
+        page = GrimoirePage(5)
+        page.minion_types[0] = Role.POISONER
+        page.characters[1] = Role.POISONER
+        page.dead[1] = True
+        result = page.can_be_poisoned(0)
+        self.assertFalse(result, "Expected poisoning to be invalid when the known Poisoner is dead.")
+
+class TestFields(unittest.TestCase):
+    def test_all_fields_validated(self):
+        page = GrimoirePage()
+        for field in vars(page):
+            with self.subTest(field):
+                validated = field in _FIELD_CHANGE_TYPES.keys()
+                explicitly_not_validated = field in _FIELDS_NOT_VALIDATED
+                self.assertTrue(validated or explicitly_not_validated, f"Expected {field} to be mapped to a ChangeType or explicitly not validated.")
+
+    def test_not_validated_no_overlaps(self):
+        for field in _FIELDS_NOT_VALIDATED:
+            with self.subTest(field):
+                self.assertNotIn(field, _FIELD_CHANGE_TYPES.keys(), f"Expected {field} not to be both mapped to a ChangeType and explicitly not validated.")
 
 if __name__ == "__main__":
     _ = unittest.main()

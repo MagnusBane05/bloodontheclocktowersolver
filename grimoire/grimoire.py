@@ -3,7 +3,6 @@ import bisect
 from collections import Counter
 from typing import override
 
-from . import validators
 
 from .gamerules import ROLE_BREAKDOWNS, ALLOWED_MULTIPLES
 
@@ -13,7 +12,7 @@ from . import gamerules
 from .role import *
 from .errors import *
 from .grimoire_page import GrimoirePage
-from grimoire import role
+from grimoire import role, validators
 
 class Grimoire:
     def __init__(self, num_players:int=5):

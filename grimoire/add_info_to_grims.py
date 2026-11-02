@@ -73,7 +73,7 @@ def _add_drunk_evil_poisoned(
 
     # Drunk
     if claim in TOWNSFOLK_SET:
-        _add_branch(
+        _ = _add_branch(
             out,
             grim,
             drunk_action(claim, player, night, order)
@@ -81,14 +81,14 @@ def _add_drunk_evil_poisoned(
 
     # Evil
     assert claim in GOOD_ROLES_SET
-    _add_branch(
+    _ = _add_branch(
         out,
         grim,
         character_action(Role.ANY_OTHER_EVIL, player, night, order)
     )
 
     # Poisoned
-    _add_branch(
+    _ = _add_branch(
         out,
         grim,
         character_action(claim, player, night, order),

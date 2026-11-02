@@ -888,6 +888,9 @@ def get_affected_validators(change_type: ChangeType) -> tuple[Validator, ...]:
         if change_type in validator.affected_by
     )
 
+def get_affected_validators_forall(change_types: set[ChangeType]) -> tuple[Validator, ...]:
+    return tuple(validator for validator in FULL_PAGE_VALIDATORS if validator.affected_by & change_types)
+
 def run_validators(page: GrimoirePage, validators: tuple[Validator, ...]) -> tuple[bool, str]:
     is_first_night = gamerules.is_first_night_setup_page(page)
     for validator in validators:
