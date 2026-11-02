@@ -25,6 +25,7 @@
 `python -m bench run --tier smoke --label "..."`      # after a change
 `python -m bench compare`                             # vs. baseline
 `python -m bench compare --game 10p-0003`             # drill into one game
+`python -m bench worlds`                              # when final world counts changed
 `python -m bench baseline`                            # when a change is accepted
 
 ## Benchmarking
@@ -43,7 +44,10 @@ Occasional full run (10 player and 15 player games take much longer):
 Compare the latest run against the baseline (exits with an error if any game stopped finishing or lost the true grim):
 `python -m bench compare`
 
-Make the latest run the new baseline (copied to `bench/baseline.json`, which is committed):
+Check which final worlds changed against the baseline, and whether any possibly valid worlds were lost (exits with an error if a removed world passes every validator):
+`python -m bench worlds`
+
+Make the latest run the new baseline (copied to `bench/baseline.json` and `bench/baseline.worlds/`, which are committed):
 `python -m bench baseline`
 
 ### Other bench compare options
@@ -51,6 +55,12 @@ Make the latest run the new baseline (copied to `bench/baseline.json`, which is 
 - `--game 10p-0003`: step by step world counts and times for one game in both runs
 - `--force`: compare runs that use different scenario versions
 - `python -m bench baseline <run>`: make a specific run the baseline instead of the latest
+
+### Other bench worlds options
+- `python -m bench worlds <A> <B>`: compare the worlds of any two runs, chosen the same way as for `compare`
+- `--game 5p-0074`: list every world that differs for one game
+
+Removed worlds are sorted into **merged** (covered by a more general world), **invalid** (fails a validator) and **unexplained** (passes every check). Each unexplained world is re-run as if it were the true grim, using the code that's currently checked out, to show the step that drops it. Added worlds are sorted into **generalized**, **known invalid** and **other**.
 
 ### Other bench run options
 - `--no-csv`: don't append the run to `bench/results.csv`, e.g. while experimenting
@@ -60,6 +70,7 @@ Make the latest run the new baseline (copied to `bench/baseline.json`, which is 
 - `--memory-gb 16`: memory limit per worker process (default 12). Games that run out are recorded as `oom` and the run continues
 - `--asserts`: keep asserts on (benchmarks run with `python -O` by default)
 - `--version v2`: use a different scenario version
+- `--worlds 5`: player counts whose final worlds are saved for `bench worlds` (default 5 10); `--no-worlds` saves none
 
 ### Generating scenarios
 The benchmark games are saved in `bench/scenarios/<version>/` so that changes to the simulator can't change the workload. You only need to generate them when creating a new scenario version:

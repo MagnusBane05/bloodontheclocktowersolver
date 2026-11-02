@@ -7,6 +7,7 @@ from typing import Any
 
 from . import report
 from .runner import RESULTS_DIR
+from .worlds import worlds_dir
 
 BASELINE_PATH = Path(__file__).parent / "baseline.json"
 # games faster than this in both runs are left out of the slowdown list, since a few
@@ -27,6 +28,7 @@ PERFORMANCE_METRICS = [
     ("peak max", "peak_max"),
     ("peak avg", "peak_avg"),
     ("world-steps", "world_steps"),
+    ("known invalid", "known_invalid"),
     ("memory MB", "peak_rss_mb"),
 ]
 
@@ -58,6 +60,13 @@ def load_run(path: Path) -> dict[str, Any]:
 
 def set_baseline(run_path: Path, baseline_path: Path = BASELINE_PATH):
     _ = shutil.copyfile(run_path, baseline_path)
+    # replace the baseline's worlds too, so they never come from a different run
+    baseline_worlds = worlds_dir(baseline_path)
+    if baseline_worlds.exists():
+        shutil.rmtree(baseline_worlds)
+    run_worlds = worlds_dir(run_path)
+    if run_worlds.exists():
+        _ = shutil.copytree(run_worlds, baseline_worlds)
 
 def percent_change(a: Any, b: Any) -> str:
     if a in (None, "") or b in (None, ""):
@@ -205,6 +214,7 @@ def format_comparison(comparison: dict[str, Any]) -> str:
             lines.append(f"  Final world counts changed in {len(changes)} games ({down} down, {len(changes) - down} up). Biggest:")
             for c in changes[:FINAL_CHANGES_SHOWN]:
                 lines.append(f"    {c['id']} {c['before']} -> {c['after']}")
+            lines.append("  Run `python -m bench worlds` to see which worlds changed and whether any valid ones were lost.")
         else:
             lines.append("  Final world counts: unchanged")
 

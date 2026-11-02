@@ -53,13 +53,13 @@ def _decode_hook(d: dict[str, Any]) -> Any:
         return tuple(d["__tuple__"])
     return d
 
-def _encode_grim(grim: Grimoire) -> dict[str, Any]:
+def encode_grim(grim: Grimoire) -> dict[str, Any]:
     return {
         "num_players": grim.num_players,
         "pages": [_encode(vars(page)) for page in grim.pages],
     }
 
-def _decode_grim(data: dict[str, Any]) -> Grimoire:
+def decode_grim(data: dict[str, Any]) -> Grimoire:
     num_players = data["num_players"]
     grim = Grimoire(num_players)
     grim.pages = []
@@ -83,11 +83,11 @@ def _encode_game(seed: int, info: list[Info], deaths: list[DeathInfo], true_grim
         "seed": seed,
         "info": _encode(info),
         "deaths": _encode(deaths),
-        "true_grim": _encode_grim(true_grim),
+        "true_grim": encode_grim(true_grim),
     }
 
 def _decode_game(players: int, index: int, game: dict[str, Any]) -> Scenario:
-    true_grim = _decode_grim(game["true_grim"])
+    true_grim = decode_grim(game["true_grim"])
     return Scenario(
         id=f"{players}p-{index:04d}",
         seed=game["seed"],
@@ -170,7 +170,7 @@ def generate(players: int, version: str, force: bool = False, git_state: tuple[s
         if (
             decoded["info"] != info
             or decoded["deaths"] != deaths
-            or not _pages_equal(_decode_grim(decoded["true_grim"]), true_grim)
+            or not _pages_equal(decode_grim(decoded["true_grim"]), true_grim)
         ):
             raise RuntimeError(f"{players} player game with seed {seed} doesn't survive a save/load round trip")
         games.append(game)

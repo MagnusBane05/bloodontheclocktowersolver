@@ -15,6 +15,7 @@ from . import report
 from .scenarios import _git_state, load_scenarios  # pyright: ignore[reportPrivateUsage]
 from .tiers import TIERS
 from .worker import OOM_EXIT_CODE
+from .worlds import worlds_file
 
 REPO_ROOT = Path(__file__).parent.parent
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -22,6 +23,8 @@ CSV_PATH = Path(__file__).parent / "results.csv"
 
 DEFAULT_TIMEOUTS = {5: 60.0, 10: 300.0, 15: 1800.0}
 DEFAULT_MEMORY_GB = 12.0
+# player counts whose final worlds are saved; 15 player games can end with tens of thousands
+DEFAULT_WORLDS = (5, 10)
 # extra time the runner waits on a silent worker before killing it
 WATCHDOG_GRACE = 30.0
 
@@ -36,6 +39,7 @@ def _failed_game(scenario_id: str, seed: int, status: str, error: str) -> dict[s
         "peak_grims": None,
         "peak_stage": None,
         "world_steps": None,
+        "known_invalid": None,
         "steps": [],
     }
 
@@ -49,6 +53,7 @@ def _start_worker(
     repeat: int,
     asserts: bool,
     inject_fault: str | None,
+    worlds_path: Path | None,
 ) -> subprocess.Popen[str]:
     command = [sys.executable]
     if not asserts:
@@ -63,6 +68,8 @@ def _start_worker(
         "--memory-gb", str(memory_gb),
         "--repeat", str(repeat),
     ]
+    if worlds_path is not None:
+        command += ["--worlds-out", str(worlds_path)]
     if inject_fault:
         command += ["--inject-fault", inject_fault]
     return subprocess.Popen(command, cwd=REPO_ROOT, stdout=subprocess.PIPE, text=True, bufsize=1)
@@ -77,8 +84,10 @@ def run_player_count(
     asserts: bool = False,
     inject_fault: str | None = None,
     progress: bool = True,
+    worlds_path: Path | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    """Returns the per-game results and the peak memory (KB) of the workers."""
+    """Returns the per-game results and the peak memory (KB) of the workers.
+    If worlds_path is given, each finished game's final worlds are appended to it."""
     timeout = timeout if timeout is not None else DEFAULT_TIMEOUTS[players]
     scenarios = load_scenarios(players, version, limit=count)
     results: list[dict[str, Any]] = []
@@ -87,7 +96,7 @@ def run_player_count(
 
     while len(results) < count:
         start = len(results)
-        worker = _start_worker(players, version, start, count - start, timeout, memory_gb, repeat, asserts, inject_fault)
+        worker = _start_worker(players, version, start, count - start, timeout, memory_gb, repeat, asserts, inject_fault, worlds_path)
         assert worker.stdout is not None
         killed_by_watchdog = False
         last_output = time.monotonic()
@@ -151,10 +160,15 @@ def run(
     write_csv: bool = True,
     results_dir: Path = RESULTS_DIR,
     csv_path: Path = CSV_PATH,
+    worlds: tuple[int, ...] = DEFAULT_WORLDS,
 ) -> dict[str, Any]:
     sizes = TIERS[tier]
     player_counts = [p for p in sorted(sizes) if sizes[p] > 0 and (players is None or p in players)]
     timeouts = {**DEFAULT_TIMEOUTS, **(timeouts or {})}
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_path = results_dir / f"{stamp}_{report.slugify(label)}.json"
+    if write_csv:
+        report.check_csv(csv_path)
 
     commit, dirty = _git_state()
     if sys.gettrace() is not None:
@@ -175,12 +189,16 @@ def run(
         "host": platform.node(),
         "memory_gb": memory_gb,
         "timeouts": {str(p): timeouts[p] for p in player_counts},
+        "worlds": [p for p in player_counts if p in worlds],
     }
 
     by_players: dict[str, Any] = {}
     for p in player_counts:
         print(f"Running {sizes[p]} {p} player games...", file=sys.stderr, flush=True)
-        games, peak_rss_kb = run_player_count(p, sizes[p], version, timeouts[p], memory_gb, repeat, asserts)
+        worlds_path = worlds_file(run_path, p) if p in worlds else None
+        games, peak_rss_kb = run_player_count(
+            p, sizes[p], version, timeouts[p], memory_gb, repeat, asserts, worlds_path=worlds_path
+        )
         by_players[str(p)] = {
             "summary": report.summarize(games, peak_rss_kb),
             "games": games,
@@ -189,8 +207,6 @@ def run(
     result = {"meta": meta, "players": by_players}
 
     results_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_path = results_dir / f"{stamp}_{report.slugify(label)}.json"
     with open(run_path, "w") as f:
         json.dump(result, f, separators=(",", ":"))
 

@@ -18,7 +18,7 @@ SUMMARY_COLUMNS = [
     "total_s", "median_s", "p95_s", "min_s", "max_s",
     "final_min", "final_avg", "final_max",
     "peak_max", "peak_max_game", "peak_avg", "world_steps",
-    "peak_rss_mb",
+    "known_invalid", "peak_rss_mb",
 ]
 COLUMNS = META_COLUMNS + [f"{p}p_{c}" for p in PLAYER_COUNTS for c in SUMMARY_COLUMNS]
 
@@ -64,6 +64,9 @@ def summarize(games: list[dict[str, Any]], peak_rss_kb: int) -> dict[str, Any]:
             "peak_avg": round(statistics.mean(g["peak_grims"] or 0 for g in ok), 1),
             "world_steps": sum(g["world_steps"] for g in ok),
         })
+        # only counted for player counts whose worlds were saved
+        if all(g.get("known_invalid") is not None for g in ok):
+            summary["known_invalid"] = sum(g["known_invalid"] for g in ok)
     return summary
 
 def csv_row(result: dict[str, Any]) -> dict[str, Any]:
@@ -74,15 +77,21 @@ def csv_row(result: dict[str, Any]) -> dict[str, Any]:
             row[f"{p}p_{c}"] = summary.get(c, "")
     return row
 
+def check_csv(path: Path):
+    """Raises if the CSV exists with different columns, so a run can fail before it starts."""
+    if not path.exists():
+        return
+    with open(path, newline="") as f:
+        header = next(csv.reader(f), None)
+    if header != COLUMNS:
+        raise ValueError(
+            f"{path} has different columns than this version of the benchmark. " +
+            "Start a new CSV file instead of appending misaligned rows."
+        )
+
 def append_csv(path: Path, row: dict[str, Any]):
     if path.exists():
-        with open(path, newline="") as f:
-            header = next(csv.reader(f), None)
-        if header != COLUMNS:
-            raise ValueError(
-                f"{path} has different columns than this version of the benchmark. " +
-                "Start a new CSV file instead of appending misaligned rows."
-            )
+        check_csv(path)
         with open(path, "a", newline="") as f:
             csv.DictWriter(f, fieldnames=COLUMNS).writerow(row)
     else:
@@ -116,13 +125,13 @@ def format_summary(result: dict[str, Any]) -> str:
             lines.append(f"  {g['id']} {g['status']}{where}{detail}")
 
     lines.append("")
-    lines.append(f"{'players':>7} {'ok':>9} {'total s':>10} {'median s':>9} {'p95 s':>8} {'max s':>8} {'final avg':>9} {'peak max':>9} {'peak game':>10} {'rss MB':>7}")
+    lines.append(f"{'players':>7} {'ok':>9} {'total s':>10} {'median s':>9} {'p95 s':>8} {'max s':>8} {'final avg':>9} {'peak max':>9} {'peak game':>10} {'invalid':>8} {'rss MB':>7}")
     for p, data in result["players"].items():
         s = data["summary"]
         lines.append(
             f"{p:>7} {str(s['ok']) + '/' + str(s['games']):>9} {s.get('total_s', ''):>10} {s.get('median_s', ''):>9} " +
             f"{s.get('p95_s', ''):>8} {s.get('max_s', ''):>8} {s.get('final_avg', ''):>9} {s.get('peak_max', ''):>9} " +
-            f"{s.get('peak_max_game', ''):>10} {s['peak_rss_mb']:>7}"
+            f"{s.get('peak_max_game', ''):>10} {s.get('known_invalid', ''):>8} {s['peak_rss_mb']:>7}"
         )
     lines.append("")
     return "\n".join(lines)

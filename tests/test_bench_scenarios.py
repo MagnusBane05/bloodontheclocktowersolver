@@ -8,10 +8,10 @@ from analyze.simulator import simulate_single_game
 from bench import scenarios
 from bench.scenarios import (  # pyright: ignore[reportPrivateUsage]
     SEED_START,
-    _decode_grim,
+    decode_grim,
     _decode_hook,
     _encode,
-    _encode_grim,
+    encode_grim,
     _pages_equal,
     load_scenarios,
 )
@@ -44,16 +44,16 @@ class TestEncoding(unittest.TestCase):
                     (info, deaths), true_grim = simulate_single_game(players, None, seed)
                     self.assertEqual(_round_trip(info), info, "Expected info to survive a round trip.")
                     self.assertEqual(_round_trip(deaths), deaths, "Expected deaths to survive a round trip.")
-                    grim_data = json.loads(json.dumps(_encode_grim(true_grim)), object_hook=_decode_hook)  # pyright: ignore[reportAny]
-                    decoded = _decode_grim(grim_data)  # pyright: ignore[reportAny]
+                    grim_data = json.loads(json.dumps(encode_grim(true_grim)), object_hook=_decode_hook)  # pyright: ignore[reportAny]
+                    decoded = decode_grim(grim_data)  # pyright: ignore[reportAny]
                     self.assertTrue(_pages_equal(decoded, true_grim), "Expected every page field to survive a round trip.")
 
     def test_unknown_page_field_rejected(self):
         (_, _), true_grim = simulate_single_game(5, None, SEED_START)
-        grim_data = json.loads(json.dumps(_encode_grim(true_grim)), object_hook=_decode_hook)  # pyright: ignore[reportAny]
+        grim_data = json.loads(json.dumps(encode_grim(true_grim)), object_hook=_decode_hook)  # pyright: ignore[reportAny]
         grim_data["pages"][0]["removed_field"] = True
         with self.assertRaises(ValueError):
-            _ = _decode_grim(grim_data)  # pyright: ignore[reportAny]
+            _ = decode_grim(grim_data)  # pyright: ignore[reportAny]
 
 class TestScenarioFiles(unittest.TestCase):
     def test_files_match_simulator(self):
