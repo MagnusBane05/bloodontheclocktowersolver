@@ -76,7 +76,7 @@ class GrimoireManager():
                 new_grims = add_death_info_to_grims(imp_kill, self.grims, trace)
                 self._set_grims_checked(
                     new_grims,
-                    f"night {night} demon kill {imp_kill}",
+                    f"night {night} imp kill {imp_kill}",
                     previous_grims=before,
                 )
 

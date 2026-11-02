@@ -116,6 +116,35 @@ class TestPassBetweenPages(unittest.TestCase):
         result, _reason = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
 
+    def _starpass_pages(self, star_passed: bool) -> tuple[GrimoirePage, GrimoirePage]:
+        # the Imp starpasses with a known Spy on one side and an unknown minion on the other
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10, 2)
+        prev.characters[1] = Role.SPY
+        prev.add_minion_type(Role.SPY)
+        prev.characters[2] = Role.IMP
+        prev.characters[3] = Role.ANY_OTHER_MINION
+        curr.characters[1] = Role.ANY_OTHER_EVIL
+        curr.characters[2] = Role.IMP
+        curr.characters[3] = Role.ANY_OTHER_EVIL
+        # without a starpass the Imp is still alive
+        curr.dead[2] = star_passed
+        curr.star_passed = star_passed
+        return prev, curr
+
+    def test_pass_known_minion_after_starpass(self):
+        prev, curr = self._starpass_pages(star_passed=True)
+        result, reason = Grimoire.pass_between_pages(prev, curr)
+        self.assertTrue(result, reason)
+        self.assertEqual(curr.characters[1], Role.ANY_OTHER_EVIL, "Expected a known Spy to stay a possible new Imp after a starpass.")
+        self.assertEqual(curr.characters[3], Role.ANY_OTHER_EVIL)
+
+    def test_pass_known_minion_without_starpass(self):
+        prev, curr = self._starpass_pages(star_passed=False)
+        result, reason = Grimoire.pass_between_pages(prev, curr)
+        self.assertTrue(result, reason)
+        self.assertEqual(curr.characters[1], Role.SPY, "Expected a known minion to be narrowed back without a starpass.")
+
     def test_pass_minion_types(self):
         # same minion types should be okay
         world = Grimoire()

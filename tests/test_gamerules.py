@@ -469,6 +469,45 @@ class TestCanNonDemonBecomePotentialDemon(unittest.TestCase):
         curr.slayer_shot[imp] = True
         result = gamerules.can_non_demon_become_potential_demon(prev, curr, non_demon)
         self.assertFalse(result, "Expected non demon not able to become potential demon if a Scarlet Woman caught the pass.")
-        
+
+    def _pages(self, minion_role: Role, phase: NightOrderPosition) -> tuple[GrimoirePage, GrimoirePage]:
+        minion = 0
+        imp = 3
+        prev = GrimoirePage(10)
+        curr = GrimoirePage(10)
+        prev.characters[minion] = minion_role
+        prev.characters[imp] = Role.IMP
+        prev.dead[imp] = True
+        curr.night_order_position = phase
+        curr.characters[minion] = Role.ANY_OTHER_EVIL
+        if phase == NightOrderPosition.AFTER_IMP:
+            curr.star_passed = True
+        elif phase == NightOrderPosition.AFTER_EXECUTION:
+            curr.executee = imp
+        else:
+            curr.slayer_shot[imp] = True
+        return prev, curr
+
+    def test_known_minion(self):
+        for minion_role in (Role.SPY, Role.POISONER, Role.BARON, Role.SCARLET_WOMAN):
+            with self.subTest(minion_role=minion_role):
+                prev, curr = self._pages(minion_role, NightOrderPosition.AFTER_IMP)
+                self.assertTrue(
+                    gamerules.can_non_demon_become_potential_demon(prev, curr, 0),
+                    "Expected any known minion able to become a potential demon after a starpass.",
+                )
+        for phase in (NightOrderPosition.AFTER_EXECUTION, NightOrderPosition.AFTER_SLAYER):
+            with self.subTest(phase=phase):
+                prev, curr = self._pages(Role.POISONER, phase)
+                self.assertFalse(
+                    gamerules.can_non_demon_become_potential_demon(prev, curr, 0),
+                    "Expected only a Scarlet Woman able to become the demon when the Imp is executed or slain.",
+                )
+                prev, curr = self._pages(Role.SCARLET_WOMAN, phase)
+                self.assertTrue(
+                    gamerules.can_non_demon_become_potential_demon(prev, curr, 0),
+                    "Expected a known Scarlet Woman able to become a potential demon when the Imp is executed or slain.",
+                )
+
 if __name__ == '__main__':
     _ = unittest.main()

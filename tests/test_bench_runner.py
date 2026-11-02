@@ -87,7 +87,7 @@ class TestReport(unittest.TestCase):
 
     def test_failure_location(self):
         steps = [["info {'kind': 'chef'}", 1, 50, 0.1], ["night 2 demon kill {'kind': 'demon'}", 50, 40, 0.1]]
-        lost = _game("10p-0048", status="true_grim_lost") | {"steps": steps, "peak_stage": "info {'kind': 'chef'}"}
+        lost = _game("10p-0000", status="true_grim_lost") | {"steps": steps, "peak_stage": "info {'kind': 'chef'}"}
         self.assertEqual(report.failure_location(lost), " at night 2 demon kill", "Expected the failing step, not the peak step.")
         timed_out = _game("15p-0006", status="timeout") | {"steps": steps}
         self.assertEqual(report.failure_location(timed_out), " after night 2 demon kill")

@@ -186,14 +186,16 @@ def can_minion_become_demon(prev: GrimoirePage, curr: GrimoirePage, minion: int)
         return False
         
 def can_non_demon_become_potential_demon(prev: GrimoirePage, curr: GrimoirePage, player: int) -> bool:
+    previous = prev.characters[player]
     if not (
-        (prev.characters[player] == Role.NON_DEMON or prev.characters[player] == Role.ANY_OTHER_MINION)
+        (previous == Role.NON_DEMON or previous in GENERIC_MINION_SET)
         and (curr.characters[player] == Role.ANY_OTHER or curr.characters[player] == Role.ANY_OTHER_EVIL)
     ):
         raise AssertionError(
-            f"Called function with incompatible characters. "
-            f"Prev: {prev.characters[player].name}, curr: {curr.characters[player].name}"
+            f"Called function with incompatible characters. " +
+            f"Prev: {previous.name}, curr: {curr.characters[player].name}"
         )
+    could_be_scarlet_woman = previous in (Role.NON_DEMON, Role.ANY_OTHER_MINION, Role.SCARLET_WOMAN)
     phase = curr.night_order_position
     if phase == NightOrderPosition.AFTER_IMP:
         if not curr.star_passed:
@@ -203,11 +205,15 @@ def can_non_demon_become_potential_demon(prev: GrimoirePage, curr: GrimoirePage,
             return False
         if curr.characters[curr.executee] != Role.IMP and prev.characters[curr.executee] != Role.IMP:
             return False
+        if not could_be_scarlet_woman:
+            return False
     elif phase == NightOrderPosition.AFTER_SLAYER:
         if True not in curr.slayer_shot:
             return False
         slayer_shot = curr.slayer_shot.index(True)
         if curr.characters[slayer_shot] != Role.IMP and prev.characters[slayer_shot] != Role.IMP:
+            return False
+        if not could_be_scarlet_woman:
             return False
     else:
         return False
