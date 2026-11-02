@@ -1,4 +1,5 @@
 from enum import IntEnum, auto
+import math
 from typing import TYPE_CHECKING, Callable, NamedTuple
 
 from . import helper
@@ -676,15 +677,17 @@ def _get_min_pairs_from_positions(
     known_evils and possible_evils are mutually exclusive
     known evils contains all of possible_spies
     """
-    _, total, _, _, _ = (
-        helper.minimum_possible_runs_with_one_remove(
+    result = helper.minimum_possible_runs_with_one_remove(
             known=known_evils,
             possible=possible_evils,
             remove_nums=possible_spies,
             count=evil_count,
             upper_bound=num_players,
         )
-    )
+    
+    if result is None:
+        return math.inf 
+    _, total, _, _, _ = result
     return total
 
 def _get_max_pairs_from_positions(

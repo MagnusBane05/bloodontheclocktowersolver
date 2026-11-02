@@ -317,11 +317,7 @@ def minimum_possible_runs_with_one_remove(
     set[int],
     set[int],
     int | None,
-]:
-    known = set(known)
-    possible = set(possible)
-    remove_nums = set(remove_nums)
-
+] | None:
     if known & possible:
         raise ValueError("known and possible must not overlap")
 
@@ -336,10 +332,10 @@ def minimum_possible_runs_with_one_remove(
     needed_from_possible = count - len(known)
 
     if needed_from_possible < 0:
-        raise ValueError("count cannot be smaller than len(known)")
+        return None
 
     if needed_from_possible > len(possible):
-        raise ValueError("Not enough possible numbers to reach count")
+        return None
 
     best_runs: list[list[int]] | None = None
     best_selected: set[int] | None = None
@@ -389,9 +385,7 @@ def minimum_possible_runs_with_one_remove(
         or best_added is None
         or best_total == math.inf
     ):
-        raise ValueError(
-            "No valid selection could be constructed"
-        )
+        return None
 
     return (
         best_runs,

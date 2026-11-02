@@ -739,7 +739,9 @@ def _deduce_from_possible_chef_pairs(
     possibilities: _ChefPossibilities,
 ) -> bool:
     deduced = False
-    effective_chef_number = chef_number - len(known_pairs) # effective chef number is > 0
+    effective_chef_number = chef_number - len(known_pairs) 
+    if effective_chef_number < 0:
+        return False
     pair_combinations = _get_valid_pair_combinations(
         possible_pairs,
         effective_chef_number,

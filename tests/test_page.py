@@ -542,6 +542,11 @@ class TestCanHaveChefNumber(unittest.TestCase):
 
         page = GrimoirePage(5)
         page.characters = [Role.RECLUSE, Role.SPY, Role.MONK, Role.MONK, Role.MONK]
+        self.assertFalse(page.can_have_chef_number(0), "Expected no chef number to be valid when there aren't enough possible evil players.")
+
+        page = GrimoirePage(6)
+        page.add_minion_type(Role.SPY)
+        page.characters = [Role.RECLUSE, Role.SPY, Role.WASHERWOMAN, Role.IMP, Role.LIBRARIAN, Role.SLAYER]
         self.assertTrue(page.can_have_chef_number(0), "Expected chef number 0 to be valid when a known Recluse is adjacent to a known Spy.")
         self.assertTrue(page.can_have_chef_number(1), "Expected chef number 1 to be valid when a known Recluse and Spy can still form one evil adjacency pair.")
         self.assertFalse(page.can_have_chef_number(2), "Expected chef number 2 to be invalid for the provided Recluse/Spy layout.")
