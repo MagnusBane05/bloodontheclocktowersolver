@@ -1,6 +1,8 @@
 from __future__ import annotations
 from collections import Counter, defaultdict
 import logging
+import time
+from typing import Callable, NamedTuple
 
 from .traces import TrueGrimTrace
 
@@ -19,12 +21,24 @@ SAMPLE_CHANCE = 0
 
 BRANCHING_INFO = ["fortune teller", "empath", "undertaker", "ravenkeeper", "virgin", "slayer"]
 
+class StepRecord(NamedTuple):
+    stage: str
+    grims_before: int
+    grims_after: int
+    seconds: float
+
 class GrimoireManager():
     
-    def __init__(self, game: Game, true_grim: Grimoire | None = None):
-        self.game = game
+    def __init__(
+            self, 
+            game: Game, 
+            true_grim: Grimoire | None = None, 
+            on_step: Callable[[StepRecord], None] | None = None):
+        self.game: Game = game
         self.grims: list[Grimoire] = []
-        self.true_grim = true_grim
+        self.true_grim: Grimoire | None = true_grim
+        self.on_step: Callable[[StepRecord], None] | None = on_step
+        self.step_started: float = time.perf_counter()
 
     def _make_trace(self, stage: str) -> TrueGrimTrace | None:
         if self.true_grim is None:
@@ -48,6 +62,7 @@ class GrimoireManager():
         )
 
     def add_full_game(self, info_list: list[Info], death_info: list[DeathInfo], nights: int):
+        self.step_started = time.perf_counter()
         for night in range(1,nights+1):
             # add imp kill
             for imp_kill in [
@@ -101,8 +116,8 @@ class GrimoireManager():
         new_grims = info_to_grimoires(self.game, info)
 
         logging.debug(
-            f"add_info {info['kind']}: before={before_count}, "
-            f"new_grims={len(new_grims)}, "
+            f"add_info {info['kind']}: before={before_count}, " +
+            f"new_grims={len(new_grims)}, " +
             f"potential_pairs={before_count * len(new_grims)}"
         )
 
@@ -133,6 +148,13 @@ class GrimoireManager():
         *,
         previous_grims: list[Grimoire] | None = None,
     ):
+        if self.on_step is not None:
+            seconds = time.perf_counter() - self.step_started
+            grims_before = len(previous_grims) if previous_grims is not None else len(self.grims)
+            record = StepRecord(stage, grims_before, len(new_grims), seconds)
+            self.on_step(record)
+            self.step_started = time.perf_counter()
+
         if len(new_grims) > 250000:
             raise RuntimeError(f"{len(new_grims)} is too many solutions.")
 
@@ -145,8 +167,8 @@ class GrimoireManager():
             ]
 
             raise TrueGrimLostError(
-                f"True grim lost at {stage}. "
-                f"before={len(previous)}, after={len(new_grims)}, "
+                f"True grim lost at {stage}. " + 
+                f"before={len(previous)}, after={len(new_grims)}, " + 
                 f"previous_true_matches={len(previous_true_matches)}"
             )
 
