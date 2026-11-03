@@ -699,6 +699,36 @@ class TestChefDeductionsReportChanges(unittest.TestCase):
                     page.make_deductions()
                 self.assertEqual(1, step.call_count, "Expected one deduction step on a settled page.")
 
+class TestMakeDeductionsResult(unittest.TestCase):
+    def test_settled_page_returns_false(self):
+        page = GrimoirePage()
+        page.characters = [Role.IMP, Role.SCARLET_WOMAN, Role.MONK, Role.EMPATH, Role.SLAYER]
+        page.minion_types = [Role.SCARLET_WOMAN]
+        self.assertFalse(page.make_deductions(), "Expected no deductions on a fully known page.")
+
+    def test_deducing_page_returns_true(self):
+        page = GrimoirePage()
+        page.characters = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
+        page.minion_types = [Role.POISONER]
+        self.assertTrue(page.make_deductions(), "Expected deductions to be reported.")
+        self.assertFalse(page.make_deductions(), "Expected no deductions once the page has settled.")
+
+    def test_stops_after_first_step_without_deductions(self):
+        # multi-stage deductions: every step that deduces something is followed by exactly one that doesn't
+        page = GrimoirePage()
+        page.characters = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
+        page.minion_types = [Role.POISONER]
+        results: list[bool] = []
+        original = GrimoirePage._deduction_step  # pyright: ignore[reportPrivateUsage]
+        def step(self: GrimoirePage) -> bool:
+            result = original(self)
+            results.append(result)
+            return result
+        with patch.object(GrimoirePage, "_deduction_step", step):
+            _ = page.make_deductions()
+        self.assertGreater(len(results), 1, "Expected a multi-stage deduction.")
+        self.assertEqual([True] * (len(results) - 1) + [False], results, "Expected deductions to stop after the first step that deduced nothing.")
+
 class TestFields(unittest.TestCase):
     def test_all_fields_validated(self):
         page = GrimoirePage()

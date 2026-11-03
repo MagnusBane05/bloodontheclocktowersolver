@@ -489,5 +489,24 @@ class TestCombine(unittest.TestCase):
         result = Grimoire._combine_no_outsiders(new_phase, phase1, phase2) # pyright: ignore[reportPrivateUsage]
         self.assertFalse(result)
 
+class TestMakeDeductions(unittest.TestCase):
+    def test_settled_pages_return_false(self):
+        world = Grimoire()
+        world.get_first_page().characters = [Role.IMP, Role.SCARLET_WOMAN, Role.MONK, Role.EMPATH, Role.SLAYER]
+        world.get_first_page().minion_types = [Role.SCARLET_WOMAN]
+        _ = world.add_page(2, NightOrderPosition.AFTER_IMP)
+        self.assertFalse(world.make_deductions(), "Expected no deductions when every page is settled.")
+
+    def test_any_page_deducing_returns_true(self):
+        world = Grimoire()
+        world.get_first_page().characters = [Role.IMP, Role.SCARLET_WOMAN, Role.MONK, Role.EMPATH, Role.SLAYER]
+        world.get_first_page().minion_types = [Role.SCARLET_WOMAN]
+        page = world.add_page(2, NightOrderPosition.AFTER_IMP)
+        page.characters = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
+        page.minion_types = [Role.POISONER]
+        self.assertTrue(world.make_deductions(), "Expected deductions on the second page to be reported.")
+        self.assertEqual(Role.IMP, page.characters[0])
+        self.assertFalse(world.make_deductions(), "Expected no deductions once every page has settled.")
+
 if __name__ == '__main__':
     _ = unittest.main()

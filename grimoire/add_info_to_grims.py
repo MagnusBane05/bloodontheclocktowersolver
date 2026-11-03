@@ -10,12 +10,17 @@ from .role import *
 from .traces import TrueGrimTrace
 from .nightOrderPosition import NightOrderPosition
 
+MAX_FINALIZE_ROUNDS = 10
+
 def _finalize(grim: Grimoire) -> Grimoire | None:
-    valid, _reason = Grimoire.pass_through_pages(grim)
-    if not valid:
-        # logging.warning(_reason)
-        return None
-    grim.make_deductions()
+    for _ in range(MAX_FINALIZE_ROUNDS):
+        valid, _reason = Grimoire.pass_through_pages(grim)
+        if not valid:
+            return None
+        if not grim.make_deductions():
+            break
+    else:
+        raise RuntimeError("Finalize did not settle.")
     valid, _reason = validators.is_grim_valid(grim)
     if not valid:
         return None

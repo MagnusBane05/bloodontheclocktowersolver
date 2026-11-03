@@ -258,9 +258,11 @@ class Grimoire:
                 return False
         return True
 
-    def make_deductions(self):
+    def make_deductions(self) -> bool:
+        deduced = False
         for phase in self.pages:
-            phase.make_deductions()
+            deduced |= phase.make_deductions()
+        return deduced
     
     @classmethod
     def combine(cls, w1: Grimoire, w2: Grimoire) -> tuple[Grimoire, bool, str]:

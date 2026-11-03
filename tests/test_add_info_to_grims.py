@@ -1,6 +1,6 @@
 import unittest
 
-from grimoire.add_info_to_grims import add_death_info_to_grims, add_info_to_grims
+from grimoire.add_info_to_grims import _finalize, add_death_info_to_grims, add_info_to_grims  # pyright: ignore[reportPrivateUsage]
 from grimoire.grimoire import Grimoire
 from grimoire.grimoire_page import GrimoirePage
 from grimoire.info import DemonKillInfo, ExecutionInfo, SlayerKillInfo, FortuneTellerInfo
@@ -723,6 +723,91 @@ class TestAddInfoToGrims(unittest.TestCase):
         self.assertEqual(base.get_first_page().characters[fortune_teller], Role.ANY_OTHER)
         self.assertFalse(base.get_first_page().red_herring[a])
         self.assertFalse(base.get_first_page().red_herring[b])
+
+
+def _page(
+    night: int,
+    order: NightOrderPosition,
+    characters: list[Role],
+    minion_types: list[Role],
+    dead: list[bool] | None = None,
+    poisoned: list[bool] | None = None,
+    **fields: object,
+) -> GrimoirePage:
+    page = GrimoirePage(len(characters), night, order)
+    page.characters = list(characters)
+    page.minion_types = list(minion_types)
+    if dead is not None:
+        page.dead = list(dead)
+    if poisoned is not None:
+        page.poisoned = list(poisoned)
+    for field, value in fields.items():
+        setattr(page, field, value)
+    return page
+
+def _grim(pages: list[GrimoirePage]) -> Grimoire:
+    grim = Grimoire(pages[0].num_players)
+    grim.pages = pages
+    grim.keys = [(p.night, p.night_order_position) for p in pages]
+    return grim
+
+
+class TestFinalize(unittest.TestCase):
+    def test_conflict_found_only_on_second_pass(self):
+        # Found in a 10p smoke game. Night 1 Chef 0 with player 0 next to the Scarlet Woman forces
+        # player 0 to be the Spy, but that is only deduced after the first pass. The second pass
+        # then finds night 1's minion types (SW, Spy) clash with night 2's (Poisoner, SW).
+        # players 2-9; player 3 is evil
+        rest = [Role.SLAYER, Role.ANY_OTHER_EVIL, Role.CHEF, Role.LIBRARIAN, Role.UNDERTAKER, Role.MAYOR, Role.SOLDIER, Role.MONK]
+        grim = _grim([
+            _page(1, NightOrderPosition.AFTER_IMP,
+                [Role.ANY_OTHER_EVIL, Role.SCARLET_WOMAN] + rest,
+                [Role.SCARLET_WOMAN, Role.ANY_OTHER_MINION],
+                chef_number=0, no_outsiders=True),
+            _page(1, NightOrderPosition.AFTER_EXECUTION,
+                [Role.ANY_OTHER_EVIL, Role.SCARLET_WOMAN] + rest,
+                [Role.SCARLET_WOMAN, Role.ANY_OTHER_MINION],
+                dead=[i == 8 for i in range(10)],
+                no_outsiders=True, executee=8),
+            _page(2, NightOrderPosition.AFTER_IMP,
+                [Role.IMP, Role.SCARLET_WOMAN] + rest,
+                [Role.POISONER, Role.SCARLET_WOMAN],
+                dead=[i in (0, 8) for i in range(10)],
+                poisoned=[i == 2 for i in range(10)],
+                no_outsiders=True, star_passed=True),
+            _page(3, NightOrderPosition.AFTER_EXECUTION,
+                [Role.IMP, Role.IMP, Role.SLAYER, Role.IMP] + rest[2:],
+                [Role.POISONER, Role.SCARLET_WOMAN],
+                dead=[i in (0, 3, 8) for i in range(10)],
+                no_outsiders=True, star_passed=True, executee=3),
+        ])
+        self.assertIsNone(_finalize(grim), "Expected the minion type conflict found on the second pass to reject the world.")
+
+    def test_settled_world_is_kept_unchanged(self):
+        grim = Grimoire()
+        grim.get_first_page().characters = [Role.IMP, Role.SCARLET_WOMAN, Role.MONK, Role.EMPATH, Role.SLAYER]
+        grim.get_first_page().minion_types = [Role.SCARLET_WOMAN]
+        _ = grim.add_page(2, NightOrderPosition.AFTER_IMP)
+        expected = grim.clone()
+        result = _finalize(grim)
+        self.assertIsNotNone(result)
+        assert result is not None
+        for page, expected_page in zip(result.pages, expected.pages):
+            self.assertEqual(vars(expected_page), vars(page))
+
+    def test_result_is_settled(self):
+        # finalizing a finalized world again must change nothing
+        grim = Grimoire()
+        grim.get_first_page().characters = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
+        grim.get_first_page().minion_types = [Role.POISONER]
+        _ = grim.add_page(2, NightOrderPosition.AFTER_IMP)
+        result = _finalize(grim)
+        assert result is not None
+        again = _finalize(result.clone())
+        assert again is not None
+        for page, again_page in zip(result.pages, again.pages):
+            self.assertEqual(vars(page), vars(again_page))
+        self.assertEqual(Role.IMP, result.pages[1].characters[0], "Expected night 1 deductions to reach night 2.")
 
 
 if __name__ == "__main__":

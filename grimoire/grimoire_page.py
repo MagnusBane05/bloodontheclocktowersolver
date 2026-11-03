@@ -305,11 +305,16 @@ class GrimoirePage:
             return False
         return True
     
-    def make_deductions(self):
+    def make_deductions(self) -> bool:
         max_depth = 5
+        deduced = False
         for _ in range(max_depth):
-            if not self._deduction_step():
+            deduced_this_step = self._deduction_step()
+            if not deduced_this_step:
                 break
+            else:
+                deduced = True
+        return deduced
 
     def _deduction_step(self) -> bool:
         deduced = False
