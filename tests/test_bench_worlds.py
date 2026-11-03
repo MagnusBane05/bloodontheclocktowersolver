@@ -8,7 +8,9 @@ from unittest import mock
 from bench import compare, report, runner, worlds
 from bench.scenarios import _pages_equal, load_scenarios  # pyright: ignore[reportPrivateUsage]
 from bench.worker import run_game
-from grimoire import Grimoire, GrimoireManager, Role
+from grimoire import Grimoire, GrimoireManager, NightOrderPosition, Role
+from grimoire.add_info_to_grims import find_finalize_problem
+from grimoire.errors import FinalizeDidNotSettleError
 
 
 def _world(characters: list[Role], minion_types: list[Role]) -> Grimoire:
@@ -86,19 +88,83 @@ class TestClassify(unittest.TestCase):
         self.assertEqual(worlds.classify_added(_world(TWO_IMPS, [Role.BARON]), [])[0], "known_invalid")
         self.assertEqual(worlds.classify_added(valid, []), ("other", None))
 
+    def _unsettled_world(self) -> Grimoire:
+        # night 1 knows player 0 is the Imp, but that hasn't been passed to night 2 yet
+        grim = _world(VALID, [Role.BARON])
+        night2 = grim.add_page(2, NightOrderPosition.AFTER_IMP)
+        night2.characters = [Role.ANY_OTHER] + VALID[1:]
+        night2.minion_types = [Role.BARON]
+        return grim
+
+    def test_removed_refined(self):
+        world = self._unsettled_world()
+        settled = world.clone()
+        self.assertIsNone(find_finalize_problem(settled))
+        self.assertEqual(settled.pages[1].characters[0], Role.IMP)
+        self.assertFalse(settled.subsumes(world), "Expected the fixture not to count as merged.")
+        self.assertEqual(worlds.classify_removed(world, [settled]), ("refined", None))
+        self.assertEqual(worlds.classify_added(settled, [world]), ("refined", None))
+
+    def test_refining_into_a_world_that_was_not_kept_is_unexplained(self):
+        other = _world([Role.IMP, Role.BARON, Role.SAINT, Role.CHEF, Role.RECLUSE], [Role.BARON])
+        self.assertEqual(worlds.classify_removed(self._unsettled_world(), [other]), ("unexplained", None))
+
+    def test_removed_rejected(self):
+        # one minion slot, but the pages disagree on its type
+        world = _world(VALID, [Role.BARON])
+        night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
+        night2.characters = [Role.IMP, Role.ANY_OTHER_MINION, Role.ANY_OTHER, Role.ANY_OTHER, Role.CHEF]
+        night2.minion_types = [Role.POISONER]
+        self.assertIsNone(worlds.validity_problem(world), "Expected only a pass between pages to catch this.")
+        self.assertEqual(
+            worlds.classify_removed(world, []),
+            ("rejected", "mismatched minion types between pages"),
+        )
+
+    def test_finalize_bug_is_not_explained_away(self):
+        with mock.patch.object(Grimoire, "make_deductions", return_value=True):
+            with self.assertRaises(FinalizeDidNotSettleError):
+                _ = worlds.classify_removed(_world(VALID, [Role.BARON]), [])
+
+    def test_only_unexplained_fails_the_comparison(self):
+        for category in ("merged", "refined", "rejected", "invalid"):
+            diff = worlds.WorldDiff("5p-0000", Grimoire(5), category, "reason", None)
+            self.assertFalse(worlds.has_unexplained({"players": {"5": {"removed": [diff], "added": []}}}), category)
+
+    def test_format_lists_rejected_but_not_refined(self):
+        def diff(category: str, reason: str | None = None):
+            return worlds.WorldDiff("5p-0000", _world(VALID, [Role.BARON]), category, reason, None)
+        comparison = {
+            "a": {"label": "A", "commit": "a", "timestamp": "t"},
+            "b": {"label": "B", "commit": "b", "timestamp": "t"},
+            "warnings": [],
+            "game": None,
+            "players": {"5": {"games": 1, "changed_games": 1, "added": [], "removed": [
+                diff("refined"), diff("rejected", "mismatched minion types between pages"),
+            ]}},
+        }
+        output = worlds.format_world_comparison(comparison)
+        self.assertIn("refined 1", output)
+        self.assertIn("rejected 1", output)
+        self.assertIn("  rejected:", output)
+        self.assertIn("[mismatched minion types between pages]", output)
+        self.assertNotIn("  refined:", output)
+        comparison["game"] = "5p-0000"
+        self.assertIn("  refined:", worlds.format_world_comparison(comparison))
+
 class TestDropStep(unittest.TestCase):
     def test_kept_world(self):
         scenario = load_scenarios(5, limit=1)[0]
         manager = GrimoireManager({"players": 5}, scenario.true_grim)
         manager.add_full_game(scenario.info, scenario.deaths, scenario.nights)
         step = worlds.find_drop_step(5, scenario.info, scenario.deaths, scenario.nights, manager.grims[0])
-        self.assertEqual(step, "kept")
+        self.assertEqual(step, worlds.NOT_DROPPED)
 
     def test_dropped_world(self):
         first, second = load_scenarios(5, limit=2)
         # the first game's true grim doesn't fit the second game's info
         step = worlds.find_drop_step(5, second.info, second.deaths, second.nights, first.true_grim)
-        self.assertNotEqual(step, "kept")
+        self.assertNotEqual(step, worlds.NOT_DROPPED)
         self.assertFalse(step.startswith("error"), step)
         self.assertNotIn("{", step, "Expected a shortened stage label.")
 
@@ -134,7 +200,7 @@ class TestCompareWorlds(unittest.TestCase):
         self.assertEqual([(d.game_id, d.category) for d in removed], [("5p-0000", "unexplained")])
         self.assertEqual(removed[0].world, self.removed)
         # the current code still produces this world; it was only deleted from B's file
-        self.assertEqual(removed[0].drop_step, "kept")
+        self.assertEqual(removed[0].drop_step, worlds.NOT_DROPPED)
         self.assertTrue(worlds.has_unexplained(comparison))
         self.assertIn("UNEXPLAINED", worlds.format_world_comparison(comparison))
 

@@ -1,9 +1,13 @@
 """Saves the final worlds of benchmark games and compares them between runs.
 
 Worlds that one run removed are sorted into merged (covered by a more general world),
-invalid (fails a validator), or unexplained (passes every check, so possibly a valid
-world that was wrongly removed). Unexplained worlds are re-run as the true grim of their
-game to find the step that drops them.
+invalid (fails a validator), rejected (finalizing it again finds it impossible), refined
+(finalizing it again gives a world that was kept), or unexplained (none of these, so possibly
+a valid world that was wrongly removed). Unexplained worlds are re-run as the true grim of
+their game to find the step that drops them.
+
+Refined and rejected use the solver's own finalize, with the code currently checked out. A bug
+in it could explain away a valid world, so rejected worlds are always listed with their reason.
 """
 import gzip
 import json
@@ -12,13 +16,19 @@ import re
 from typing import Any, NamedTuple
 
 from grimoire import Grimoire, GrimoireManager, validators
+from grimoire.add_info_to_grims import find_finalize_problem
 from grimoire.errors import TrueGrimLostError
 
 from . import report
 from .scenarios import _decode_hook, _git_state, decode_grim, encode_grim, load_scenarios  # pyright: ignore[reportPrivateUsage]
 
-WORLD_CATEGORIES_REMOVED = ("merged", "invalid", "unexplained")
-WORLD_CATEGORIES_ADDED = ("generalized", "known_invalid", "other")
+WORLD_CATEGORIES_REMOVED = ("merged", "refined", "rejected", "invalid", "unexplained")
+WORLD_CATEGORIES_ADDED = ("generalized", "refined", "known_invalid", "other")
+# categories where no world was lost or gained, so they're only listed for one game
+QUIET_CATEGORIES = ("merged", "refined", "generalized")
+# a world that was still matched after the last step. It only has to loosely match each step's
+# worlds, so this doesn't mean the exact world is in the final list.
+NOT_DROPPED = "not dropped"
 # worlds of each kind listed in the summary; --game lists all of them for one game
 SHOWN_PER_CATEGORY = 10
 
@@ -62,6 +72,16 @@ def classify_removed(world: Grimoire, kept: list[Grimoire]) -> tuple[str, str | 
     problem = validity_problem(world)
     if problem is not None:
         return "invalid", problem
+    settled = world.clone()
+    try:
+        problem = find_finalize_problem(settled)
+    except (RuntimeError, ValueError) as e:
+        # branching treats these as an impossible world too
+        problem = str(e)
+    if problem is not None:
+        return "rejected", problem
+    if any(other.subsumes(settled) for other in kept):
+        return "refined", None
     return "unexplained", None
 
 def classify_added(world: Grimoire, previous: list[Grimoire]) -> tuple[str, str | None]:
@@ -70,6 +90,8 @@ def classify_added(world: Grimoire, previous: list[Grimoire]) -> tuple[str, str 
     problem = validity_problem(world)
     if problem is not None:
         return "known_invalid", problem
+    if any(other.subsumes(world) for other in previous):
+        return "refined", None
     return "other", None
 
 _LOST_STAGE = re.compile(r"True grim lost at (.*)\. before=")
@@ -84,7 +106,7 @@ def find_drop_step(players: int, scenario_info: Any, scenario_deaths: Any, night
         return report.short_stage(match.group(1)) if match else str(e)
     except Exception as e:
         return f"error while re-running: {e!r}"
-    return "kept"
+    return NOT_DROPPED
 
 def describe_world(grim: Grimoire) -> str:
     """Characters per page, only listing pages whose characters changed."""
@@ -120,9 +142,9 @@ def compare_worlds(a_path: Path, b_path: Path, game_id: str | None = None) -> di
     commit, dirty = _git_state()
     if commit != b["meta"]["commit"] or dirty:
         warnings.append(
-            f"Unexplained worlds are re-run with the code currently checked out ({commit}" +
+            f"Removed worlds are re-finalized and unexplained ones re-run with the code currently checked out ({commit}" +
             f"{' + uncommitted changes' if dirty else ''}), not B's commit ({b['meta']['commit']}), " +
-            "so the steps reported for them reflect the current code."
+            "so their categories and steps reflect the current code."
         )
 
     by_players: dict[str, Any] = {}
@@ -205,8 +227,7 @@ def format_world_comparison(comparison: dict[str, Any]) -> str:
             lines.append(f"{title}: {len(diffs)} ({counts})")
             for category in categories:
                 in_category = [d for d in diffs if d.category == category]
-                # merged and generalized worlds weren't lost, so they're only listed for one game
-                if not in_category or (category in ("merged", "generalized") and not show_all):
+                if not in_category or (category in QUIET_CATEGORIES and not show_all):
                     continue
                 if category == "unexplained":
                     lines.append("  UNEXPLAINED - possibly valid worlds that were removed [step that drops them now]:")

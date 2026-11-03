@@ -60,7 +60,14 @@ Make the latest run the new baseline (copied to `bench/baseline.json` and `bench
 - `python -m bench worlds <A> <B>`: compare the worlds of any two runs, chosen the same way as for `compare`
 - `--game 5p-0074`: list every world that differs for one game
 
-Removed worlds are sorted into **merged** (covered by a more general world), **invalid** (fails a validator) and **unexplained** (passes every check). Each unexplained world is re-run as if it were the true grim, using the code that's currently checked out, to show the step that drops it. Added worlds are sorted into **generalized**, **known invalid** and **other**.
+Removed worlds are sorted into:
+- **merged**: covered by a more general world
+- **invalid**: fails a validator
+- **rejected**: finalizing it again finds it impossible, for example a conflict between pages. Listed with the reason
+- **refined**: finalizing it again gives a world that was kept, so it's the same world with more detail
+- **unexplained**: none of these, so possibly a valid world that was lost. The command exits 1 if there are any
+
+Rejected and refined use the solver's own finalize with the code that's currently checked out, so a bug in it could hide a lost world: check the rejected reasons. Each unexplained world is re-run as if it were the true grim to show the step that drops it, or `not dropped` if a loosely matching world survives every step. Added worlds are sorted into **generalized**, **refined**, **known invalid** and **other**. Merged, refined and generalized worlds are only listed with `--game`.
 
 ### Other bench run options
 - `--no-csv`: don't append the run to `bench/results.csv`, e.g. while experimenting

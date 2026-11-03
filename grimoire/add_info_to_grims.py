@@ -8,23 +8,27 @@ from .info import *
 from .grimoire import *
 from .role import *
 from .traces import TrueGrimTrace
+from .errors import FinalizeDidNotSettleError
 from .nightOrderPosition import NightOrderPosition
 
 MAX_FINALIZE_ROUNDS = 10
 
-def _finalize(grim: Grimoire) -> Grimoire | None:
+def find_finalize_problem(grim: Grimoire) -> str | None:
+    """Settles grim in place, passing between pages and deducing until nothing changes.
+    Returns why the world is impossible, or None if it's still valid."""
     for _ in range(MAX_FINALIZE_ROUNDS):
-        valid, _reason = Grimoire.pass_through_pages(grim)
+        valid, reason = Grimoire.pass_through_pages(grim)
         if not valid:
-            return None
+            return reason
         if not grim.make_deductions():
             break
     else:
-        raise RuntimeError("Finalize did not settle.")
-    valid, _reason = validators.is_grim_valid(grim)
-    if not valid:
-        return None
-    return grim
+        raise FinalizeDidNotSettleError(f"Finalize did not settle after {MAX_FINALIZE_ROUNDS} rounds.")
+    valid, reason = validators.is_grim_valid(grim)
+    return None if valid else reason
+
+def _finalize(grim: Grimoire) -> Grimoire | None:
+    return None if find_finalize_problem(grim) is not None else grim
 
 def _try_branch(
     base: Grimoire,

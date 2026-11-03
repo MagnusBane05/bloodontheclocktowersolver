@@ -1,6 +1,8 @@
 import unittest
+from unittest import mock
 
-from grimoire.add_info_to_grims import _finalize, add_death_info_to_grims, add_info_to_grims  # pyright: ignore[reportPrivateUsage]
+from grimoire.add_info_to_grims import MAX_FINALIZE_ROUNDS, _finalize, _try_branch, add_death_info_to_grims, add_info_to_grims, find_finalize_problem  # pyright: ignore[reportPrivateUsage]
+from grimoire.errors import FinalizeDidNotSettleError
 from grimoire.grimoire import Grimoire
 from grimoire.grimoire_page import GrimoirePage
 from grimoire.info import DemonKillInfo, ExecutionInfo, SlayerKillInfo, FortuneTellerInfo
@@ -782,6 +784,22 @@ class TestFinalize(unittest.TestCase):
                 no_outsiders=True, star_passed=True, executee=3),
         ])
         self.assertIsNone(_finalize(grim), "Expected the minion type conflict found on the second pass to reject the world.")
+
+    def test_reports_why_a_world_is_impossible(self):
+        grim = Grimoire()
+        grim.get_first_page().minion_types = [Role.BARON]
+        night2 = grim.add_page(2, NightOrderPosition.AFTER_IMP)
+        night2.minion_types = [Role.POISONER]
+        self.assertEqual(find_finalize_problem(grim), "mismatched minion types between pages")
+
+    def test_not_settling_is_an_error_not_an_invalid_world(self):
+        # branching drops a world on RuntimeError or ValueError, which would hide this bug
+        with mock.patch.object(Grimoire, "make_deductions", return_value=True) as make_deductions:
+            with self.assertRaises(FinalizeDidNotSettleError):
+                _ = _finalize(Grimoire())
+            self.assertEqual(make_deductions.call_count, MAX_FINALIZE_ROUNDS)
+            with self.assertRaises(FinalizeDidNotSettleError):
+                _ = _try_branch(Grimoire())
 
     def test_settled_world_is_kept_unchanged(self):
         grim = Grimoire()
