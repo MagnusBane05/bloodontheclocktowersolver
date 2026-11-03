@@ -461,24 +461,24 @@ def _get_chef_pairs(
 def _is_spy_needed(
     page: GrimoirePage,
     pair: ChefPair,
-) -> tuple[bool, bool]:
+) -> tuple[bool, bool, bool]:
     """
-    Returns is_spy_needed, is_spy_found
+    Returns is_spy_needed, is_spy_found, page_changed
     """
     # Either player could be the Spy
     if pair.a_spy and pair.b_spy:
-        return True, False
+        return True, False, False
     # B has to be the Spy
     if pair.a_evil and pair.b_spy:
-        page.characters[pair.b] = Role.SPY
-        page.add_minion_type(Role.SPY)
-        return False, True
+        changed = page.set_character(Role.SPY, pair.b)
+        changed |= page.add_minion_type(Role.SPY)
+        return False, True, changed
     # A has to be the Spy
     if pair.b_evil and pair.a_spy:
-        page.characters[pair.a] = Role.SPY
-        page.add_minion_type(Role.SPY)
-        return False, True
-    return False, False
+        changed = page.set_character(Role.SPY, pair.a)
+        changed |= page.add_minion_type(Role.SPY)
+        return False, True, changed
+    return False, False, False
 
 def _handle_pair_not_in_chef_number(
     page: GrimoirePage,
@@ -489,12 +489,10 @@ def _handle_pair_not_in_chef_number(
         return False
     # B has to be good
     if pair.a_evil and pair.b_unknown:
-        page.characters[pair.b] = Role.ANY_OTHER_GOOD
-        return True
+        return page.set_character(Role.ANY_OTHER_GOOD, pair.b)
     # A has to be good
     if pair.b_evil and pair.a_unknown:
-        page.characters[pair.a] = Role.ANY_OTHER_GOOD
-        return True
+        return page.set_character(Role.ANY_OTHER_GOOD, pair.a)
     return False
 
 def _add_baron_if_needed(page: GrimoirePage, player: int) -> None:
@@ -505,7 +503,7 @@ def _add_baron_if_needed(page: GrimoirePage, player: int) -> None:
     outsider_count = page.get_characters_of_type(CharacterType.OUTSIDER)
     max_outsider_count = gamerules.get_outsider_count(page.num_players, False)
     if outsider_count + 1 > max_outsider_count:
-        page.add_minion_type(Role.BARON)
+        _ = page.add_minion_type(Role.BARON)
 
 def _handle_unknown_player_in_chef_number(
     page: GrimoirePage,
@@ -529,13 +527,11 @@ def _handle_pair_in_chef_number(
     # B has to be the Recluse
     if pair.b_recluse: # I don't think it's possible for a_recluse and b_recluse to be contributing to a Chef number
         _add_baron_if_needed(page, pair.b)
-        page.characters[pair.b] = Role.RECLUSE
-        deduced = True
+        deduced |= page.set_character(Role.RECLUSE, pair.b)
     # A has to be the Recluse
     if pair.a_recluse: # I don't think it's possible for a_recluse and b_recluse to be contributing to a Chef number
         _add_baron_if_needed(page, pair.a)
-        page.characters[pair.a] = Role.RECLUSE
-        deduced = True
+        deduced |= page.set_character(Role.RECLUSE, pair.a)
     # A could be the Recluse or evil
     if pair.a_unknown:
         deduced |= _handle_unknown_player_in_chef_number(page, pair.a)
@@ -601,7 +597,8 @@ def _deduce_from_fully_explained_chef_number(
     spy_candidates: list[ChefPair] = []
     spy_found = False
     for pair in possible_pairs:
-        spy_needed, spy_in_pair = _is_spy_needed(page, pair)
+        spy_needed, spy_in_pair, changed = _is_spy_needed(page, pair)
+        deduced |= changed
         spy_found |= spy_in_pair
         if spy_needed and not spy_found:
             spy_candidates.append(pair)
@@ -611,7 +608,6 @@ def _deduce_from_fully_explained_chef_number(
                 pair,
                 spy_possible,
             )
-    deduced |= spy_found
     if len(spy_candidates) > 1:
         candidates = {
             player
@@ -623,9 +619,8 @@ def _deduce_from_fully_explained_chef_number(
                 spy_candidate in (pair.a, pair.b)
                 for pair in spy_candidates
             ):
-                page.characters[spy_candidate] = Role.SPY
-                page.add_minion_type(Role.SPY)
-                deduced = True
+                deduced |= page.set_character(Role.SPY, spy_candidate)
+                deduced |= page.add_minion_type(Role.SPY)
     return deduced
 
 def _get_valid_pair_combinations(
@@ -655,14 +650,15 @@ def _deduce_recluse_needed(
     ):
         return False
 
+    deduced = not page.recluse_needed
     page.recluse_needed = True
     if (
         Role.BARON not in page.minion_types
         and Role.ANY_OTHER_OUTSIDER not in page.characters
         and new_outsider_needs_baron
     ):
-        page.add_minion_type(Role.BARON)
-    return True
+        deduced |= page.add_minion_type(Role.BARON)
+    return deduced
 
 def _deduce_pairs_in_all_combinations(
     page: GrimoirePage,
@@ -726,9 +722,8 @@ def _deduce_spy_between_evils(
                 continue
             # Spy is sitting between two evils
             if chef_number < 2 and page.characters[pair_spy] != Role.SPY:
-                page.characters[pair_spy] = Role.SPY
-                page.add_minion_type(Role.SPY)
-                deduced = True
+                deduced |= page.set_character(Role.SPY, pair_spy)
+                deduced |= page.add_minion_type(Role.SPY)
     return deduced
 
 def _deduce_from_possible_chef_pairs(

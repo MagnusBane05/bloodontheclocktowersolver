@@ -1,5 +1,7 @@
 import unittest
+from unittest.mock import patch
 
+from grimoire.deduced_page import deduce_from_chef_number
 from grimoire.grimoire_page import GrimoirePage, _FIELDS_NOT_VALIDATED, _FIELD_CHANGE_TYPES  # pyright: ignore[reportPrivateUsage]
 from grimoire.role import *
 
@@ -599,6 +601,103 @@ class TestCanBePoisoned(unittest.TestCase):
         page.dead[1] = True
         result = page.can_be_poisoned(0)
         self.assertFalse(result, "Expected poisoning to be invalid when the known Poisoner is dead.")
+
+def _page_state(page: GrimoirePage) -> dict[str, object]:
+    return {k: (list(v) if isinstance(v, list) else v) for k, v in vars(page).items()}
+
+def _chef_page(characters: list[Role], chef_number: int, minion_types: list[Role] | None = None) -> GrimoirePage:
+    page = GrimoirePage(len(characters))
+    page.characters = list(characters)
+    if minion_types is not None:
+        page.minion_types = list(minion_types)
+    page.chef_number = chef_number
+    return page
+
+def _settle(page: GrimoirePage) -> None:
+    # run deductions until the page stops changing, without trusting the deduced flag
+    for _ in range(20):
+        before = _page_state(page)
+        page.make_deductions()
+        if _page_state(page) == before:
+            return
+    raise AssertionError("page did not settle")
+
+# (description, characters, chef number, minion types)
+_CHEF_CASES: list[tuple[str, list[Role], int, list[Role] | None]] = [
+    ("known Spy in a pair with a known evil",
+        [Role.ANY_OTHER_TOWNSFOLK, Role.IMP, Role.ANY_OTHER_MINION, Role.ANY_OTHER, Role.ANY_OTHER], 0, None),
+    ("Spy between two evils",
+        [Role.ANY_OTHER_GOOD]*6 + [Role.ANY_OTHER_EVIL]*3 + [Role.ANY_OTHER_GOOD], 0, None),
+    ("Spy between two evils, Chef 1",
+        [Role.ANY_OTHER_GOOD]*6 + [Role.IMP, Role.ANY_OTHER_EVIL, Role.BARON, Role.ANY_OTHER_GOOD], 1,
+        [Role.BARON, Role.ANY_OTHER_MINION]),
+    ("known Recluse in the chef pair",
+        [Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_EVIL, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER], 2, None),
+    ("Recluse and Baron needed for the chef number",
+        [Role.NON_DEMON, Role.ANY_OTHER, Role.ANY_OTHER, Role.NON_DEMON, Role.CHEF], 2, None),
+    ("Recluse needed, outsider count covers it",
+        [Role.NON_DEMON, Role.ANY_OTHER, Role.ANY_OTHER, Role.NON_DEMON, Role.CHEF, Role.ANY_OTHER], 2,
+        [Role.SCARLET_WOMAN]),
+    ("Recluse in any possible chef number",
+        [
+            Role.ANY_OTHER_TOWNSFOLK, Role.SCARLET_WOMAN, Role.ANY_OTHER_GOOD, Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK,
+            Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER_EVIL
+        ], 1, [Role.SCARLET_WOMAN, Role.ANY_OTHER_MINION]),
+    ("unknown player good when Spy is not possible",
+        [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.ANY_OTHER, Role.ANY_OTHER], 0, [Role.BARON]),
+    ("unknown player good when Spy is elsewhere",
+        [
+            Role.ANY_OTHER, Role.SPY, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER,
+            Role.ANY_OTHER_GOOD, Role.IMP, Role.ANY_OTHER, Role.ANY_OTHER, Role.ANY_OTHER,
+        ], 0, None),
+    ("unknown pair in chef number, Recluse or evil",
+        [Role.ANY_OTHER, Role.ANY_OTHER, Role.CHEF, Role.ANY_OTHER, Role.DRUNK], 1, None),
+    ("one continuous pair",
+        [
+            Role.ANY_OTHER_GOOD, Role.ANY_OTHER, Role.BARON, Role.ANY_OTHER_TOWNSFOLK,
+            Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER_OUTSIDER, Role.BUTLER
+        ], 2, [Role.BARON]),
+    ("player in all possible chef pairs",
+        [
+            Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK,
+            Role.ANY_OTHER, Role.ANY_OTHER_TOWNSFOLK, Role.ANY_OTHER, Role.ANY_OTHER
+        ], 1, None),
+]
+
+class TestChefDeductionsReportChanges(unittest.TestCase):
+    """deduce_from_chef_number must only return True when it changed the page,
+    otherwise make_deductions keeps running deduction steps that do nothing."""
+
+    def test_settled_page_reports_no_change(self):
+        for description, characters, chef_number, minion_types in _CHEF_CASES:
+            with self.subTest(description):
+                page = _chef_page(characters, chef_number, minion_types)
+                _settle(page)
+                before = _page_state(page)
+                deduced = deduce_from_chef_number(page)
+                self.assertEqual(before, _page_state(page), "Expected a settled page not to change.")
+                self.assertFalse(deduced, "Expected no deduction to be reported on a settled page.")
+
+    def test_reported_change_is_real(self):
+        for description, characters, chef_number, minion_types in _CHEF_CASES:
+            with self.subTest(description):
+                page = _chef_page(characters, chef_number, minion_types)
+                for _ in range(20):
+                    before = _page_state(page)
+                    deduced = deduce_from_chef_number(page)
+                    changed = _page_state(page) != before
+                    self.assertEqual(changed, deduced, "Expected the deduced flag to match whether the page changed.")
+                    if not changed:
+                        break
+
+    def test_settled_page_runs_one_deduction_step(self):
+        for description, characters, chef_number, minion_types in _CHEF_CASES:
+            with self.subTest(description):
+                page = _chef_page(characters, chef_number, minion_types)
+                _settle(page)
+                with patch.object(GrimoirePage, "_deduction_step", autospec=True, side_effect=GrimoirePage._deduction_step) as step:  # pyright: ignore[reportPrivateUsage]
+                    page.make_deductions()
+                self.assertEqual(1, step.call_count, "Expected one deduction step on a settled page.")
 
 class TestFields(unittest.TestCase):
     def test_all_fields_validated(self):

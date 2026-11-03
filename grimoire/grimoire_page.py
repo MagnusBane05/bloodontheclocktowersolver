@@ -172,14 +172,15 @@ class GrimoirePage:
         
         return True
 
-    def add_minion_type(self, type: Role) -> None:
+    def add_minion_type(self, type: Role) -> bool:
         if type not in MINIONS:
             raise ValueError("You are trying to add a non-minion role as a minion type.")
         if type in self.minion_types:
-            return
+            return False
         try:
             idx = self.minion_types.index(Role.ANY_OTHER_MINION)
             self.minion_types[idx] = type
+            return True
         except ValueError:
             raise ValueError("You are trying to add a minion type but this phase already has all minion types determined.")
     
@@ -190,6 +191,12 @@ class GrimoirePage:
     
     def clear_poisoned(self):
         self.poisoned = [False] * len(self.poisoned)
+
+    def set_character(self, character: Role, player: int) -> bool:
+        if self.characters[player] == character:
+            return False
+        self.characters[player] = character
+        return True
 
     def apply_character(self, character: Role, player: int):
         original = self.characters[player]
