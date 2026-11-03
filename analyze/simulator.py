@@ -286,7 +286,6 @@ def handle_demon_kill(page: GrimoirePage, info_list: list[Info], bluffs: list[Ro
                 page.characters[i] = c
             new_imp = random.choice(old_minions)[0]
             page.characters[new_imp] = Role.IMP
-            page.character_changed[new_imp] = True
         # If imp starpassed to Spy and spy was Red Herring, move Red Herring
         elif old_characters[new_imp] == Role.SPY and old_red_herring[new_imp]:
             new_red_herring = random.choice(gamerules.get_valid_red_herrings(page.characters))

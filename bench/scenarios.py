@@ -59,6 +59,9 @@ def encode_grim(grim: Grimoire) -> dict[str, Any]:
         "pages": [_encode(vars(page)) for page in grim.pages],
     }
 
+# Fields removed from GrimoirePage that older scenario files still contain
+_RETIRED_PAGE_FIELDS = {"character_changed"}
+
 def decode_grim(data: dict[str, Any]) -> Grimoire:
     num_players = data["num_players"]
     grim = Grimoire(num_players)
@@ -68,6 +71,8 @@ def decode_grim(data: dict[str, Any]) -> Grimoire:
         page = GrimoirePage(num_players, fields["night"], fields["night_order_position"])
         known_fields = vars(page)
         for field, value in fields.items():
+            if field in _RETIRED_PAGE_FIELDS:
+                continue
             if field not in known_fields:
                 raise ValueError(
                     f"Scenario page field '{field}' no longer exists on GrimoirePage. " +

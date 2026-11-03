@@ -67,7 +67,6 @@ _FIELDS_NOT_VALIDATED = {
     'num_players',
     'drunk_token',
     'night',
-    'character_changed',
     'star_passed',
     'slayer_shot',
     'red_herring_moved',
@@ -89,7 +88,6 @@ class GrimoirePage:
         self.no_outsiders: bool = False
         self.night: int = night
         self.night_order_position: NightOrderPosition = night_order_position
-        self.character_changed: list[bool] = [False]*num_players
         self.star_passed: bool = False
         self.executee: int | None = None
         self.slayer_shot: list[bool] = [False]*num_players
@@ -120,7 +118,6 @@ class GrimoirePage:
         page.poisoned = list(self.poisoned)
         page.red_herring = list(self.red_herring)
         page.dead = list(self.dead)
-        page.character_changed = list(self.character_changed)
         page.slayer_shot = list(self.slayer_shot)
         page.drunk_token = self.drunk_token
         page.chef_number = self.chef_number
@@ -454,7 +451,6 @@ class GrimoirePage:
         try:
             idx = self.characters.index(Role.SCARLET_WOMAN)
             self.characters[idx] = Role.IMP
-            self.character_changed[idx] = True
             return idx
         except:
             pass
@@ -474,7 +470,6 @@ class GrimoirePage:
         # Alive minion becomes the Imp
         if alive_minion is not None:
             self.characters[alive_minion] = Role.IMP
-            self.character_changed[alive_minion] = True
             return alive_minion
 
         # otherwise, all alive potential scarlet women could be the new demon
@@ -482,11 +477,9 @@ class GrimoirePage:
             c = self.characters[i]
             if c == Role.NON_DEMON:
                 self.characters[i] = Role.ANY_OTHER
-                self.character_changed[i] = True
                 continue
             elif c == Role.ANY_OTHER_MINION:
                 self.characters[i] = Role.ANY_OTHER_EVIL
-                self.character_changed[i] = True
 
     # returns new imp if known
     def apply_starpass(self, imp: int) -> int | None:
@@ -499,7 +492,6 @@ class GrimoirePage:
             idx = self.characters.index(Role.SCARLET_WOMAN)
             if not self.poisoned[idx]:
                 self.characters[idx] = Role.IMP
-                self.character_changed[idx] = True
                 return idx
         
         known_minion_count = sum(1 for c in self.characters if c in GENERIC_MINION_SET)

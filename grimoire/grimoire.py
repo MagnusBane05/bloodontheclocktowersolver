@@ -377,10 +377,8 @@ class Grimoire:
         if not Grimoire._combine_red_herring(new_phase, p1, p2, num_players):
             return False, "mismatched red herring"
 
-        # Combine star passed and character changed
+        # Combine star passed
         new_phase.star_passed = p1.star_passed or p2.star_passed
-        for i in range(num_players):
-            new_phase.character_changed[i] = p1.character_changed[i] or p2.character_changed[i]
 
         return True, ""
 
