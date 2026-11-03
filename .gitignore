@@ -225,3 +225,4 @@ pnpm-debug.log*
 *.prof
 # Benchmark per-run results (bench/results.csv is committed)
 bench/results/
+bench/profiles/
