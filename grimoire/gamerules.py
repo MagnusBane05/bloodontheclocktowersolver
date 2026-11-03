@@ -119,7 +119,10 @@ def can_scarlet_woman_catch(page: GrimoirePage, dead_player: int) -> bool:
     
     return True
 
-def can_imp_starpass(page: GrimoirePage, dead_player: int) -> bool:
+def can_imp_starpass(page: GrimoirePage, dead_player: int, red_herring_spy_catches: bool = False) -> bool:
+    if red_herring_spy_catches and (page.find_red_herring_spy() is None or page.find_scarlet_woman() is not None):
+        return False
+
     # known non-demon player killed by demon
     if not can_player_be_demon(page.characters[dead_player]):
         return False

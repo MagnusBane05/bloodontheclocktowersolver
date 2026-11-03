@@ -481,17 +481,48 @@ class GrimoirePage:
             elif c == Role.ANY_OTHER_MINION:
                 self.characters[i] = Role.ANY_OTHER_EVIL
 
+    def _promote_minion(self, minion: int):
+        if self.dead[minion]:
+            raise ValueError("Cannot promote a dead minion")
+        if self.characters[minion] == Role.SPY and self.red_herring[minion]:
+            self.red_herring[minion] = False
+            self.red_herring_moved = True
+        elif self.characters[minion] == Role.POISONER:
+            self.poisoned = [False]*self.num_players
+        self.characters[minion] = Role.IMP
+
+    def find_red_herring_spy(self) -> int | None:
+        characters = self.characters
+        for i in range(len(characters)):
+            if characters[i] == Role.SPY and self.red_herring[i] and not self.dead[i]:
+                return i
+        return None
+
+    def find_scarlet_woman(self) -> int | None:
+        characters = self.characters
+        for i in range(len(characters)):
+            if characters[i] == Role.SCARLET_WOMAN and not self.poisoned[i] and not self.dead[i]:
+                return i
+        return None
+
     # returns new imp if known
-    def apply_starpass(self, imp: int) -> int | None:
+    def apply_starpass(self, imp: int, red_herring_spy_catches: bool = False) -> int | None:
         # dead player was the imp
         self.characters[imp] = Role.IMP
         self.star_passed = True
+        
+        if red_herring_spy_catches:
+            spy = self.find_red_herring_spy()
+            if spy is None:
+                raise ValueError("Cannot apply starpass with Red Herring Spy catching without a Red Herring Spy")
+            self._promote_minion(spy)
+            return spy
 
         # if there's a known alive scarlet woman, they become the demon
         if Role.SCARLET_WOMAN in self.get_alive_characters():
             idx = self.characters.index(Role.SCARLET_WOMAN)
             if not self.poisoned[idx]:
-                self.characters[idx] = Role.IMP
+                self._promote_minion(idx)
                 return idx
         
         known_minion_count = sum(1 for c in self.characters if c in GENERIC_MINION_SET)
@@ -507,14 +538,7 @@ class GrimoirePage:
             alive_minion = alive_potential_minions[0]
         # Alive minion becomes the new demon
         if alive_minion is not None:
-            old_minion = self.characters[alive_minion]
-            assert not self.dead[alive_minion]
-            self.characters[alive_minion] = Role.IMP
-            if old_minion == Role.POISONER:
-                self.poisoned = [False]*self.num_players
-            elif old_minion == Role.SPY and self.red_herring[alive_minion]:
-                self.red_herring[alive_minion] = False
-                self.red_herring_moved = True
+            self._promote_minion(alive_minion)
             return alive_minion
 
         # non-demons become any role
@@ -525,7 +549,7 @@ class GrimoirePage:
                 continue
             if c == Role.NON_DEMON:
                 self.characters[i] = Role.ANY_OTHER
-            if c == Role.ANY_OTHER_MINION or c in MINIONS:
+            if c == Role.ANY_OTHER_MINION or (c in MINIONS and not (c == Role.SPY and self.red_herring[i])):
                 self.characters[i] = Role.ANY_OTHER_EVIL
     
     def get_alive_characters(self) -> list[Role]:

@@ -662,7 +662,7 @@ def add_info_to_grims(
     info: Info, 
     grims: list[Grimoire], 
     trace: TrueGrimTrace | None = None
-):
+) -> list[Grimoire]:
     if info["kind"] == "claim":
         return _apply_info(info, grims, _add_claim, trace)
     elif info["kind"] == "investigator":
@@ -691,7 +691,7 @@ def add_info_to_grims(
 def _add_demon_kill(
     info: DemonKillInfo, 
     grim: Grimoire, 
-    trace: TrueGrimTrace | None = None,
+    _trace: TrueGrimTrace | None = None,
 ) -> list[Grimoire]:
     night = info["night"]
     player = info["player"]
@@ -700,16 +700,25 @@ def _add_demon_kill(
     new_grims: set[Grimoire] = set()
 
     # Killed player was the Imp who starpassed
-    _add_branch(
+    _ = _add_branch(
         new_grims,
         grim,
         mark_dead_action(player, night, order),
-        starpass_action(player, night, order),
+        starpass_action(player, night, order, red_herring_spy_catches=False),
         label=f"player {player} is Imp who starpassed",
     )
 
+    # Killed player was the Imp who starpassed to the Spy with the Red Herring
+    _ = _add_branch(
+        new_grims,
+        grim,
+        mark_dead_action(player, night, order),
+        starpass_action(player, night, order, red_herring_spy_catches=True),
+        label=f"player {player} is the Imp who starpassed to the Spy with the Red Herring",
+    )
+
     # Killed player was not the Imp
-    _add_branch(
+    _ = _add_branch(
         new_grims,
         grim,
         mark_dead_action(player, night, order),
@@ -730,7 +739,7 @@ def _add_execution(
     new_grims: set[Grimoire] = set()
 
     # Executee was the demon and Scarlet Woman catches
-    _add_branch(
+    _ = _add_branch(
         new_grims,
         grim,
         mark_dead_action(executee, night, order),
@@ -741,7 +750,7 @@ def _add_execution(
     )
 
     # Executee was not the demon
-    _add_branch(
+    _ =_add_branch(
         new_grims,
         grim,
         mark_dead_action(executee, night, order),
@@ -757,7 +766,7 @@ def _add_execution(
 def _add_slayer_shot(
     info: SlayerKillInfo, 
     grim: Grimoire,
-    trace: TrueGrimTrace | None = None,
+    _trace: TrueGrimTrace | None = None,
 ) -> list[Grimoire]:
     night = info["night"]
     target = info["player"]
@@ -766,7 +775,7 @@ def _add_slayer_shot(
     new_grims: set[Grimoire] = set()
 
     # Slayer killed the demon and Scarlet Woman caught
-    _add_branch(
+    _ =_add_branch(
         new_grims,
         grim,
         slayer_shot_action(target, night, order),
@@ -775,7 +784,7 @@ def _add_slayer_shot(
     )
 
     # Slayer killed the Recluse registering as demon
-    _add_branch(
+    _ =_add_branch(
         new_grims,
         grim,
         mark_dead_action(target, night, order),
@@ -799,7 +808,7 @@ def _apply_death_info(
 
     after = len(new_grims)
     logging.debug(
-        f"added {info['kind']} death info "
+        f"added {info['kind']} death info " +
         f"before: {before}, after: {after}"
     )
     return list(new_grims)

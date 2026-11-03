@@ -153,12 +153,13 @@ def starpass_action(
     imp: int,
     night: int,
     order: NightOrderPosition,
+    red_herring_spy_catches: bool,
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
         page = _get_info_page(grim, night, order)
-        if not gamerules.can_imp_starpass(page, imp):
+        if not gamerules.can_imp_starpass(page, imp, red_herring_spy_catches):
             return False
-        grim.apply_starpass(imp, page)
+        grim.apply_starpass(imp, page, red_herring_spy_catches)
         return True
     return action
 

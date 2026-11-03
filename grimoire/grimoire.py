@@ -148,13 +148,13 @@ class Grimoire:
         self.keys.insert(i, key)
         return new_page
 
-    def apply_starpass(self, demon: int, page: GrimoirePage):
-        new_demon = page.apply_starpass(demon)
+    def apply_starpass(self, demon: int, page: GrimoirePage, red_herring_spy_catches: bool = False):
+        new_demon = page.apply_starpass(demon, red_herring_spy_catches)
 
         # make new demon a minion in past pages
         if new_demon is not None:
             for p in self.get_all_previous_pages(page):
-                p.apply_character(Role.ANY_OTHER_MINION, new_demon)
+                _ =p.apply_character(Role.ANY_OTHER_MINION, new_demon)
     
     def apply_sw_catch(self, demon: int, page: GrimoirePage):
         new_demon = page.apply_sw_catch(demon)

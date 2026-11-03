@@ -471,6 +471,147 @@ class TestAddDeathInfoToGrims(unittest.TestCase):
             "Expected a result where the shot player was an Imp and the old Scarlet Woman is an Imp."
         )
 
+class TestStarpassToRedHerringSpy(unittest.TestCase):
+    NIGHT = 2
+    ORDER = NightOrderPosition.AFTER_IMP
+    IMP = 3
+    SPY = 0
+
+    def _kill_imp(self, base: Grimoire) -> list[Grimoire]:
+        info: DemonKillInfo = {
+            "kind": "demon",
+            "night": self.NIGHT,
+            "player": self.IMP,
+        }
+        return add_death_info_to_grims(info, [base])
+
+    def _base(self, num_players: int) -> tuple[Grimoire, GrimoirePage]:
+        base = Grimoire(num_players)
+        page = base.add_page(self.NIGHT, self.ORDER)
+        page.add_minion_type(Role.SPY)
+        page.characters[self.SPY] = Role.SPY
+        page.red_herring[self.SPY] = True
+        return base, page
+
+    def _starpass_pages(self, results: list[Grimoire]) -> list[GrimoirePage]:
+        pages = [get_required_page(g, self.NIGHT, self.ORDER) for g in results]
+        return [p for p in pages if p.dead[self.IMP] and p.characters[self.IMP] == Role.IMP]
+
+    def _spy_became_imp(self, page: GrimoirePage) -> bool:
+        return (
+            page.characters[self.SPY] == Role.IMP
+            and not page.red_herring[self.SPY]
+            and page.red_herring_moved
+        )
+
+    def _spy_stayed_spy(self, page: GrimoirePage) -> bool:
+        return (
+            page.characters[self.SPY] == Role.SPY
+            and page.red_herring[self.SPY]
+            and not page.red_herring_moved
+        )
+
+    def test_both_branches_when_other_minion_possible(self):
+        base, _ = self._base(10)
+        pages = self._starpass_pages(self._kill_imp(base))
+
+        self.assertTrue(
+            any(self._spy_became_imp(p) for p in pages),
+            "Expected a branch where the red herring Spy caught the starpass and the red herring moved.",
+        )
+        self.assertTrue(
+            any(self._spy_stayed_spy(p) for p in pages),
+            "Expected a branch where another minion caught the starpass and the Spy kept the red herring.",
+        )
+        self.assertFalse(
+            any(p.characters[self.SPY] == Role.ANY_OTHER_EVIL for p in pages),
+            "The red herring Spy should not be widened to ANY_OTHER_EVIL.",
+        )
+
+    def test_spy_is_only_minion(self):
+        # 5 players: one minion, so the Spy must catch the starpass
+        base, _ = self._base(5)
+        pages = self._starpass_pages(self._kill_imp(base))
+
+        self.assertTrue(
+            any(self._spy_became_imp(p) for p in pages),
+            "Expected the only minion (the red herring Spy) to become the Imp.",
+        )
+        self.assertFalse(
+            any(p.characters[self.SPY] == Role.SPY for p in pages),
+            "The Spy cannot stay the Spy when no other minion can catch the starpass.",
+        )
+        self.assertFalse(
+            any(p.characters[self.SPY] == Role.IMP and p.red_herring[self.SPY] for p in pages),
+            "The red herring must never stay on the new Imp.",
+        )
+
+    def test_scarlet_woman_takes_priority(self):
+        for scarlet_woman in (1, 5):  # Spy is seat 0, so the Scarlet Woman is seated after it
+            with self.subTest(scarlet_woman=scarlet_woman):
+                base, page = self._base(10)
+                page.add_minion_type(Role.SCARLET_WOMAN)
+                page.characters[scarlet_woman] = Role.SCARLET_WOMAN
+                pages = self._starpass_pages(self._kill_imp(base))
+
+                self.assertTrue(
+                    any(
+                        p.characters[scarlet_woman] == Role.IMP and self._spy_stayed_spy(p)
+                        for p in pages
+                    ),
+                    "Expected the Scarlet Woman to catch the starpass with the Spy keeping the red herring.",
+                )
+                self.assertFalse(
+                    any(p.characters[self.SPY] == Role.IMP for p in pages),
+                    "The Spy should not catch the starpass over a living, healthy Scarlet Woman.",
+                )
+
+    def test_scarlet_woman_seated_before_spy(self):
+        # Spy at a later seat than the Scarlet Woman
+        base = Grimoire(10)
+        page = base.add_page(self.NIGHT, self.ORDER)
+        spy, scarlet_woman = 5, 0
+        page.add_minion_type(Role.SPY)
+        page.add_minion_type(Role.SCARLET_WOMAN)
+        page.characters[spy] = Role.SPY
+        page.red_herring[spy] = True
+        page.characters[scarlet_woman] = Role.SCARLET_WOMAN
+        pages = self._starpass_pages(self._kill_imp(base))
+
+        self.assertGreater(len(pages), 0)
+        self.assertFalse(
+            any(p.characters[spy] == Role.IMP for p in pages),
+            "The Spy should not catch the starpass over a living, healthy Scarlet Woman.",
+        )
+
+    def test_spy_without_red_herring_unchanged(self):
+        base = Grimoire(10)
+        page = base.add_page(self.NIGHT, self.ORDER)
+        page.add_minion_type(Role.SPY)
+        page.characters[self.SPY] = Role.SPY
+        pages = self._starpass_pages(self._kill_imp(base))
+
+        self.assertGreater(len(pages), 0)
+        self.assertFalse(
+            any(p.red_herring_moved for p in pages),
+            "The red herring Spy branch should not fire when the Spy has no red herring.",
+        )
+        self.assertTrue(
+            any(p.characters[self.SPY] == Role.ANY_OTHER_EVIL for p in pages),
+            "A Spy without the red herring is widened like any other minion.",
+        )
+
+    def test_dead_red_herring_spy_does_not_catch(self):
+        base, page = self._base(10)
+        page.dead[self.SPY] = True
+        pages = self._starpass_pages(self._kill_imp(base))
+
+        self.assertFalse(
+            any(p.characters[self.SPY] == Role.IMP for p in pages),
+            "A dead Spy cannot catch the starpass.",
+        )
+
+
 class TestAddInfoToGrims(unittest.TestCase):
     def test_fortune_teller_no(self):
         fortune_teller = 0
