@@ -96,12 +96,15 @@ class GrimoirePage:
     def __eq__(self, other): # type: ignore
         if not isinstance(other, GrimoirePage):
             return False
-        return (
-            self.characters == other.characters and
-            set(self.minion_types) == set(other.minion_types) and
-            self.poisoned == other.poisoned and
-            self.red_herring == other.red_herring
-        )
+        other_vars = vars(other)
+        for field, value in vars(self).items():  # pyright: ignore[reportAny]
+            if field == "minion_types":
+                # which minion slot a type was deduced in doesn't matter
+                if set(self.minion_types) != set(other.minion_types):
+                    return False
+            elif value != other_vars[field]:
+                return False
+        return True
     
     def __hash__(self):
         return hash((

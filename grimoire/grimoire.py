@@ -41,22 +41,11 @@ class Grimoire:
     def __eq__(self, value: object):
         if not isinstance(value, Grimoire):
             return False
-        players = len(self.pages[0].characters)
-        if players != len(value.pages[0].characters):
-            return False
-        for page in self.pages:
-            night = page.night
-            night_order_position = page.night_order_position
-            other_page = value.get_page(night, night_order_position)
-            if other_page == None:
-                continue
-            if not page == other_page:
-                return False
-        return True
+        return self.keys == value.keys and self.pages == value.pages
 
     @override
     def __hash__(self):
-        return hash(tuple(hash(p) for p in self.pages))
+        return hash((tuple(self.keys), tuple(self.pages)))
 
     @override
     def __str__(self):

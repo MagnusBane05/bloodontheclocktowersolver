@@ -771,6 +771,34 @@ class TestSameState(unittest.TestCase):
                 self.assertFalse(page.same_state(other))
                 self.assertFalse(other.same_state(page))
 
+class TestPageEquality(unittest.TestCase):
+    def test_clone_is_equal_with_same_hash(self):
+        page = GrimoirePage()
+        page.characters[1] = Role.IMP
+        self.assertEqual(page, page.clone())
+        self.assertEqual(hash(page), hash(page.clone()))
+
+    def test_any_field_changing_makes_pages_unequal(self):
+        for field, change in TestSameState.CHANGES.items():
+            with self.subTest(field):
+                page = GrimoirePage()
+                other = page.clone()
+                change(other)
+                self.assertNotEqual(page, other)
+                self.assertNotEqual(other, page)
+
+    def test_minion_type_order_is_ignored(self):
+        page = GrimoirePage(10)
+        page.minion_types = [Role.POISONER, Role.SPY]
+        other = page.clone()
+        other.minion_types = [Role.SPY, Role.POISONER]
+        self.assertEqual(page, other)
+        self.assertEqual(hash(page), hash(other))
+        self.assertFalse(page.same_state(other), "Expected same_state to still notice the order.")
+
+    def test_not_equal_to_other_types(self):
+        self.assertNotEqual(GrimoirePage(), None)
+
 class TestChangeReportingSetters(unittest.TestCase):
     def test_add_minion_type(self):
         page = GrimoirePage()

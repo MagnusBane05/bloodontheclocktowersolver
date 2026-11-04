@@ -32,6 +32,57 @@ class TestAddPage(unittest.TestCase):
         self.assertEqual(world.pages[2].night_order_position, NightOrderPosition.AFTER_SLAYER)
         self.assertEqual(world.pages[3].night_order_position, NightOrderPosition.AFTER_EXECUTION)        
 
+class TestGrimoireEquality(unittest.TestCase):
+    @staticmethod
+    def _poisoned_on_night(*nights: int) -> Grimoire:
+        # poisoning is what creates the page for that night, as poisoned_action does
+        world = Grimoire()
+        for night in nights:
+            world.add_page(night, NightOrderPosition.AFTER_IMP).poisoned[0] = True
+        return world
+
+    def test_clone_is_equal_with_same_hash(self):
+        world = self._poisoned_on_night(2)
+        self.assertEqual(world, world.clone())
+        self.assertEqual(hash(world), hash(world.clone()))
+
+    def test_same_poison_on_different_nights_is_unequal(self):
+        self.assertNotEqual(self._poisoned_on_night(2), self._poisoned_on_night(3))
+
+    def test_extra_page_is_unequal_both_ways(self):
+        world = Grimoire()
+        extra = Grimoire()
+        _ = extra.add_page(2, NightOrderPosition.AFTER_IMP)
+        self.assertNotEqual(world, extra)
+        self.assertNotEqual(extra, world)
+
+    def test_same_night_different_order_is_unequal(self):
+        world = Grimoire()
+        other = Grimoire()
+        _ = world.add_page(2, NightOrderPosition.AFTER_IMP)
+        _ = other.add_page(2, NightOrderPosition.AFTER_EXECUTION)
+        self.assertNotEqual(world, other)
+
+    def test_different_page_contents_are_unequal(self):
+        world = Grimoire()
+        other = Grimoire()
+        other.pages[0].chef_number = 1
+        self.assertNotEqual(world, other)
+
+    def test_set_keeps_worlds_with_poison_on_different_nights(self):
+        worlds = {self._poisoned_on_night(2), self._poisoned_on_night(3), self._poisoned_on_night(2)}
+        self.assertEqual(2, len(worlds))
+
+    def test_unsettled_is_ignored(self):
+        world = Grimoire()
+        other = world.clone()
+        other.unsettled = set()
+        self.assertEqual(world, other)
+        self.assertEqual(hash(world), hash(other))
+
+    def test_not_equal_to_other_types(self):
+        self.assertNotEqual(Grimoire(), None)
+
 class TestPassBetweenPages(unittest.TestCase):
     def test_pass_characters(self):
         # sanity check, same characters should be okay

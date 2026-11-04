@@ -131,7 +131,7 @@ def load_scenarios(players: int, version: str = "v1", limit: int | None = None) 
     return [_decode_game(players, i, game) for i, game in enumerate(games)]
 
 def _pages_equal(g1: Grimoire, g2: Grimoire) -> bool:
-    # GrimoirePage.__eq__ only compares some fields, so compare every field
+    # GrimoirePage.__eq__ ignores minion type order, so compare every field exactly
     return (
         len(g1.pages) == len(g2.pages)
         and all(vars(p1) == vars(p2) for p1, p2 in zip(g1.pages, g2.pages))
