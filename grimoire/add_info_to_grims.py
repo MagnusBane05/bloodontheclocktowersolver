@@ -1,8 +1,6 @@
 from typing import TypeVar, Callable
 import logging
 
-# logging.basicConfig(level=logging.DEBUG)
-
 from .branch_actions import *
 from .info import *
 from .grimoire import *
@@ -13,22 +11,33 @@ from .nightOrderPosition import NightOrderPosition
 
 MAX_FINALIZE_ROUNDS = 10
 
-def find_finalize_problem(grim: Grimoire) -> str | None:
+def find_finalize_problem(grim: Grimoire, dirty_keys: set[GrimoireKey] | None = None) -> str | None:
     """Settles grim in place, passing between pages and deducing until nothing changes.
-    Returns why the world is impossible, or None if it's still valid."""
+    Only pages in dirty_keys have changed since grim last settled. None means all of them.
+    Returns why the world is impossible or None if it's still valid"""
+    to_pass: set[int] = {i for i, key in enumerate(grim.keys) if dirty_keys is None or key in dirty_keys}
+    first_page_changed = 0 in to_pass
     for _ in range(MAX_FINALIZE_ROUNDS):
-        valid, reason = Grimoire.pass_through_pages(grim)
+        valid, reason, changed = Grimoire.pass_through_pages(grim, to_pass)
         if not valid:
             return reason
-        if not grim.make_deductions():
+        to_pass = {i for i in to_pass | changed if grim.pages[i].make_deductions()}
+        if not to_pass:
             break
     else:
         raise FinalizeDidNotSettleError(f"Finalize did not settle after {MAX_FINALIZE_ROUNDS} rounds.")
-    valid, reason = validators.is_grim_valid(grim)
-    return None if valid else reason
+    # passing validates every page it reaches, and nothing passes into the first page
+    if first_page_changed:
+        valid, reason = validators.is_page_valid(grim.pages[0])
+        if not valid:
+            return reason
+    return None
 
-def _finalize(grim: Grimoire) -> Grimoire | None:
-    return None if find_finalize_problem(grim) is not None else grim
+def _finalize(grim: Grimoire, dirty_keys: set[GrimoireKey] | None = None) -> Grimoire | None:
+    if find_finalize_problem(grim, dirty_keys) is not None:
+        return None
+    grim.unsettled = set()
+    return grim
 
 def _try_branch(
     base: Grimoire,
@@ -41,10 +50,13 @@ def _try_branch(
         for action in actions:
             if not action(candidate):
                 return None
+
+        dirty = candidate.changed_pages_since(base)
             
         if finalize:
-            return _finalize(candidate)
-            
+            return _finalize(candidate, dirty)
+
+        candidate.unsettled = dirty            
         return candidate
     
     except (RuntimeError, ValueError):

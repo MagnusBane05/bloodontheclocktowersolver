@@ -1,9 +1,12 @@
 import unittest
 from unittest import mock
 
-from grimoire.add_info_to_grims import MAX_FINALIZE_ROUNDS, _finalize, _try_branch, add_death_info_to_grims, add_info_to_grims, find_finalize_problem  # pyright: ignore[reportPrivateUsage]
+from bench.scenarios import load_scenarios
+from grimoire import GrimoireManager
+from grimoire import add_info_to_grims as add_info_module
+from grimoire.add_info_to_grims import MAX_FINALIZE_ROUNDS, _finalize, _try_branch, _try_intermediate_branch, add_death_info_to_grims, add_info_to_grims, find_finalize_problem  # pyright: ignore[reportPrivateUsage]
 from grimoire.errors import FinalizeDidNotSettleError
-from grimoire.grimoire import Grimoire
+from grimoire.grimoire import Grimoire, GrimoireKey
 from grimoire.grimoire_page import GrimoirePage
 from grimoire.info import DemonKillInfo, ExecutionInfo, SlayerKillInfo, FortuneTellerInfo
 from grimoire.nightOrderPosition import NightOrderPosition
@@ -794,7 +797,7 @@ class TestFinalize(unittest.TestCase):
 
     def test_not_settling_is_an_error_not_an_invalid_world(self):
         # branching drops a world on RuntimeError or ValueError, which would hide this bug
-        with mock.patch.object(Grimoire, "make_deductions", return_value=True) as make_deductions:
+        with mock.patch.object(GrimoirePage, "make_deductions", return_value=True) as make_deductions:
             with self.assertRaises(FinalizeDidNotSettleError):
                 _ = _finalize(Grimoire())
             self.assertEqual(make_deductions.call_count, MAX_FINALIZE_ROUNDS)
@@ -826,6 +829,157 @@ class TestFinalize(unittest.TestCase):
         for page, again_page in zip(result.pages, again.pages):
             self.assertEqual(vars(page), vars(again_page))
         self.assertEqual(Role.IMP, result.pages[1].characters[0], "Expected night 1 deductions to reach night 2.")
+
+
+class TestDirtyPageFinalize(unittest.TestCase):
+    def _settled(self, nights: int = 3) -> Grimoire:
+        grim = Grimoire()
+        for night in range(2, nights + 1):
+            _ = grim.add_page(night, NightOrderPosition.AFTER_IMP)
+        result = _finalize(grim)
+        assert result is not None
+        return result
+
+    def test_finalized_world_is_settled(self):
+        self.assertEqual(set(), self._settled().unsettled)
+
+    def test_rejected_world_stays_unsettled(self):
+        grim = Grimoire()
+        grim.get_first_page().minion_types = [Role.BARON]
+        night2 = grim.add_page(2, NightOrderPosition.AFTER_IMP)
+        night2.minion_types = [Role.POISONER]
+        self.assertIsNone(_finalize(grim))
+        self.assertIsNone(grim.unsettled)
+
+    def test_default_finalizes_every_page(self):
+        grim = Grimoire()
+        night2 = grim.add_page(2, NightOrderPosition.AFTER_IMP)
+        grim.get_first_page().characters = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
+        grim.get_first_page().minion_types = [Role.POISONER]
+        self.assertIsNotNone(_finalize(grim))
+        self.assertEqual(Role.IMP, night2.characters[0])
+
+    def test_clean_pages_are_not_deduced(self):
+        grim = self._settled()
+        deducible = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
+        grim.pages[0].characters = list(deducible)
+        grim.pages[0].minion_types = [Role.POISONER]
+        self.assertIsNotNone(_finalize(grim, {grim.keys[2]}))
+        self.assertEqual(deducible, grim.pages[0].characters, "Expected a page outside dirty_keys to be left alone.")
+
+    def test_only_changed_pages_are_deduced_again(self):
+        grim = self._settled(4)
+        grim.pages[1].dead[0] = True
+        with mock.patch.object(GrimoirePage, "make_deductions", autospec=True, return_value=False) as make_deductions:
+            self.assertIsNotNone(_finalize(grim, {grim.keys[1]}))
+        deduced = [call.args[0] for call in make_deductions.call_args_list]
+        self.assertEqual({id(grim.pages[i]) for i in (1, 2, 3)}, {id(page) for page in deduced}, "Expected the dirty page and the pages it changed.")
+
+    def test_deduction_on_a_dirty_page_reaches_later_pages(self):
+        grim = self._settled()
+        grim.pages[0].characters = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
+        grim.pages[0].minion_types = [Role.POISONER]
+        self.assertIsNotNone(_finalize(grim, {grim.keys[0]}))
+        self.assertEqual(Role.IMP, grim.pages[2].characters[0])
+
+    def test_conflict_found_after_a_deduction_on_a_dirty_page(self):
+        grim = self._settled()
+        grim.pages[0].characters = [Role.ANY_OTHER, Role.NON_DEMON, Role.MONK, Role.EMPATH, Role.ANY_OTHER_GOOD]
+        grim.pages[0].minion_types = [Role.POISONER]
+        grim.pages[2].characters[0] = Role.SLAYER
+        self.assertIsNone(_finalize(grim, {grim.keys[0]}))
+
+    def test_first_page_is_validated_when_dirty(self):
+        # nothing passes into the first page, so this is the only check it gets
+        too_many_evils = [Role.IMP, Role.BARON, Role.POISONER, Role.MONK, Role.SLAYER]
+        grim = self._settled()
+        grim.pages[0].characters = list(too_many_evils)
+        self.assertIsNotNone(find_finalize_problem(grim, {grim.keys[0]}))
+
+        grim = Grimoire()
+        grim.get_first_page().characters = list(too_many_evils)
+        self.assertIsNotNone(find_finalize_problem(grim))
+
+    def test_later_pages_are_validated_when_dirty(self):
+        grim = self._settled()
+        grim.pages[1].characters = [Role.IMP, Role.BARON, Role.POISONER, Role.MONK, Role.SLAYER]
+        self.assertIsNotNone(find_finalize_problem(grim, {grim.keys[1]}))
+
+    def test_branch_finalizes_the_page_its_actions_changed(self):
+        grim = self._settled()
+        def set_monk(candidate: Grimoire) -> bool:
+            candidate.pages[0].characters[0] = Role.MONK
+            return True
+        result = _try_branch(grim, set_monk)
+        assert result is not None
+        self.assertEqual(Role.MONK, result.pages[2].characters[0])
+        self.assertEqual(set(), result.unsettled)
+        self.assertEqual(Role.ANY_OTHER, grim.pages[0].characters[0], "Expected the base world not to change.")
+
+    def test_intermediate_branch_records_its_changes(self):
+        grim = self._settled()
+        def set_monk(candidate: Grimoire) -> bool:
+            candidate.pages[0].characters[0] = Role.MONK
+            return True
+        intermediate = _try_intermediate_branch(grim, set_monk)
+        assert intermediate is not None
+        self.assertEqual({grim.keys[0]}, intermediate.unsettled)
+        self.assertEqual(Role.ANY_OTHER, intermediate.pages[2].characters[0], "Expected an intermediate world not to be finalized yet.")
+
+    def test_changes_from_an_intermediate_branch_get_finalized(self):
+        # the change comes from the intermediate world, so comparing with that world alone would miss it
+        grim = self._settled()
+        def set_monk(candidate: Grimoire) -> bool:
+            candidate.pages[0].characters[0] = Role.MONK
+            return True
+        intermediate = _try_intermediate_branch(grim, set_monk)
+        assert intermediate is not None
+        result = _try_branch(intermediate)
+        assert result is not None
+        self.assertEqual(Role.MONK, result.pages[2].characters[0])
+        self.assertEqual(set(), result.unsettled)
+
+    def test_intermediate_change_that_conflicts_is_rejected(self):
+        grim = self._settled()
+        grim.pages[2].characters[0] = Role.SLAYER
+        def set_monk(candidate: Grimoire) -> bool:
+            candidate.pages[0].characters[0] = Role.MONK
+            return True
+        intermediate = _try_intermediate_branch(grim, set_monk)
+        assert intermediate is not None
+        self.assertIsNone(_try_branch(intermediate))
+
+class TestDirtyPageFinalizeMatchesFullFinalize(unittest.TestCase):
+    GAMES = {5: 40, 10: 2}
+
+    def test_every_branch_matches(self):
+        original = add_info_module._finalize  # pyright: ignore[reportPrivateUsage]
+        compared = {"kept": 0, "rejected": 0}
+
+        def state(grim: Grimoire) -> list[dict[str, object]]:
+            return [dict(vars(page)) for page in grim.pages]
+
+        def checked(grim: Grimoire, dirty_keys: set[GrimoireKey] | None = None) -> Grimoire | None:
+            full = grim.clone()
+            try:
+                full_rejects = find_finalize_problem(full) is not None
+            except (RuntimeError, ValueError):
+                full_rejects = True
+            result = original(grim, dirty_keys)
+            self.assertEqual(full_rejects, result is None, "Expected both finalizes to agree on whether the world is possible.")
+            if result is not None:
+                self.assertEqual(state(full), state(result), "Expected both finalizes to settle on the same pages.")
+            compared["rejected" if result is None else "kept"] += 1
+            return result
+
+        with mock.patch.object(add_info_module, "_finalize", checked):
+            for players, games in self.GAMES.items():
+                for scenario in load_scenarios(players, limit=games):
+                    manager = GrimoireManager({"players": players}, scenario.true_grim)
+                    manager.add_full_game(scenario.info, scenario.deaths, scenario.nights)
+
+        self.assertGreater(compared["kept"], 1000)
+        self.assertGreater(compared["rejected"], 0)
 
 
 if __name__ == "__main__":

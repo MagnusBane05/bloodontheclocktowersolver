@@ -40,7 +40,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.characters[0] = Role.MONK
         night2.characters[0] = Role.MONK
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
 
         # different characters should be invalid
@@ -49,7 +49,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.characters[0] = Role.MONK
         night2.characters[0] = Role.SLAYER
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
 
         # specific role -> non specific should be okay
@@ -58,7 +58,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.characters[0] = Role.MONK
         night2.characters[0] = Role.ANY_OTHER_TOWNSFOLK
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
 
         # non-specific role -> specific should be okay
@@ -68,7 +68,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night1.characters[0] = Role.ANY_OTHER_EVIL
         night2.characters[0] = Role.SCARLET_WOMAN
         night2.minion_types[0] = Role.SCARLET_WOMAN
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
         
         # 2 minions becoming demon is not okay
@@ -84,7 +84,7 @@ class TestPassBetweenPages(unittest.TestCase):
         curr.characters[minion2] = Role.IMP
         curr.dead[imp] = True
         curr.star_passed = True
-        result, _reason = Grimoire.pass_between_pages(prev, curr)
+        result, _reason, _ = Grimoire.pass_between_pages(prev, curr)
         self.assertFalse(result, "Expected 2 minions not able to become demon.")
 
         # any other evil to non-demon becomes any other minion
@@ -93,7 +93,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.characters[0] = Role.ANY_OTHER_EVIL
         night2.characters[0] = Role.NON_DEMON
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
         self.assertEqual(night2.characters[0], Role.ANY_OTHER_MINION)
 
@@ -103,7 +103,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.characters[0] = Role.NON_DEMON
         night2.characters[0] = Role.ANY_OTHER_EVIL
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
         self.assertEqual(night2.characters[0], Role.ANY_OTHER_MINION)
 
@@ -113,7 +113,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.characters = [Role.FORTUNE_TELLER, Role.NON_DEMON, Role.NON_DEMON, Role.ANY_OTHER, Role.ANY_OTHER]
         night2.characters = [Role.FORTUNE_TELLER, Role.ANY_OTHER, Role.ANY_OTHER, Role.NON_DEMON, Role.NON_DEMON]
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
 
     def _starpass_pages(self, star_passed: bool) -> tuple[GrimoirePage, GrimoirePage]:
@@ -134,14 +134,14 @@ class TestPassBetweenPages(unittest.TestCase):
 
     def test_pass_known_minion_after_starpass(self):
         prev, curr = self._starpass_pages(star_passed=True)
-        result, reason = Grimoire.pass_between_pages(prev, curr)
+        result, reason, _ = Grimoire.pass_between_pages(prev, curr)
         self.assertTrue(result, reason)
         self.assertEqual(curr.characters[1], Role.ANY_OTHER_EVIL, "Expected a known Spy to stay a possible new Imp after a starpass.")
         self.assertEqual(curr.characters[3], Role.ANY_OTHER_EVIL)
 
     def test_pass_known_minion_without_starpass(self):
         prev, curr = self._starpass_pages(star_passed=False)
-        result, reason = Grimoire.pass_between_pages(prev, curr)
+        result, reason, _ = Grimoire.pass_between_pages(prev, curr)
         self.assertTrue(result, reason)
         self.assertEqual(curr.characters[1], Role.SPY, "Expected a known minion to be narrowed back without a starpass.")
 
@@ -152,7 +152,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.minion_types = [Role.POISONER]
         night2.minion_types = [Role.POISONER]
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
 
         # different minion types should be invalid
@@ -163,7 +163,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2.minion_types = [Role.SCARLET_WOMAN]
         night1.minion_types[0] = Role.POISONER
         night2.minion_types[0] = Role.SCARLET_WOMAN
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
 
         # specific minion type -> any other minion should be okay
@@ -172,7 +172,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.minion_types = [Role.ANY_OTHER_MINION]
         night2.minion_types = [Role.POISONER]
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
 
         # same in reverse
@@ -181,7 +181,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.minion_types = [Role.POISONER]
         night2.minion_types = [Role.ANY_OTHER_MINION]
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
 
     def test_pass_red_herring(self):
@@ -190,7 +190,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night1 = world.pages[0]
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.red_herring[0] = True
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
         self.assertTrue(night2.red_herring[0])
 
@@ -200,7 +200,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.red_herring[0] = True
         night2.red_herring[1] = True
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
 
     def test_pass_poisoned(self):
@@ -209,7 +209,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night1 = world.pages[0]
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.poisoned[0] = True
-        _result, _reason = Grimoire.pass_between_pages(night1, night2)
+        _result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(night2.poisoned[0])
 
     def test_pass_drunk_token(self):
@@ -218,7 +218,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night1 = world.pages[0]
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.drunk_token = Role.UNDERTAKER
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertTrue(result)
         self.assertEqual(night2.drunk_token, Role.UNDERTAKER)
 
@@ -228,7 +228,7 @@ class TestPassBetweenPages(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night1.drunk_token = Role.UNDERTAKER
         night2.drunk_token = Role.FORTUNE_TELLER
-        result, _reason = Grimoire.pass_between_pages(night1, night2)
+        result, _reason, _ = Grimoire.pass_between_pages(night1, night2)
         self.assertFalse(result)
         
 class TestApply(unittest.TestCase):

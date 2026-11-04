@@ -1,8 +1,10 @@
+from typing import Callable
 import unittest
 from unittest.mock import patch
 
 from grimoire.deduced_page import deduce_from_chef_number
 from grimoire.grimoire_page import GrimoirePage, _FIELDS_NOT_VALIDATED, _FIELD_CHANGE_TYPES  # pyright: ignore[reportPrivateUsage]
+from grimoire.nightOrderPosition import NightOrderPosition
 from grimoire.role import *
 
 
@@ -728,6 +730,92 @@ class TestMakeDeductionsResult(unittest.TestCase):
             _ = page.make_deductions()
         self.assertGreater(len(results), 1, "Expected a multi-stage deduction.")
         self.assertEqual([True] * (len(results) - 1) + [False], results, "Expected deductions to stop after the first step that deduced nothing.")
+
+class TestSameState(unittest.TestCase):
+    # one way to change each field. test_covers_every_field fails when a new field isn't listed here
+    CHANGES: dict[str, Callable[[GrimoirePage], None]] = {
+        "num_players": lambda p: setattr(p, "num_players", 6),
+        "characters": lambda p: p.characters.__setitem__(0, Role.MONK),
+        "poisoned": lambda p: p.poisoned.__setitem__(0, True),
+        "minion_types": lambda p: p.minion_types.__setitem__(0, Role.BARON),
+        "red_herring": lambda p: p.red_herring.__setitem__(0, True),
+        "dead": lambda p: p.dead.__setitem__(0, True),
+        "drunk_token": lambda p: setattr(p, "drunk_token", Role.MONK),
+        "chef_number": lambda p: setattr(p, "chef_number", 1),
+        "in_chef_pair": lambda p: setattr(p, "in_chef_pair", 1),
+        "not_in_chef_pair": lambda p: setattr(p, "not_in_chef_pair", 1),
+        "recluse_needed": lambda p: setattr(p, "recluse_needed", True),
+        "no_outsiders": lambda p: setattr(p, "no_outsiders", True),
+        "night": lambda p: setattr(p, "night", 2),
+        "night_order_position": lambda p: setattr(p, "night_order_position", NightOrderPosition.AFTER_EXECUTION),
+        "star_passed": lambda p: setattr(p, "star_passed", True),
+        "executee": lambda p: setattr(p, "executee", 1),
+        "slayer_shot": lambda p: p.slayer_shot.__setitem__(0, True),
+        "red_herring_moved": lambda p: setattr(p, "red_herring_moved", True),
+    }
+
+    def test_clone_has_same_state(self):
+        page = GrimoirePage()
+        page.characters[1] = Role.IMP
+        self.assertTrue(page.same_state(page.clone()))
+
+    def test_covers_every_field(self):
+        self.assertEqual(set(vars(GrimoirePage())), set(self.CHANGES))
+
+    def test_any_field_changing_is_noticed(self):
+        for field, change in self.CHANGES.items():
+            with self.subTest(field):
+                page = GrimoirePage()
+                other = page.clone()
+                change(other)
+                self.assertFalse(page.same_state(other))
+                self.assertFalse(other.same_state(page))
+
+class TestChangeReportingSetters(unittest.TestCase):
+    def test_add_minion_type(self):
+        page = GrimoirePage()
+        self.assertTrue(page.add_minion_type(Role.BARON))
+        self.assertFalse(page.add_minion_type(Role.BARON))
+
+    def test_set_character(self):
+        page = GrimoirePage()
+        self.assertTrue(page.set_character(Role.MONK, 0))
+        self.assertEqual(Role.MONK, page.characters[0])
+        self.assertFalse(page.set_character(Role.MONK, 0))
+
+    def test_set_drunk_token(self):
+        page = GrimoirePage()
+        self.assertFalse(page.set_drunk_token(None))
+        self.assertIsNone(page.drunk_token)
+        self.assertTrue(page.set_drunk_token(Role.MONK))
+        self.assertFalse(page.set_drunk_token(Role.MONK))
+        self.assertFalse(page.set_drunk_token(None), "Expected no token to leave the current token alone.")
+        self.assertEqual(Role.MONK, page.drunk_token)
+        with self.assertRaises(ValueError):
+            _ = page.set_drunk_token(Role.CHEF)
+
+    def test_add_red_herring(self):
+        page = GrimoirePage()
+        none = [False] * 5
+        herring = [True, False, False, False, False]
+        self.assertFalse(page.add_red_herring(none))
+        self.assertTrue(page.add_red_herring(herring))
+        self.assertEqual(herring, page.red_herring)
+        self.assertFalse(page.add_red_herring(herring))
+        self.assertFalse(page.add_red_herring(none), "Expected no red herring to leave the current one alone.")
+        with self.assertRaises(ValueError):
+            _ = page.add_red_herring([False, True, False, False, False])
+        self.assertEqual(herring, page.red_herring, "Expected a rejected red herring not to change the page.")
+
+    def test_add_deaths(self):
+        page = GrimoirePage()
+        none = [False] * 5
+        self.assertFalse(page.add_deaths(none))
+        self.assertTrue(page.add_deaths([True, False, False, False, False]))
+        self.assertFalse(page.add_deaths([True, False, False, False, False]))
+        self.assertFalse(page.add_deaths(none), "Expected deaths never to be undone.")
+        self.assertTrue(page.add_deaths([False, True, False, False, False]))
+        self.assertEqual([True, True, False, False, False], page.dead)
 
 class TestFields(unittest.TestCase):
     def test_all_fields_validated(self):

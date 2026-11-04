@@ -1,7 +1,7 @@
 from __future__ import annotations
 import bisect
 from collections import Counter
-from typing import override
+from typing import NamedTuple, override
 
 
 from .gamerules import ROLE_BREAKDOWNS, ALLOWED_MULTIPLES
@@ -14,13 +14,28 @@ from .errors import *
 from .grimoire_page import GrimoirePage
 from grimoire import role, validators
 
+class PassBetweenPagesResult(NamedTuple):
+    valid: bool
+    reason: str
+    curr_changed: bool
+
+class PassThroughPagesResult(NamedTuple):
+    valid: bool
+    reason: str
+    changed: set[int]
+
+class GrimoireKey(NamedTuple):
+    night: int
+    order: NightOrderPosition
+
 class Grimoire:
     def __init__(self, num_players:int=5):
         if num_players not in ROLE_BREAKDOWNS.keys():
             raise ValueError(f"{num_players} player worlds are not yet handled.")
         self.pages: list[GrimoirePage] = [GrimoirePage(num_players,1)]
-        self.keys: list[tuple[int, NightOrderPosition]] = [self._page_key(GrimoirePage(num_players,1))]
-        self.num_players = num_players
+        self.keys: list[GrimoireKey]= [self._page_key(GrimoirePage(num_players,1))]
+        self.num_players: int = num_players
+        self.unsettled: set[GrimoireKey] | None = None
 
     @override
     def __eq__(self, value: object):
@@ -39,6 +54,7 @@ class Grimoire:
                 return False
         return True
 
+    @override
     def __hash__(self):
         return hash(tuple(hash(p) for p in self.pages))
 
@@ -95,11 +111,12 @@ class Grimoire:
         new = Grimoire(self.num_players)
         new.pages = [p.clone() for p in self.pages]
         new.keys = self.keys.copy()
+        new.unsettled = self.unsettled
         return new
     
     @staticmethod
-    def _page_key(page: GrimoirePage) :
-        return (page.night, page.night_order_position)
+    def _page_key(page: GrimoirePage) -> GrimoireKey:
+        return GrimoireKey(page.night, page.night_order_position)
     
     def get_first_page(self):
         assert (
@@ -126,7 +143,7 @@ class Grimoire:
         return self.pages[i-1]
 
     def add_page(self, night: int, night_order_position: NightOrderPosition, page: GrimoirePage | None = None) -> GrimoirePage:
-        key = (night, night_order_position)
+        key = GrimoireKey(night, night_order_position)
         i = bisect.bisect_left(self.keys, key)
 
         if i < len(self.pages) and self._page_key(self.pages[i]) == key:
@@ -147,6 +164,16 @@ class Grimoire:
         self.pages.insert(i, new_page)
         self.keys.insert(i, key)
         return new_page
+
+    def changed_pages_since(self, base: Grimoire) -> set[GrimoireKey]:
+        if base.unsettled is None:
+            return set(self.keys)
+        changed = set(base.unsettled)
+        for page, key in zip(self.pages, self.keys):
+            base_page = base.get_page(key.night, key.order)
+            if base_page is None or not page.same_state(base_page):
+                changed.add(key)
+        return changed
 
     def apply_starpass(self, demon: int, page: GrimoirePage, red_herring_spy_catches: bool = False):
         new_demon = page.apply_starpass(demon, red_herring_spy_catches)
@@ -314,7 +341,7 @@ class Grimoire:
             new_world.keys.append(key)
 
             if len(new_world.pages) > 1:
-                valid, reason = Grimoire.pass_between_pages(new_world.pages[-2], new_world.pages[-1])
+                valid, reason, _ = Grimoire.pass_between_pages(new_world.pages[-2], new_world.pages[-1])
                 if not valid:
                     return w1, False, reason
 
@@ -578,26 +605,31 @@ class Grimoire:
         return True
 
     @staticmethod
-    def pass_through_pages(world: Grimoire) -> tuple[bool, str]:
-        for i in range(1, len(world.pages)):
-            prev = world.pages[i-1]
-            curr = world.pages[i]
-            valid, reason = Grimoire.pass_between_pages(prev, curr)
+    def pass_through_pages(grim: Grimoire, to_pass: set[int]) -> PassThroughPagesResult: 
+        changed: set[int] = set()
+        for i in range(1, len(grim.pages)):
+            if i-1 not in to_pass and i-1 not in changed and i not in to_pass:
+                continue
+            prev = grim.pages[i-1]
+            curr = grim.pages[i]
+            valid, reason, curr_changed = Grimoire.pass_between_pages(prev, curr)
             if not valid:
-                return False, reason
-
-        return True, ""
+                return PassThroughPagesResult(False, reason, changed)
+            if curr_changed:
+                changed.add(i)
+        return PassThroughPagesResult(True, "", changed)
     
     @staticmethod
-    def pass_between_pages(prev: GrimoirePage, curr: GrimoirePage) -> tuple[bool, str]:
+    def pass_between_pages(prev: GrimoirePage, curr: GrimoirePage) -> PassBetweenPagesResult:
+        changed = False
         # pass minion types
         for minion_type in prev.minion_types:
             if minion_type in curr.minion_types or minion_type == Role.ANY_OTHER_MINION:
                 continue
             try:
-                curr.add_minion_type(minion_type)
+                changed |= curr.add_minion_type(minion_type)
             except ValueError:
-                return False, "mismatched minion types between pages"
+                return PassBetweenPagesResult(False, "mismatched minion types between pages", changed)
             
         # pass characters
         promotions = 0
@@ -609,7 +641,7 @@ class Grimoire:
                     promotions += 1
                     continue
                 else:
-                    return False, "invalid minion to demon character change"
+                    return PassBetweenPagesResult(False, "invalid minion to demon character change", changed)
             # non demon can now be demon
             if (
                 (c1 == Role.ANY_OTHER and c2 == Role.NON_DEMON)
@@ -620,38 +652,35 @@ class Grimoire:
                     continue
             result = Grimoire._combine_characters(c1, c2, curr)
             if result is None:
-                return False, "mismatched characters between pages"
-            curr.characters[i] = result    
+                return PassBetweenPagesResult(False, "mismatched characters between pages", changed)
+            changed |= curr.set_character(result, i)
         if promotions > 1:
-            return False, "too many minions became demons"
+            return PassBetweenPagesResult(False, "too many minions became demons", changed)
         
         # pass red herring
         if not curr.red_herring_moved:
-            for j, value in enumerate(prev.red_herring):
-                if value:
-                    curr.red_herring[j] = True
-            
-            if sum(curr.red_herring) > 1:
-                return False, "mismatched red herrings between pages"
+            try:
+                changed |= curr.add_red_herring(prev.red_herring)
+            except ValueError:
+                return PassBetweenPagesResult(False, "different red herrings", changed)
 
         # pass drunk token
-        if prev.drunk_token is not None:
-            if curr.drunk_token is None:
-                curr.drunk_token = prev.drunk_token
-            elif prev.drunk_token != curr.drunk_token:
-                return False, "mismatched drunk token between pages"
+        try:
+            changed |= curr.set_drunk_token(prev.drunk_token)
+        except ValueError:
+            return PassBetweenPagesResult(False, "different Drunk tokens", changed)
             
         # pass deaths            
-        curr.dead = [a or b for a, b in zip(curr.dead, prev.dead)]
+        changed |= curr.add_deaths(prev.dead)
 
         # check poisoning didn't change during same night
         if (prev.night == curr.night
             and True in prev.poisoned 
             and True in curr.poisoned
             and prev.poisoned.index(True) != curr.poisoned.index(True)):
-            return False, "mismatched poisoned between pages"
+            return PassBetweenPagesResult(False, "mismatched poisoned between pages", changed)
         
         valid, reason = validators.is_page_valid(curr)
         if not valid:
-            return False, f"night {curr.night} {curr.night_order_position.name} page validity check failed. {reason}" 
-        return True, ""
+            return PassBetweenPagesResult(False, f"night {curr.night} {curr.night_order_position.name} page validity check failed. {reason}", changed)
+        return PassBetweenPagesResult(True, "", changed)

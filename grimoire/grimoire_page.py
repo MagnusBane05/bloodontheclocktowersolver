@@ -172,6 +172,13 @@ class GrimoirePage:
         
         return True
 
+    def same_state(self, other: GrimoirePage) -> bool:
+        other_vars = vars(other)
+        for field, value in vars(self).items():  # pyright: ignore[reportAny]
+            if value != other_vars[field]:
+                return False
+        return True
+
     def add_minion_type(self, type: Role) -> bool:
         if type not in MINIONS:
             raise ValueError("You are trying to add a non-minion role as a minion type.")
@@ -189,9 +196,6 @@ class GrimoirePage:
             raise Exception("You are trying to remove a minion from a phase with no minions.")
         self.minion_types = [Role.ANY_OTHER_MINION]*(len(self.minion_types)-1)
     
-    def clear_poisoned(self):
-        self.poisoned = [False] * len(self.poisoned)
-
     def set_character(self, character: Role, player: int) -> bool:
         if self.characters[player] == character:
             return False
@@ -225,16 +229,37 @@ class GrimoirePage:
                 self.add_minion_type(Role.BARON)
         return overlapping != original
 
+    def set_drunk_token(self, token: Role | None) -> bool:
+        if token is None:
+            return False
+        if self.drunk_token is None:
+            self.drunk_token = token
+            return True
+        if self.drunk_token == token:
+            return False
+        raise ValueError(f"You're trying to add a Drunk token different to the current Drunk token, new: {token}, current: {self.drunk_token}")
+
     def apply_drunk(self, character: Role, player: int):
         _ = self.apply_character(Role.DRUNK, player)
         self.drunk_token = character
 
+    def add_red_herring(self, rh: list[bool]) -> bool:
+        combined = [a or b for a, b in zip(rh, self.red_herring)]
+        if sum(combined) > 1:
+            raise ValueError(f"You cannot add a red herring when a different red herring exists, new: {rh}, existing: {self.red_herring}")
+        changed = combined != self.red_herring
+        self.red_herring = combined
+        return changed
+
     def apply_red_herring(self, player: int):
         self.red_herring[player] = True
 
+    def clear_poisoned(self):
+        self.poisoned = [False] * len(self.poisoned)
+
     def apply_poisoned(self, player: int):
         self.poisoned[player] = True
-        self.add_minion_type(Role.POISONER)
+        _ = self.add_minion_type(Role.POISONER)
 
     def apply_no_outsiders(self):
         self.no_outsiders = True
@@ -244,6 +269,12 @@ class GrimoirePage:
 
     def apply_slayer_shot(self, player: int):
         self.slayer_shot[player] = True
+
+    def add_deaths(self, deaths: list[bool]) -> bool:
+        new = [a or b for a, b in zip(deaths, self.dead)]
+        changed = new != self.dead
+        self.dead = new
+        return changed
 
     def _can_apply(self, apply: Callable[[GrimoirePage], object]) -> bool:
         candidate = self.clone()

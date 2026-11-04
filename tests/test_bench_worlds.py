@@ -8,7 +8,7 @@ from unittest import mock
 from bench import compare, report, runner, worlds
 from bench.scenarios import _pages_equal, load_scenarios  # pyright: ignore[reportPrivateUsage]
 from bench.worker import run_game
-from grimoire import Grimoire, GrimoireManager, NightOrderPosition, Role
+from grimoire import Grimoire, GrimoireManager, GrimoirePage, NightOrderPosition, Role
 from grimoire.add_info_to_grims import find_finalize_problem
 from grimoire.errors import FinalizeDidNotSettleError
 
@@ -122,7 +122,7 @@ class TestClassify(unittest.TestCase):
         )
 
     def test_finalize_bug_is_not_explained_away(self):
-        with mock.patch.object(Grimoire, "make_deductions", return_value=True):
+        with mock.patch.object(GrimoirePage, "make_deductions", return_value=True):
             with self.assertRaises(FinalizeDidNotSettleError):
                 _ = worlds.classify_removed(_world(VALID, [Role.BARON]), [])
 
