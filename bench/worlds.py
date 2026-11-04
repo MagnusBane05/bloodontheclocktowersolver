@@ -1,10 +1,10 @@
 """Saves the final worlds of benchmark games and compares them between runs.
 
-Worlds that one run removed are sorted into merged (covered by a more general world),
-invalid (fails a validator), rejected (finalizing it again finds it impossible), refined
-(finalizing it again gives a world that was kept), or unexplained (none of these, so possibly
-a valid world that was wrongly removed). Unexplained worlds are re-run as the true grim of
-their game to find the step that drops them.
+Worlds that one run removed are sorted into dropped poison (a kept world is the same apart from
+having no extra poison), merged (covered by a more general world), invalid (fails a validator),
+rejected (finalizing it again finds it impossible), refined (finalizing it again gives a world
+that was kept), or unexplained (none of these, so possibly a valid world that was wrongly removed).
+Unexplained worlds are re-run as the true grim of their game to find the step that drops them.
 
 Refined and rejected use the solver's own finalize, with the code currently checked out. A bug
 in it could explain away a valid world, so rejected worlds are always listed with their reason.
@@ -18,14 +18,15 @@ from typing import Any, NamedTuple
 from grimoire import Grimoire, GrimoireManager, validators
 from grimoire.add_info_to_grims import find_finalize_problem
 from grimoire.errors import TrueGrimLostError
+from grimoire.grimoire import Poisoning
 
 from . import report
 from .scenarios import _decode_hook, _git_state, decode_grim, encode_grim, load_scenarios  # pyright: ignore[reportPrivateUsage]
 
-WORLD_CATEGORIES_REMOVED = ("merged", "refined", "rejected", "invalid", "unexplained")
+WORLD_CATEGORIES_REMOVED = ("dropped_poison", "merged", "refined", "rejected", "invalid", "unexplained")
 WORLD_CATEGORIES_ADDED = ("generalized", "refined", "known_invalid", "other")
 # categories where no world was lost or gained, so they're only listed for one game
-QUIET_CATEGORIES = ("merged", "refined", "generalized")
+QUIET_CATEGORIES = ("dropped_poison", "merged", "refined", "generalized")
 # a world that was still matched after the last step. It only has to loosely match each step's
 # worlds, so this doesn't mean the exact world is in the final list.
 NOT_DROPPED = "not dropped"
@@ -65,6 +66,18 @@ def validity_problem(grim: Grimoire) -> str | None:
     if not validators.ROLE_ASSIGNMENT_VALIDATOR.validate(grim.pages[0]):
         return validators.ROLE_ASSIGNMENT_VALIDATOR.reason
     return None
+
+def poisonings_by_state(grims: list[Grimoire]) -> dict[tuple[Any, ...], list[frozenset[Poisoning]]]:
+    index: dict[tuple[Any, ...], list[frozenset[Poisoning]]] = {}
+    for grim in grims:
+        index.setdefault(grim.state_without_poison(), []).append(grim.get_all_poisonings())
+    return index
+
+def is_dropped_poison(world: Grimoire, kept_poisonings: dict[tuple[Any, ...], list[frozenset[Poisoning]]]) -> bool:
+    """A kept world is the same apart from having no extra poison. Equal poison counts because a
+    world only gets here when it isn't in the kept list, so it can only differ by an empty page."""
+    poisonings = world.get_all_poisonings()
+    return any(kept <= poisonings for kept in kept_poisonings.get(world.state_without_poison(), []))
 
 def classify_removed(world: Grimoire, kept: list[Grimoire]) -> tuple[str, str | None]:
     if any(other.subsumes(world) for other in kept):
@@ -174,7 +187,11 @@ def compare_worlds(a_path: Path, b_path: Path, game_id: str | None = None) -> di
             only_b = [w for w in worlds_b[i] if w not in set_a]
             if only_a or only_b:
                 changed_games += 1
+            kept_poisonings = poisonings_by_state(worlds_b[i]) if only_a else {}
             for world in only_a:
+                if is_dropped_poison(world, kept_poisonings):
+                    removed.append(WorldDiff(i, world, "dropped_poison", None, None))
+                    continue
                 category, reason = classify_removed(world, worlds_b[i])
                 drop_step = None
                 if category == "unexplained":

@@ -68,6 +68,45 @@ class TestKnownInvalid(unittest.TestCase):
         ]
         self.assertEqual(report.summarize(games, 0)["known_invalid"], 6)
 
+class TestDroppedPoison(unittest.TestCase):
+    @staticmethod
+    def _poisoned(*players_by_night: tuple[int, int]) -> Grimoire:
+        world = _world(VALID, [Role.BARON])
+        for night, player in players_by_night:
+            page = world.get_page(night, NightOrderPosition.AFTER_IMP) or world.add_page(night, NightOrderPosition.AFTER_IMP)
+            page.poisoned[player] = True
+        return world
+
+    def _is_dropped(self, world: Grimoire, kept: list[Grimoire]) -> bool:
+        return worlds.is_dropped_poison(world, worlds.poisonings_by_state(kept))
+
+    def test_kept_world_with_less_poison(self):
+        self.assertTrue(self._is_dropped(self._poisoned((1, 2)), [self._poisoned()]))
+        self.assertTrue(self._is_dropped(self._poisoned((1, 2), (2, 3)), [self._poisoned((2, 3))]))
+
+    def test_poison_only_page_in_the_removed_world(self):
+        self.assertTrue(self._is_dropped(self._poisoned((3, 2)), [self._poisoned()]))
+
+    def test_same_poison_differing_by_an_empty_page(self):
+        world = self._poisoned((1, 2))
+        empty_page = world.clone()
+        _ = empty_page.add_page(3, NightOrderPosition.AFTER_IMP)
+        self.assertTrue(self._is_dropped(empty_page, [world]))
+
+    def test_kept_world_with_more_poison(self):
+        self.assertFalse(self._is_dropped(self._poisoned(), [self._poisoned((1, 2))]))
+
+    def test_kept_world_with_different_poison(self):
+        self.assertFalse(self._is_dropped(self._poisoned((1, 2)), [self._poisoned((1, 3))]))
+        self.assertFalse(self._is_dropped(self._poisoned((2, 2)), [self._poisoned((3, 2))]))
+
+    def test_kept_world_with_different_roles(self):
+        other = _world([Role.IMP, Role.BARON, Role.SAINT, Role.RECLUSE, Role.MONK], [Role.BARON])
+        self.assertFalse(self._is_dropped(self._poisoned((1, 2)), [other]))
+
+    def test_nothing_kept(self):
+        self.assertFalse(self._is_dropped(self._poisoned((1, 2)), []))
+
 class TestClassify(unittest.TestCase):
     def test_fixtures(self):
         self.assertIsNone(worlds.validity_problem(_world(VALID, [Role.BARON])), "Expected the valid fixture to pass every check.")
@@ -127,7 +166,7 @@ class TestClassify(unittest.TestCase):
                 _ = worlds.classify_removed(_world(VALID, [Role.BARON]), [])
 
     def test_only_unexplained_fails_the_comparison(self):
-        for category in ("merged", "refined", "rejected", "invalid"):
+        for category in ("dropped_poison", "merged", "refined", "rejected", "invalid"):
             diff = worlds.WorldDiff("5p-0000", Grimoire(5), category, "reason", None)
             self.assertFalse(worlds.has_unexplained({"players": {"5": {"removed": [diff], "added": []}}}), category)
 
@@ -151,6 +190,21 @@ class TestClassify(unittest.TestCase):
         self.assertNotIn("  refined:", output)
         comparison["game"] = "5p-0000"
         self.assertIn("  refined:", worlds.format_world_comparison(comparison))
+
+    def test_format_only_counts_dropped_poison(self):
+        diff = worlds.WorldDiff("5p-0000", _world(VALID, [Role.BARON]), "dropped_poison", None, None)
+        comparison = {
+            "a": {"label": "A", "commit": "a", "timestamp": "t"},
+            "b": {"label": "B", "commit": "b", "timestamp": "t"},
+            "warnings": [],
+            "game": None,
+            "players": {"5": {"games": 1, "changed_games": 1, "added": [], "removed": [diff]}},
+        }
+        output = worlds.format_world_comparison(comparison)
+        self.assertIn("dropped poison 1", output)
+        self.assertNotIn("  dropped poison:", output)
+        comparison["game"] = "5p-0000"
+        self.assertIn("  dropped poison:", worlds.format_world_comparison(comparison))
 
 class TestDropStep(unittest.TestCase):
     def test_kept_world(self):
@@ -203,6 +257,36 @@ class TestCompareWorlds(unittest.TestCase):
         self.assertEqual(removed[0].drop_step, worlds.NOT_DROPPED)
         self.assertTrue(worlds.has_unexplained(comparison))
         self.assertIn("UNEXPLAINED", worlds.format_world_comparison(comparison))
+
+    def test_dropped_poison_removal(self):
+        # the extra run is A plus a copy of one world with poison added, so going to A drops it
+        saved = worlds.load_worlds(worlds.worlds_file(self.run_a, 5))
+        poisoned = None
+        for grims in saved.values():
+            for world in grims:
+                poisoned = world.clone()
+                if True not in poisoned.pages[0].poisoned:
+                    poisoned.pages[0].poisoned[0] = True
+                    if poisoned not in grims:
+                        grims.append(poisoned)
+                        break
+                poisoned = None
+            if poisoned is not None:
+                break
+        self.assertIsNotNone(poisoned, "Expected a world without poison on its first page.")
+
+        extra = Path(self.tmp.name) / "results" / "extra_poison.json"
+        _ = shutil.copyfile(self.run_a, extra)
+        for game_id, grims in saved.items():
+            worlds.append_worlds(worlds.worlds_file(extra, 5), game_id, grims)
+
+        with mock.patch("bench.worlds.find_drop_step") as find_drop_step:
+            comparison = worlds.compare_worlds(extra, self.run_a)
+        removed = comparison["players"]["5"]["removed"]
+        self.assertEqual([d.category for d in removed], ["dropped_poison"])
+        self.assertEqual(removed[0].world, poisoned)
+        self.assertFalse(worlds.has_unexplained(comparison))
+        find_drop_step.assert_not_called()
 
     def test_single_game(self):
         comparison = worlds.compare_worlds(self.run_a, self.run_b, game_id="5p-0000")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any, Callable, override
 
 from .validators import ChangeType, get_affected_validators_forall, run_validators
 from .deduced_page import deduce_from_chef_number
@@ -72,6 +72,8 @@ _FIELDS_NOT_VALIDATED = {
     'red_herring_moved',
 }
 
+_FIELDS_NOT_IN_POISON_FREE_STATE = {'poisoned', 'night', 'night_order_position'}
+
 class GrimoirePage:
     def __init__(self, num_players: int=5, night: int=1, night_order_position: NightOrderPosition=NightOrderPosition.AFTER_IMP):
         self.num_players: int = num_players
@@ -93,7 +95,8 @@ class GrimoirePage:
         self.slayer_shot: list[bool] = [False]*num_players
         self.red_herring_moved: bool = False
         
-    def __eq__(self, other): # type: ignore
+    @override
+    def __eq__(self, other): # type: ignore  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
         if not isinstance(other, GrimoirePage):
             return False
         other_vars = vars(other)
@@ -106,6 +109,7 @@ class GrimoirePage:
                 return False
         return True
     
+    @override
     def __hash__(self):
         return hash((
             tuple(self.characters),
@@ -134,6 +138,7 @@ class GrimoirePage:
         return page
     
     def loose_equals(self, other: GrimoirePage) -> bool:
+        # A page with less poison still matches, so this can't tell if a poisoning was wrongly dropped
         return (
             all(helper.roleLooseEquals(self.characters[p], other.characters[p]) for p in range(self.num_players)) and 
             helper.minion_types_loose_equals(self.minion_types, other.minion_types) and
@@ -174,6 +179,15 @@ class GrimoirePage:
             return False
         
         return True
+
+    def state_without_poison(self) -> tuple[Any,...]:  # pyright: ignore[reportExplicitAny]
+        # hashable: minion types ignore order
+        return tuple(  # pyright: ignore[reportUnknownVariableType]
+            frozenset(value) if field == "minion_types"  # pyright: ignore[reportUnknownArgumentType, reportAny]
+            else tuple(value) if isinstance(value, list) else value  # pyright: ignore[reportUnknownArgumentType]
+            for field, value in vars(self).items()  # pyright: ignore[reportAny]
+            if field not in _FIELDS_NOT_IN_POISON_FREE_STATE
+        )
 
     def same_state(self, other: GrimoirePage) -> bool:
         other_vars = vars(other)

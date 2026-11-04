@@ -1,7 +1,7 @@
 from __future__ import annotations
 import bisect
 from collections import Counter
-from typing import NamedTuple, override
+from typing import Any, NamedTuple, override
 
 
 from .gamerules import ROLE_BREAKDOWNS, ALLOWED_MULTIPLES
@@ -27,6 +27,11 @@ class PassThroughPagesResult(NamedTuple):
 class GrimoireKey(NamedTuple):
     night: int
     order: NightOrderPosition
+
+class Poisoning(NamedTuple):
+    night: int
+    order: NightOrderPosition
+    player: int
 
 class Grimoire:
     def __init__(self, num_players:int=5):
@@ -102,6 +107,23 @@ class Grimoire:
         new.keys = self.keys.copy()
         new.unsettled = self.unsettled
         return new
+
+    def get_all_poisonings(self) -> frozenset[Poisoning]:
+        return frozenset(
+            Poisoning(page.night, page.night_order_position, page.poisoned.index(True)) 
+            for page in self.pages 
+            if True in page.poisoned
+        )
+
+    def state_without_poison(self) -> tuple[Any, ...]:  # pyright: ignore[reportExplicitAny]
+        states: list[tuple[GrimoireKey, tuple[Any, ...]]] = []  # pyright: ignore[reportExplicitAny]
+        previous = None
+        for key, page in zip(self.keys, self.pages):
+            state = page.state_without_poison()
+            if state != previous:
+                states.append((key, state))
+                previous = state
+        return tuple(states)
     
     @staticmethod
     def _page_key(page: GrimoirePage) -> GrimoireKey:

@@ -61,6 +61,7 @@ Make the latest run the new baseline (copied to `bench/baseline.json` and `bench
 - `--game 5p-0074`: list every world that differs for one game
 
 Removed worlds are sorted into:
+- **dropped poison**: a kept world is the same apart from having no extra poison, so the poison wasn't needed to explain anything. Only counted unless you use `--game`
 - **merged**: covered by a more general world
 - **invalid**: fails a validator
 - **rejected**: finalizing it again finds it impossible, for example a conflict between pages. Listed with the reason

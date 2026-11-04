@@ -799,6 +799,37 @@ class TestPageEquality(unittest.TestCase):
     def test_not_equal_to_other_types(self):
         self.assertNotEqual(GrimoirePage(), None)
 
+class TestStateWithoutPoison(unittest.TestCase):
+    IGNORED = {"poisoned", "night", "night_order_position"}
+
+    def test_ignored_fields(self):
+        for field in self.IGNORED:
+            with self.subTest(field):
+                page = GrimoirePage()
+                other = page.clone()
+                TestSameState.CHANGES[field](other)
+                self.assertEqual(page.state_without_poison(), other.state_without_poison())
+
+    def test_any_other_field_changes_the_state(self):
+        for field, change in TestSameState.CHANGES.items():
+            if field in self.IGNORED:
+                continue
+            with self.subTest(field):
+                page = GrimoirePage()
+                other = page.clone()
+                change(other)
+                self.assertNotEqual(page.state_without_poison(), other.state_without_poison())
+
+    def test_minion_type_order_is_ignored(self):
+        page = GrimoirePage(10)
+        page.minion_types = [Role.POISONER, Role.SPY]
+        other = page.clone()
+        other.minion_types = [Role.SPY, Role.POISONER]
+        self.assertEqual(page.state_without_poison(), other.state_without_poison())
+
+    def test_is_hashable(self):
+        _ = hash(GrimoirePage().state_without_poison())
+
 class TestChangeReportingSetters(unittest.TestCase):
     def test_add_minion_type(self):
         page = GrimoirePage()

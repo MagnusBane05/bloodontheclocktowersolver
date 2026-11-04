@@ -83,6 +83,87 @@ class TestGrimoireEquality(unittest.TestCase):
     def test_not_equal_to_other_types(self):
         self.assertNotEqual(Grimoire(), None)
 
+class TestGetAllPoisonings(unittest.TestCase):
+    def test_no_poison(self):
+        self.assertEqual(frozenset(), Grimoire().get_all_poisonings())
+
+    def test_lists_each_poisoning(self):
+        world = Grimoire()
+        world.pages[0].poisoned[1] = True
+        world.add_page(3, NightOrderPosition.AFTER_IMP).poisoned[2] = True
+        self.assertEqual(
+            {(1, NightOrderPosition.AFTER_IMP, 1), (3, NightOrderPosition.AFTER_IMP, 2)},
+            set(world.get_all_poisonings()),
+        )
+
+    def test_same_player_on_different_nights_differs(self):
+        night2 = Grimoire()
+        night2.add_page(2, NightOrderPosition.AFTER_IMP).poisoned[0] = True
+        night3 = Grimoire()
+        night3.add_page(3, NightOrderPosition.AFTER_IMP).poisoned[0] = True
+        self.assertNotEqual(night2.get_all_poisonings(), night3.get_all_poisonings())
+
+class TestStateWithoutPoison(unittest.TestCase):
+    @staticmethod
+    def _world() -> Grimoire:
+        world = Grimoire()
+        _ = world.add_page(5, NightOrderPosition.AFTER_IMP)
+        return world
+
+    def test_poison_on_an_existing_page_is_ignored(self):
+        world = self._world()
+        poisoned = world.clone()
+        poisoned.pages[1].poisoned[0] = True
+        self.assertEqual(world.state_without_poison(), poisoned.state_without_poison())
+
+    def test_page_that_only_holds_poison_is_ignored(self):
+        world = self._world()
+        poisoned = world.clone()
+        poisoned.add_page(3, NightOrderPosition.AFTER_IMP).poisoned[0] = True
+        self.assertEqual(world.state_without_poison(), poisoned.state_without_poison())
+
+    def test_first_page_counts(self):
+        world = Grimoire()
+        other = Grimoire()
+        other.pages[0].characters[1] = Role.IMP
+        self.assertNotEqual(world.state_without_poison(), other.state_without_poison())
+
+    def test_later_page_counts(self):
+        world = self._world()
+        other = world.clone()
+        other.pages[1].dead[1] = True
+        self.assertNotEqual(world.state_without_poison(), other.state_without_poison())
+
+    def test_same_change_on_different_nights_differs(self):
+        def died_on(night: int) -> Grimoire:
+            world = Grimoire()
+            _ = world.add_page(2, NightOrderPosition.AFTER_IMP)
+            _ = world.add_page(3, NightOrderPosition.AFTER_IMP)
+            for page in world.pages:
+                page.dead[0] = page.night >= night
+            return world
+        self.assertNotEqual(died_on(2).state_without_poison(), died_on(3).state_without_poison())
+
+    def test_is_hashable_and_ignores_unsettled(self):
+        world = self._world()
+        settled = world.clone()
+        settled.unsettled = set()
+        self.assertEqual(hash(world.state_without_poison()), hash(settled.state_without_poison()))
+        self.assertEqual(world.state_without_poison(), settled.state_without_poison())
+
+class TestLooseEqualsPoison(unittest.TestCase):
+    @staticmethod
+    def _poisoned(player: int) -> Grimoire:
+        world = Grimoire()
+        world.pages[0].poisoned[player] = True
+        return world
+
+    def test_world_with_less_poison_still_matches_the_true_grim(self):
+        self.assertTrue(self._poisoned(0).loose_equals(Grimoire()))
+
+    def test_world_with_a_different_player_poisoned_does_not_match(self):
+        self.assertFalse(self._poisoned(0).loose_equals(self._poisoned(1)))
+
 class TestPassBetweenPages(unittest.TestCase):
     def test_pass_characters(self):
         # sanity check, same characters should be okay
