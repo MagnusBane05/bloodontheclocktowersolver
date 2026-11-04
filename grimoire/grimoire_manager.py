@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 import logging
 import time
-from typing import Callable, NamedTuple
+from typing import Any, Callable, NamedTuple
 
 from .traces import TrueGrimTrace
 
@@ -140,7 +140,7 @@ class GrimoireManager():
                     if grim .loose_equals(self.true_grim):
                         print(i,grim)
         self.grims = new_grims
-
+        
     def _set_grims_checked(
         self,
         new_grims: list[Grimoire],
@@ -148,6 +148,8 @@ class GrimoireManager():
         *,
         previous_grims: list[Grimoire] | None = None,
     ):
+        new_grims = GrimoireManager.remove_unneeded_poison(new_grims)
+
         if self.on_step is not None:
             seconds = time.perf_counter() - self.step_started
             grims_before = len(previous_grims) if previous_grims is not None else len(self.grims)
@@ -227,6 +229,26 @@ class GrimoireManager():
                 
         return False
     
+    @staticmethod
+    def remove_unneeded_poison(grims: list[Grimoire]) -> list[Grimoire]:
+        """Drops a grim if another is the same apart from having strictly less poison.
+        That world has recorded what the info implies, so the poison isn't needed to explain anything."""
+        by_state: dict[tuple[Any, ...], list[Grimoire]] = defaultdict(list)  # pyright: ignore[reportExplicitAny]
+        for grim in grims:
+            by_state[grim.state_without_poison()].append(grim)
+
+        kept: list[Grimoire] = []
+        for group in by_state.values():
+            if len(group) == 1:
+                kept.append(group[0])
+                continue
+            poisonings = [g.get_all_poisonings() for g in group]
+            kept.extend(
+                g for g, mine in zip(group, poisonings)
+                if not any(other < mine for other in poisonings)
+            )
+        return kept
+
     def remove_subsumed_grims(self, max_bucket_size: int = 500):
         buckets: dict[tuple, list[Grimoire]] = defaultdict(list) # type: ignore
         for grim in self.grims:

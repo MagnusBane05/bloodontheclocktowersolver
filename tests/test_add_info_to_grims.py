@@ -1,3 +1,4 @@
+from typing import get_args, get_type_hints
 import unittest
 from unittest import mock
 
@@ -5,10 +6,11 @@ from bench.scenarios import load_scenarios
 from grimoire import GrimoireManager
 from grimoire import add_info_to_grims as add_info_module
 from grimoire.add_info_to_grims import MAX_FINALIZE_ROUNDS, _finalize, _try_branch, _try_intermediate_branch, add_death_info_to_grims, add_info_to_grims, find_finalize_problem  # pyright: ignore[reportPrivateUsage]
+from grimoire.branch_actions import character_action
 from grimoire.errors import FinalizeDidNotSettleError
 from grimoire.grimoire import Grimoire, GrimoireKey
 from grimoire.grimoire_page import GrimoirePage
-from grimoire.info import DemonKillInfo, ExecutionInfo, SlayerKillInfo, FortuneTellerInfo
+from grimoire.info import DemonKillInfo, ExecutionInfo, Info, SlayerKillInfo, FortuneTellerInfo
 from grimoire.nightOrderPosition import NightOrderPosition
 from grimoire.role import Role
 
@@ -948,6 +950,75 @@ class TestDirtyPageFinalize(unittest.TestCase):
         intermediate = _try_intermediate_branch(grim, set_monk)
         assert intermediate is not None
         self.assertIsNone(_try_branch(intermediate))
+
+class TestUnpoisonedBranchesRecordTheirInfo(unittest.TestCase):
+    """A poisoned world is only dropped for a world in the same state with less poison. That's only
+    safe if the unpoisoned world has recorded what its info implies, otherwise later info could
+    contradict it with nothing to show for it. This uses blank worlds because a branch can
+    correctly record nothing when the world already implies its info."""
+    # info kind -> (claimed role, player who gave the info, examples of that info)
+    CASES: dict[str, tuple[Role, list[dict[str, object]]]] = {
+        "investigator": (Role.INVESTIGATOR, [{"kind": "investigator", "investigator": 0, "first_player": 1, "second_player": 2, "minion": Role.SPY}]),
+        "washerwoman": (Role.WASHERWOMAN, [{"kind": "washerwoman", "washerwoman": 0, "first_player": 1, "second_player": 2, "townsfolk": Role.EMPATH}]),
+        "librarian": (Role.LIBRARIAN, [
+            {"kind": "librarian", "librarian": 0, "first_player": 1, "second_player": 2, "token": Role.SAINT},
+            {"kind": "librarian", "librarian": 0, "first_player": None, "second_player": None, "token": None},
+        ]),
+        "chef": (Role.CHEF, [{"kind": "chef", "chef": 0, "number": number} for number in (0, 1)]),
+        "fortune teller": (Role.FORTUNE_TELLER, [
+            {"kind": "fortune teller", "fortune_teller": 0, "night": night, "pings": ((1, 2), ping)}
+            for night in (1, 2) for ping in (True, False)
+        ]),
+        "empath": (Role.EMPATH, [
+            {"kind": "empath", "empath": 0, "number": number, "night": night, "left_neighbour": 4, "right_neighbour": 1}
+            for night in (1, 2) for number in (0, 1, 2)
+        ]),
+        "undertaker": (Role.UNDERTAKER, [
+            {"kind": "undertaker", "undertaker": 0, "body": 1, "token": token, "night": 2} for token in (Role.MONK, Role.IMP)
+        ]),
+        "ravenkeeper": (Role.RAVENKEEPER, [
+            {"kind": "ravenkeeper", "ravenkeeper": 0, "chosen": 1, "token": token, "night": 2} for token in (Role.MONK, Role.IMP)
+        ]),
+        "virgin": (Role.VIRGIN, [{"kind": "virgin", "virgin": 0, "nominator": 1, "executed": False, "night": 1}]),
+        "slayer": (Role.SLAYER, [{"kind": "slayer", "slayer": 0, "target": 1, "successful": False, "night": 1}]),
+    }
+
+    @staticmethod
+    def _is_poisoned(world: Grimoire, night: int) -> bool:
+        page = world.get_page(night, NightOrderPosition.AFTER_IMP)
+        return page is not None and page.poisoned[0]
+
+    def _check(self, base: Grimoire, kind: str, role: Role, info: dict[str, object]) -> int:
+        night: int = info.get("night", 1)  # pyright: ignore[reportAssignmentType]
+        claim_only = _try_intermediate_branch(base, character_action(role, 0, night, NightOrderPosition.AFTER_IMP))
+        assert claim_only is not None
+        worlds = add_info_to_grims(info, [base])  # pyright: ignore[reportArgumentType]
+        poisoned = [w for w in worlds if self._is_poisoned(w, night)]
+        unpoisoned = [w for w in worlds if not self._is_poisoned(w, night) and w.pages[-1].characters[0] == role]
+        self.assertEqual(1, len(poisoned), "Expected one poisoned branch.")
+        for world in unpoisoned:
+            self.assertNotEqual(claim_only.state_without_poison(), world.state_without_poison(), f"{kind} recorded nothing.")
+            self.assertNotEqual(poisoned[0].state_without_poison(), world.state_without_poison(), f"{kind} matches its poisoned branch.")
+        return len(unpoisoned)
+
+    def test_every_info_type_with_a_poisoned_branch_is_covered(self):
+        kinds = {get_args(get_type_hints(t)["kind"])[0] for t in get_args(Info.__value__)}
+        self.assertEqual(kinds - {"claim"}, set(self.CASES))
+
+    def test_blank_world(self):
+        for kind, (role, examples) in self.CASES.items():
+            for info in examples:
+                with self.subTest(kind=kind, info=info):
+                    self.assertGreater(self._check(Grimoire(), kind, role, info), 0, "Expected an unpoisoned branch to check.")
+
+    def test_blank_world_with_a_known_poisoner(self):
+        # the poisoned branch has a Poisoner in its minion types, so this is what could actually match it
+        for kind, (role, examples) in self.CASES.items():
+            for info in examples:
+                with self.subTest(kind=kind, info=info):
+                    base = Grimoire()
+                    base.pages[0].minion_types = [Role.POISONER]
+                    _ = self._check(base, kind, role, info)
 
 class TestDirtyPageFinalizeMatchesFullFinalize(unittest.TestCase):
     GAMES = {5: 40, 10: 2}
