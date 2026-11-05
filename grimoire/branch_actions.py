@@ -34,10 +34,12 @@ def character_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        if not grim.can_be_character(role, player, night, order):
+        # grim is a throwaway copy, so there's no need to check the role fits before applying it
+        try:
+            changed_pages = grim.apply_character(role, player, night, order)
+            return _deduce_and_validate(changed_pages)
+        except (RuntimeError, ValueError):
             return False
-        changed_pages = grim.apply_character(role, player, night, order)
-        return _deduce_and_validate(changed_pages)
     return action
 
 def drunk_action(
