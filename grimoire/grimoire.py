@@ -61,7 +61,7 @@ class Grimoire:
                 character = phase.characters[j]
                 dead = phase.dead[j]
                 red_herring = phase.red_herring[j]
-                if character in ANY_OTHER_ROLES:
+                if character in ANY_OTHER_ROLES_SET:
                     ps += f"Player {j} is {CHARACTER_STRINGS[character]}.\n"
                 else:
                     ps += f"Player {j} is the {CHARACTER_STRINGS[character]}.\n"
