@@ -186,6 +186,29 @@ class TestValidation(unittest.TestCase):
         result = validators.is_poisoning_valid(page, num_players)
         self.assertFalse(result, "Expected a page with poisoning and all minions dead to be invalid.")
 
+    def test_is_poisoning_valid_with_five_players(self):
+        page = GrimoirePage(5)
+        page.poisoned[0] = True
+        page.minion_types[0] = Role.POISONER
+        self.assertTrue(validators.is_poisoning_valid(page, 5), "Expected one poisoning with a Poisoner to be valid.")
+
+        page = GrimoirePage(5)
+        page.poisoned[0] = True
+        self.assertFalse(validators.is_poisoning_valid(page, 5), "Expected poisoning without a Poisoner to be invalid.")
+
+        page = GrimoirePage(5)
+        page.poisoned[0] = True
+        page.poisoned[1] = True
+        page.minion_types[0] = Role.POISONER
+        self.assertFalse(validators.is_poisoning_valid(page, 5), "Expected two poisonings to be invalid.")
+
+        page = GrimoirePage(5)
+        page.poisoned[0] = True
+        page.characters[0] = Role.POISONER
+        page.minion_types[0] = Role.POISONER
+        page.dead[0] = True
+        self.assertFalse(validators.is_poisoning_valid(page, 5), "Expected poisoning with a dead Poisoner to be invalid.")
+
     def test_is_no_invalid_deuplicates(self):
         page = GrimoirePage(10)
         result = validators.is_no_invalid_duplicates(page)

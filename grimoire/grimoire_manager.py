@@ -1,5 +1,5 @@
 from __future__ import annotations
-from collections import Counter, defaultdict
+from collections import defaultdict
 import logging
 import time
 from typing import Any, Callable, NamedTuple
@@ -10,16 +10,11 @@ from .errors import TrueGrimLostError
 # logging.basicConfig(level=logging.DEBUG)
 
 from .info import Info, DeathInfo, FIRST_NIGHT_INFO, ANY_NIGHT_INFO
-from .info_to_grim import info_to_grimoires
 from .game import Game
 from .grimoire import Grimoire
 from .role import EVIL_CHARACTERS, GOOD_CHARACTERS, Role
 from . import helper
 from .add_info_to_grims import add_death_info_to_grims, add_info_to_grims
-
-SAMPLE_CHANCE = 0
-
-BRANCHING_INFO = ["fortune teller", "empath", "undertaker", "ravenkeeper", "virgin", "slayer"]
 
 class StepRecord(NamedTuple):
     stage: str
@@ -48,7 +43,7 @@ class GrimoireManager():
             stage=stage,
         )
     
-    def _add_branching_info(self, info: Info, stage: str | None = None):
+    def _add_info(self, info: Info, stage: str | None = None):
         before = self.grims
         if len(before) == 0:
             self.grims.append(Grimoire(self.game["players"]))
@@ -83,11 +78,9 @@ class GrimoireManager():
             # add info
             for info in info_list:
                 if night == 1 and info["kind"] in FIRST_NIGHT_INFO:
-                    self._add_branching_info(info)
+                    self._add_info(info)
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
-                    self._add_branching_info(info, f"night {night} {info["kind"]} info.")
-                # elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
-                #     self.add_info(info)
+                    self._add_info(info, f"night {night} {info["kind"]} info.")
 
             for death in [d for d in death_info if d["night"] == night]:
                 # add slayer shot and execution
@@ -110,37 +103,6 @@ class GrimoireManager():
             previous_grims=before,
         )
 
-    def add_info(self, info: Info, stage: str | None = None):
-        before = self.grims
-        before_count = len(self.grims)
-        new_grims = info_to_grimoires(self.game, info)
-
-        logging.debug(
-            f"add_info {info['kind']}: before={before_count}, " +
-            f"new_grims={len(new_grims)}, " +
-            f"potential_pairs={before_count * len(new_grims)}"
-        )
-
-        valid_grims = self._merge_new_grims(new_grims)
-
-        logging.debug(
-            f"add_info {info['kind']}: after_merge={len(valid_grims)}"
-        )
-
-        self._set_grims_checked(
-            valid_grims,
-            stage or f"info {info}",
-            previous_grims=before
-        )
-
-    def set_grims(self, new_grims: list[Grimoire]):
-        if self.true_grim != None:
-            if not self._does_grim_list_contain_true_grim(new_grims, self.true_grim):
-                for i,grim in enumerate(self.grims):
-                    if grim .loose_equals(self.true_grim):
-                        print(i,grim)
-        self.grims = new_grims
-        
     def _set_grims_checked(
         self,
         new_grims: list[Grimoire],
@@ -176,59 +138,6 @@ class GrimoireManager():
 
         self.grims = new_grims
 
-    def _merge_new_grims(self, new_grims: list[Grimoire]) -> list[Grimoire]:
-        if len(self.grims) == 0:
-            return new_grims
-        
-        valid_worlds: set[Grimoire] = set()
-
-        total = 0
-        quick_rejected = 0
-        invalid = 0
-        accepted = 0
-        duplicate = 0
-        invalid_reasons: Counter[str] = Counter()
-
-        for w1 in self.grims:
-            for w2 in new_grims:
-                total += 1
-
-                if self._quick_reject(w1, w2):
-                    quick_rejected += 1
-                    continue
-
-                combined_world, valid, reason = Grimoire.combine(w1, w2)
-
-                if valid:
-                    accepted += 1
-                    valid_worlds.add(combined_world)
-                else:  
-                    invalid += 1
-                    invalid_reasons[reason] += 1
-
-        logging.debug(
-            f"merge: total={total}, quick_rejected={quick_rejected}, "
-            f"invalid={invalid}, accepted={accepted}, duplicate={duplicate}, "
-            f"final={len(valid_worlds)}"
-        )
-
-        return list(valid_worlds)
-
-    @staticmethod
-    def _quick_reject(g1: Grimoire, g2: Grimoire) -> bool:
-        if len(g2.pages) > 2:
-            logging.warning(f"New grim has more pages than expected ({len(g2.pages)})")
-        for p2 in g2.pages:
-            p1 = g1.get_page(p2.night, p2.night_order_position)
-            if p1 == None:
-                continue
-            
-            for i,c in enumerate(p2.characters):
-                if not helper.roleLooseEquals(c, p1.characters[i]):
-                    return True
-                
-        return False
-    
     @staticmethod
     def remove_unneeded_poison(grims: list[Grimoire]) -> list[Grimoire]:
         """Drops a grim if another is the same apart from having strictly less poison.

@@ -881,13 +881,6 @@ FULL_PAGE_VALIDATORS = (
     CHEF_NUMBER_VALIDATOR,
 )
 
-def get_affected_validators(change_type: ChangeType) -> tuple[Validator, ...]:
-    return tuple(
-        validator
-        for validator in FULL_PAGE_VALIDATORS
-        if change_type in validator.affected_by
-    )
-
 def get_affected_validators_forall(change_types: set[ChangeType]) -> tuple[Validator, ...]:
     return tuple(validator for validator in FULL_PAGE_VALIDATORS if validator.affected_by & change_types)
 

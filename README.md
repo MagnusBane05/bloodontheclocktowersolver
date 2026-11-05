@@ -18,7 +18,7 @@
 ## Running tests
 1. `cd bloodontheclocktowersolver`
 2. `unittest-parallel -t . -s tests`
-3. To test memory usage: `/usr/bin/time -v python -m unittest tests.testCreatorWithSimulator.TestCreatorWithSimulator.test_15_player`
+3. To test memory usage: `/usr/bin/time -v python -m unittest tests.testCreatorWithSimulator.TestCreatorWithSimulator.test_5_player`
 4. To profile: see [Profiling](#profiling) below
 
 ## Benchmarking workflow
