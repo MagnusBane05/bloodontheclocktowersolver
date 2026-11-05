@@ -31,7 +31,6 @@ class TestWorker(unittest.TestCase):
         self.assertEqual(result["id"], "5p-0000")
         self.assertGreaterEqual(result["peak_grims"], result["final_grims"])
         self.assertEqual(result["world_steps"], sum(step[2] for step in result["steps"]))
-        self.assertEqual(result["steps"][-1][0], "final remove_subsumed_grims")
 
     def test_repeat_keeps_fastest(self):
         scenario = load_scenarios(5, limit=1)[0]

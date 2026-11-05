@@ -102,14 +102,6 @@ class GrimoireManager():
                         previous_grims=before,
                     )
 
-        before = self.grims
-        self.remove_subsumed_grims() # clean up subsumed grims before we return
-        self._set_grims_checked(
-            self.grims,
-            "final remove_subsumed_grims",
-            previous_grims=before,
-        )
-
     def add_info(self, info: Info, stage: str | None = None):
         before = self.grims
         before_count = len(self.grims)
@@ -249,120 +241,6 @@ class GrimoireManager():
             )
         return kept
 
-    def remove_subsumed_grims(self, max_bucket_size: int = 500):
-        buckets: dict[tuple, list[Grimoire]] = defaultdict(list) # type: ignore
-        for grim in self.grims:
-            buckets[self.subsumtion_buket_key(grim)].append(grim) # type: ignore
-
-        result: list[Grimoire] = []
-        before = len(self.grims)
-
-        for bucket in buckets.values():
-            if len(bucket) > max_bucket_size:
-                result.extend(
-                    self.remove_subsumed_from_large_bucket(
-                        bucket,
-                        max_checks_per_grim=100,
-                    )
-                )
-            else:
-                result.extend(self.remove_subsumed_from_bucket(bucket))
-
-        self.grims = result
-        after = len(result)
-        logging.debug(f"removed {before - after} subsumed grims")
-
-    @staticmethod
-    def remove_subsumed_from_bucket(grims: list[Grimoire]) -> list[Grimoire]:
-        unique: list[Grimoire] = []
-
-        for grim in grims:
-            should_add = True
-            indexes_to_remove: list[int] = []
-
-            for idx, other in enumerate(unique):
-                if other.subsumes(grim):
-                    # Existing grim is more general, so new grim adds nothing.
-                    should_add = False
-                    break
-
-                if grim.subsumes(other):
-                    # New grim is more general, so remove existing one.
-                    indexes_to_remove.append(idx)
-
-            if should_add:
-                for idx in reversed(indexes_to_remove):
-                    del unique[idx]
-                unique.append(grim)
-
-        return unique
-    
-    @staticmethod
-    def remove_subsumed_from_large_bucket(
-        grims: list[Grimoire],
-        max_checks_per_grim: int = 100,
-    ) -> list[Grimoire]:
-        grims = sorted(grims, key=GrimoireManager.grim_generality_score, reverse=True)
-
-        unique: list[Grimoire] = []
-
-        for grim in grims:
-            subsumed = False
-
-            for other in unique[:max_checks_per_grim]:
-                if other.subsumes(grim):
-                    subsumed = True
-                    break
-
-            if not subsumed:
-                unique.append(grim)
-
-        return unique
-    
-    @staticmethod
-    def grim_generality_score(grim: Grimoire) -> int:
-        score = 0
-
-        for page in grim.pages:
-            for c in page.characters:
-                if c == Role.ANY_OTHER:
-                    score += 10
-                elif c in {Role.ANY_OTHER_GOOD, Role.ANY_OTHER_EVIL, Role.NON_DEMON}:
-                    score += 7
-                elif c in {
-                    Role.ANY_OTHER_TOWNSFOLK,
-                    Role.ANY_OTHER_OUTSIDER,
-                    Role.ANY_OTHER_MINION,
-                }:
-                    score += 5
-
-            score += page.minion_types.count(Role.ANY_OTHER_MINION) * 5
-
-            if page.drunk_token is None:
-                score += 1
-
-            if page.chef_number is None:
-                score += 1
-
-        return score
-
-    @staticmethod
-    def subsumtion_buket_key(grim: Grimoire) -> tuple: # type: ignore
-        return (
-            grim.num_players,
-            tuple(grim.keys),
-            tuple(
-                (
-                    tuple(page.poisoned),
-                    tuple(page.red_herring),
-                    page.drunk_token,
-                    page.chef_number,
-                    page.no_outsiders
-                )
-                for page in grim.pages
-            ),
-        )
-    
     def _contains_true_grim(self, grims: list[Grimoire]) -> bool:
         if self.true_grim is None:
             return True
