@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections import defaultdict
+import gc
 import logging
 import time
 from typing import Any, Callable, NamedTuple
@@ -57,6 +58,14 @@ class GrimoireManager():
         )
 
     def add_full_game(self, info_list: list[Info], death_info: list[DeathInfo], nights: int):
+        # grims have no reference cycles, so the cyclic collector only slows the many allocations down
+        gc.disable()
+        try:
+            self._add_full_game(info_list, death_info, nights)
+        finally:
+            gc.enable()
+
+    def _add_full_game(self, info_list: list[Info], death_info: list[DeathInfo], nights: int):
         self.step_started = time.perf_counter()
         for night in range(1,nights+1):
             # add imp kill
