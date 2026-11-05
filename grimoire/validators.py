@@ -27,6 +27,7 @@ class Validator(NamedTuple):
     validate: Callable[[GrimoirePage], bool]
     reason: str
     affected_by: frozenset[ChangeType]
+    first_night_only: bool = False
 
 def is_outsider_count_valid(first_page: GrimoirePage, num_players: int) -> bool:
     # librarian told no outsiders
@@ -751,7 +752,8 @@ OUTSIDER_COUNT_VALIDATOR = Validator(
         ChangeType.CHARACTER,
         ChangeType.MINION_TYPE,
         ChangeType.LIBRARIAN_NO
-    })
+    }),
+    first_night_only=True
 )
 
 EVIL_COUNT_VALIDATOR = Validator(
@@ -777,7 +779,8 @@ ROLE_BREAKDOWN_VALIDATOR = Validator(
     frozenset({
         ChangeType.CHARACTER,
         ChangeType.MINION_TYPE
-    })
+    }),
+    first_night_only=True
 )
 
 ROLE_ASSIGNMENT_VALIDATOR = Validator(
@@ -787,7 +790,8 @@ ROLE_ASSIGNMENT_VALIDATOR = Validator(
         ChangeType.CHARACTER,
         ChangeType.MINION_TYPE,
         ChangeType.CHEF_NUMBER
-    })
+    }),
+    first_night_only=True
 )
 
 MINION_TYPE_VALIDATOR = Validator(
@@ -836,7 +840,8 @@ CHEF_NUMBER_VALIDATOR = Validator(
         ChangeType.CHEF_NUMBER,
         ChangeType.CHARACTER,
         ChangeType.MINION_TYPE
-    })
+    }),
+    first_night_only=True
 )
 
 RED_HERRING_VALIDATOR = Validator(
@@ -862,13 +867,6 @@ ALL_VALIDATORS = (
     ROLE_ASSIGNMENT_VALIDATOR,
 )
 
-FIRST_NIGHT_VALIDATORS = (
-    OUTSIDER_COUNT_VALIDATOR,
-    ROLE_BREAKDOWN_VALIDATOR,
-    CHEF_NUMBER_VALIDATOR,
-    ROLE_ASSIGNMENT_VALIDATOR,
-)
-
 FULL_PAGE_VALIDATORS = (
     OUTSIDER_COUNT_VALIDATOR,
     EVIL_COUNT_VALIDATOR,
@@ -887,7 +885,7 @@ def get_affected_validators_forall(change_types: set[ChangeType]) -> tuple[Valid
 def run_validators(page: GrimoirePage, validators: tuple[Validator, ...]) -> tuple[bool, str]:
     is_first_night = gamerules.is_first_night_setup_page(page)
     for validator in validators:
-        if not is_first_night and validator in FIRST_NIGHT_VALIDATORS:
+        if validator.first_night_only and not is_first_night:
             continue
         if not validator.validate(page):
             return False, validator.reason

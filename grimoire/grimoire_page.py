@@ -72,8 +72,6 @@ _FIELDS_NOT_VALIDATED = {
     'red_herring_moved',
 }
 
-_FIELDS_NOT_IN_POISON_FREE_STATE = {'poisoned', 'night', 'night_order_position'}
-
 class GrimoirePage:
     def __init__(self, num_players: int=5, night: int=1, night_order_position: NightOrderPosition=NightOrderPosition.AFTER_IMP):
         self.num_players: int = num_players
@@ -119,7 +117,10 @@ class GrimoirePage:
         ))
         
     def clone(self) -> GrimoirePage:
-        page = GrimoirePage(self.num_players, self.night, self.night_order_position)
+        page = GrimoirePage.__new__(GrimoirePage)
+        page.num_players = self.num_players
+        page.night = self.night
+        page.night_order_position = self.night_order_position
         page.characters = list(self.characters)
         page.minion_types = list(self.minion_types)
         page.poisoned = list(self.poisoned)
@@ -181,20 +182,27 @@ class GrimoirePage:
         return True
 
     def state_without_poison(self) -> tuple[Any,...]:  # pyright: ignore[reportExplicitAny]
-        # hashable: minion types ignore order
-        return tuple(  # pyright: ignore[reportUnknownVariableType]
-            frozenset(value) if field == "minion_types"  # pyright: ignore[reportUnknownArgumentType, reportAny]
-            else tuple(value) if isinstance(value, list) else value  # pyright: ignore[reportUnknownArgumentType]
-            for field, value in vars(self).items()  # pyright: ignore[reportAny]
-            if field not in _FIELDS_NOT_IN_POISON_FREE_STATE
+        # every field except poisoned and when the page is; hashable, and minion types ignore order
+        return (
+            tuple(self.characters),
+            frozenset(self.minion_types),
+            tuple(self.red_herring),
+            tuple(self.dead),
+            tuple(self.slayer_shot),
+            self.num_players,
+            self.drunk_token,
+            self.chef_number,
+            self.in_chef_pair,
+            self.not_in_chef_pair,
+            self.recluse_needed,
+            self.no_outsiders,
+            self.star_passed,
+            self.executee,
+            self.red_herring_moved,
         )
 
     def same_state(self, other: GrimoirePage) -> bool:
-        other_vars = vars(other)
-        for field, value in vars(self).items():  # pyright: ignore[reportAny]
-            if value != other_vars[field]:
-                return False
-        return True
+        return vars(self) == vars(other)
 
     def add_minion_type(self, type: Role) -> bool:
         if type not in MINIONS:
