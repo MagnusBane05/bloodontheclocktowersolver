@@ -7,6 +7,9 @@ from .grimoire_page import GrimoirePage
 from .grimoire import Grimoire, gamerules
 from .nightOrderPosition import NightOrderPosition
 from .role import Role
+# Changes a throwaway copy of a grim. An impossible change returns False or raises RuntimeError
+# or ValueError, and _try_branch treats all of these as a rejected branch. Actions don't need to
+# validate the pages they change: _finalize deduces and validates every page that changed.
 BranchAction = Callable[[Grimoire], bool]
 
 def _get_info_page(
