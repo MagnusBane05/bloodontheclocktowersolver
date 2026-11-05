@@ -1,6 +1,5 @@
 from __future__ import annotations
 import bisect
-from collections import Counter
 from typing import Any, NamedTuple, override
 
 
@@ -146,14 +145,7 @@ class Grimoire:
 
         return None
     
-    def get_page_before(self, page: GrimoirePage) -> GrimoirePage | None:
-        key = (page.night, page.night_order_position)
-        i = bisect.bisect_left(self.keys, key)
-        if i == 0:
-            return None
-        return self.pages[i-1]
-
-    def add_page(self, night: int, night_order_position: NightOrderPosition, page: GrimoirePage | None = None) -> GrimoirePage:
+    def add_page(self, night: int, night_order_position: NightOrderPosition) -> GrimoirePage:
         key = GrimoireKey(night, night_order_position)
         i = bisect.bisect_left(self.keys, key)
 
@@ -164,13 +156,12 @@ class Grimoire:
             raise IndexError("You should not be adding a page before the first page.")
 
         prev = self.pages[i-1]
-        new_page = prev.clone() if page is None else page
+        new_page = prev.clone()
         if night != new_page.night:
             new_page.executee = None
         new_page.night = night
         new_page.night_order_position = night_order_position
-        if page is None:
-            new_page.poisoned = [False]*len(new_page.poisoned)
+        new_page.poisoned = [False]*len(new_page.poisoned)
         new_page.chef_number = None
         self.pages.insert(i, new_page)
         self.keys.insert(i, key)
@@ -211,11 +202,6 @@ class Grimoire:
                 p.characters[new_demon] = Role.SCARLET_WOMAN
 
     # TODO deprecate
-    def apply_role_to_player(self, player: int, role: Role, page: GrimoirePage):
-        page.characters[player] = role
-        for p in self.get_all_previous_pages(page):
-            p.characters[player] = role
-
     # TODO deprecate?
     def get_all_previous_pages(self, page: GrimoirePage):
         key = self._page_key(page)
@@ -302,147 +288,8 @@ class Grimoire:
             deduced |= phase.make_deductions()
         return deduced
     
-    @classmethod
-    def combine(cls, w1: Grimoire, w2: Grimoire) -> tuple[Grimoire, bool, str]:
-        if w1.num_players != w2.num_players:
-            raise Exception("You are trying to combine worlds with different numbers of players.")
-
-        num_players = w1.num_players
-
-        new_world = Grimoire(num_players)
-        new_world.pages = []
-        new_world.keys = []
-
-        i = 0
-        j = 0
-
-        while i < len(w1.pages) or j < len(w2.pages):
-            # page only in w1
-            if j >= len(w2.pages) or (i < len(w1.pages) and w1.keys[i] < w2.keys[j]):
-                key = w1.keys[i]
-                new_page = w1.pages[i].clone()
-                i += 1
-            # page only in w2
-            elif i >= len(w1.pages) or w2.keys[j] < w1.keys[i]:
-                key = w2.keys[j]
-                new_page = w2.pages[j].clone()
-                j += 1
-            # both grims have page with this key
-            else:
-                key = w1.keys[i]
-                p1 = w1.pages[i]
-                p2 = w2.pages[j]
-
-                if key == (1, NightOrderPosition.AFTER_IMP):
-                    new_page = GrimoirePage(num_players, 1)
-                else:
-                    new_page = GrimoirePage(num_players, key[0])
-                    new_page.night_order_position = key[1]
-
-                valid, reason = Grimoire._combine_pages(new_page, num_players, p1, p2)
-                if not valid:
-                    return w1, False, reason
-                i += 1
-                j += 1
-
-            new_page.night = key[0]
-            new_page.night_order_position = key[1]
-
-            new_world.pages.append(new_page)
-            new_world.keys.append(key)
-
-            if len(new_world.pages) > 1:
-                valid, reason, _ = Grimoire.pass_between_pages(new_world.pages[-2], new_world.pages[-1])
-                if not valid:
-                    return w1, False, reason
-
-        valid, reason = validators.is_grim_valid(new_world)
-        if not valid:
-            return w1, False, reason
-
-        Grimoire.make_deductions(new_world)
-
-        valid, reason = validators.is_grim_valid(new_world)
-        if not valid:
-            return w1, False, f"invalid grim after deducing: {reason}"
-
-        return new_world, True, ""
-
     @staticmethod
-    def _combine_pages(new_phase: GrimoirePage, num_players: int, p1: GrimoirePage, p2: GrimoirePage) -> tuple[bool, str]:
-        # Minion types
-        if not Grimoire._combine_minion_types(new_phase, p1, p2):
-            return False, "invalid combined minion types"
-
-        for i in range(num_players):
-            c1, c2 = p1.characters[i], p2.characters[i]
-            result = Grimoire._combine_characters(c1, c2, p1)
-            if result is None:
-                return False, "characters do not match"
-            new_phase.characters[i] = result
-
-        # Make sure the minions match the minion types
-        if not Grimoire._validate_minion_types(new_phase):
-            return False, "invalid minion types"
-        
-        # Combine no outsiders and make sure Baron still works
-        if not Grimoire._combine_no_outsiders(new_phase, p1, p2):
-            return False, "mismatched no outsiders"
-
-        # Combine and validate chef numbers
-        if new_phase.night == 1 and not Grimoire._combine_chef_number(new_phase, p1, p2, num_players):
-            return False, "mismatched chef numbers"
-        
-        if not Grimoire._combine_deaths(new_phase, p1, p2, num_players):
-            return False, "mismatched deaths"
-
-        # Poisoner logic
-        if not Grimoire._combine_poisoned(new_phase, p1, p2, num_players):
-            return False, "invalid poisoned"
-
-        # Outsider count only for first night
-        if (new_phase.night == 1 
-            and new_phase.night_order_position == NightOrderPosition.AFTER_IMP
-            and not validators.is_outsider_count_valid(new_phase, num_players)
-        ):
-            return False, "invalid outsider count"
-
-        # Good and evil player counts
-        if not(validators.is_evil_count_valid(new_phase, num_players)
-            and validators.is_good_count_valid(new_phase, num_players)
-        ):
-            return False, "invalid good/evil counts"
-        
-        # Check if there's more than one red herring or if the red herring is on an evil player
-        if not Grimoire._combine_red_herring(new_phase, p1, p2, num_players):
-            return False, "mismatched red herring"
-
-        # Combine star passed
-        new_phase.star_passed = p1.star_passed or p2.star_passed
-
-        return True, ""
-
-    @staticmethod
-    def _combine_minion_types(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage):
-        if len(p1.minion_types) != len(p2.minion_types):
-            raise Exception('Trying to combine phases with different numbers of minions. Something has gone terribly wrong.')
-        
-        # combine the two lists of minions, remove duplicates and ANY_OTHER_MINION
-        unique_minions = list(set(p1.minion_types + p2.minion_types) - set([Role.ANY_OTHER_MINION]))
-
-        # if the resulting list of minions is greater than either phase allows, that's an invalid world
-        if len(unique_minions) > len(p1.minion_types):
-            return False
-        
-        # add back in ANY_OTHER_MINION until we're at the right number of minions
-        while len(unique_minions) < len(p1.minion_types):
-            unique_minions.append(Role.ANY_OTHER_MINION)
-
-        new_phase.minion_types = unique_minions
-        return True
-
-    @staticmethod
-    def _combine_characters(c1: Role, c2: Role, p1: GrimoirePage):
+    def _merge_character(c1: Role, c2: Role, p1: GrimoirePage):
         specific = role.get_overlapping(c1, c2, True)
         if (specific is None
             or (specific != c1 
@@ -453,167 +300,6 @@ class Grimoire:
             return None
         else:
             return specific
-
-    @staticmethod
-    def _validate_minion_types(phase: GrimoirePage):
-        for c in phase.characters:
-            if c not in MINIONS or c in phase.minion_types:
-                continue
-            try:
-                # if there's room to replace ANY_OTHER_MINION with the specific character, do it. Otherwise, not a valid world
-                idx = phase.minion_types.index(Role.ANY_OTHER_MINION)
-                phase.minion_types[idx] = c
-            except ValueError:
-                return False
-        return True
-    
-    @staticmethod
-    def _combine_no_outsiders(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage):
-        new_phase.no_outsiders = p1.no_outsiders or p2.no_outsiders
-        return not (new_phase.no_outsiders and Role.BARON in new_phase.minion_types)
-
-    @staticmethod
-    def _combine_chef_number(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):
-        # If both have chef numbers and they conflict, invalid
-        if p1.chef_number is not None and p2.chef_number is not None and p1.chef_number != p2.chef_number:
-            return False
-
-        # Carry forward the known chef number if any
-        new_phase.chef_number = p1.chef_number if p1.chef_number is not None else p2.chef_number
-        if new_phase.chef_number is None:
-            return True
-
-        chef_number = new_phase.chef_number
-        characters = new_phase.characters
-        minion_types = new_phase.minion_types
-
-        # Could an unknown player be the spy
-        spy_possible = Role.SPY not in characters and (Role.SPY in minion_types or Role.ANY_OTHER_MINION in minion_types)
-
-        # Could an unknown player be the recluse
-        known_outsiders = sum(1 for c in characters if c in OUTSIDERS)
-        baron_possible = Role.BARON in minion_types or Role.ANY_OTHER_MINION in minion_types
-        max_outsiders = ROLE_BREAKDOWNS[num_players]['outsiders'] + 2 if baron_possible else ROLE_BREAKDOWNS[num_players]['outsiders']
-        recluse_possible = Role.RECLUSE not in characters and known_outsiders < max_outsiders
-
-        # Precompute predicates for each character
-        definitely_evil = [False] * num_players
-        possibly_evil = [False] * num_players
-        could_be_recluse = [False] * num_players
-        evil_could_be_spy = [False] * num_players
-
-        for i in range(num_players):
-            role = characters[i]
-            if role == Role.SPY:
-                definitely_evil[i] = False
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = False
-            elif role in EVIL_CHARACTERS:
-                definitely_evil[i] = True
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = False
-            elif not spy_possible and role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
-                definitely_evil[i] = True
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = False
-            elif role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
-                definitely_evil[i] = False
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = True
-            elif role in [Role.ANY_OTHER, Role.NON_DEMON]:
-                definitely_evil[i] = False
-                possibly_evil[i] = True
-                could_be_recluse[i] = True
-                evil_could_be_spy[i] = False
-            elif role == Role.RECLUSE:
-                definitely_evil[i] = False
-                possibly_evil[i] = True
-                could_be_recluse[i] = False
-                evil_could_be_spy[i] = False
-            else:
-                definitely_evil[i] = False
-                possibly_evil[i] = False
-                could_be_recluse[i] = role in [Role.ANY_OTHER, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_OUTSIDER]
-                evil_could_be_spy[i] = False
-
-        pairs = [(i, (i + 1) % num_players) for i in range(num_players)]
-
-        min_pairs = 0
-        max_pairs = 0
-
-        recluse_needed: list[int] = []
-        possible_spies: list[int] = []
-        spies_needed = 0
-
-        for i, j in pairs:
-            if definitely_evil[i] and definitely_evil[j]:
-                min_pairs += 1
-            elif definitely_evil[i] and evil_could_be_spy[j]:
-                possible_spies.append(j)
-                spies_needed += 1
-            elif evil_could_be_spy[i] and definitely_evil[j]:
-                possible_spies.append(i)
-                spies_needed += 1
-            elif evil_could_be_spy[i] and evil_could_be_spy[j]:
-                possible_spies.extend([i, j])
-                spies_needed += 1
-
-            if possibly_evil[i] and possibly_evil[j]:
-                max_pairs += 1
-            elif possibly_evil[i] and could_be_recluse[j]:
-                recluse_needed.append(j)
-            elif could_be_recluse[i] and possibly_evil[j]:
-                recluse_needed.append(i)
-
-        recluse_counter = Counter(recluse_needed)
-        recluse_impact = max(recluse_counter.values()) if recluse_counter else 0
-        max_pairs += recluse_impact if recluse_possible else 0
-
-        spy_counter = Counter(possible_spies)
-        spy_impact = max(spy_counter.values()) if spy_counter else 0
-        min_pairs += spies_needed - spy_impact if spy_possible else 0
-
-        # Global evil count constraint
-        max_evils = ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']
-        max_pairs = min(max_pairs, max_evils)
-
-        return min_pairs <= chef_number <= max_pairs
-
-
-    @staticmethod
-    def _combine_poisoned(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):
-        for i in range(num_players):
-            new_phase.poisoned[i] = p1.poisoned[i] or p2.poisoned[i]
-        return validators.is_poisoning_valid(new_phase, num_players)
-
-    @staticmethod
-    def _combine_red_herring(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):
-        # combine the two phases
-        for i in range(num_players):
-            new_phase.red_herring[i] = p1.red_herring[i] or p2.red_herring[i]
-
-        # more than one red herring
-        if sum(new_phase.red_herring) > 1:
-            return False
-
-        # make sure the red herring doesn't belong to an evil player
-        for i in range(num_players):
-            if new_phase.red_herring[i] and new_phase.characters[i] in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION, Role.IMP] + MINIONS and new_phase.characters[i] != Role.SPY:
-                    return False
-                
-        return True
-
-    @staticmethod
-    def _combine_deaths(new_phase: GrimoirePage, p1: GrimoirePage, p2: GrimoirePage, num_players: int):
-        # combine the phases
-        for i in range(num_players):
-            new_phase.dead[i] = p1.dead[i] or p2.dead[i]
-        
-        return True
 
     @staticmethod
     def pass_through_pages(grim: Grimoire, to_pass: set[int]) -> PassThroughPagesResult: 
@@ -661,7 +347,7 @@ class Grimoire:
             ):
                 if gamerules.can_non_demon_become_potential_demon(prev, curr, i):
                     continue
-            result = Grimoire._combine_characters(c1, c2, curr)
+            result = Grimoire._merge_character(c1, c2, curr)
             if result is None:
                 return PassBetweenPagesResult(False, "mismatched characters between pages", changed)
             changed |= curr.set_character(result, i)

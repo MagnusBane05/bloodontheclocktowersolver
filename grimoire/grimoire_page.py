@@ -208,11 +208,6 @@ class GrimoirePage:
         except ValueError:
             raise ValueError("You are trying to add a minion type but this phase already has all minion types determined.")
     
-    def remove_minion_type(self) -> None:
-        if len(self.minion_types) == 0:
-            raise Exception("You are trying to remove a minion from a phase with no minions.")
-        self.minion_types = [Role.ANY_OTHER_MINION]*(len(self.minion_types)-1)
-    
     def set_character(self, character: Role, player: int) -> bool:
         if self.characters[player] == character:
             return False
@@ -625,10 +620,6 @@ class GrimoirePage:
         alive_demons = [i for i, c in enumerate(self.characters) if not self.dead[i] and helper.roleLooseEquals(Role.IMP, c)]
         return alive_demons
     
-    def get_known_evil_team(self):
-        evil_team = [i for i,c in enumerate(self.characters) if c in EVIL_ROLES]
-        return evil_team
-    
     def get_characters_of_type(self, type: CharacterType):
         return sum(1 for c in self.characters if character_type.get_type(c) == type)
 
@@ -637,9 +628,6 @@ class GrimoirePage:
 
     def get_alive_players_of_type(self, type: set[Role]):
         return [i for i,(c,d) in enumerate(zip(self.characters, self.dead)) if not d and c in type]
-
-    def get_dead_characters_of_type(self, type: set[Role]):
-        return [c for i, c in enumerate(self.characters) if self.dead[i] and c in type]
 
     def get_evil_count(self) -> int:
         return sum(1 for c in self.characters if c in EVIL_ROLES_SET)

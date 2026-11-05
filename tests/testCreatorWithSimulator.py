@@ -1,7 +1,6 @@
 import unittest
 from bench.scenarios import load_scenarios
-from grimoire.info_to_grim import *
-from grimoire import GrimoireManager
+from grimoire import Game, GrimoireManager
 from grimoire.info import *
 
 class TestCreatorWithSimulator(unittest.TestCase):
