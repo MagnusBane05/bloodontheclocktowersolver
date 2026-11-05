@@ -34,10 +34,10 @@ def character_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        # grim is a throwaway copy, so there's no need to check the role fits before applying it
+        # grim is a throwaway copy, and _finalize deduces and validates the pages this changes
         try:
-            changed_pages = grim.apply_character(role, player, night, order)
-            return _deduce_and_validate(changed_pages)
+            _ = grim.apply_character(role, player, night, order)
+            return True
         except (RuntimeError, ValueError):
             return False
     return action

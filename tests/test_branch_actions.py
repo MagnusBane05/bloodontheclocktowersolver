@@ -97,9 +97,9 @@ class TestCharacterActionParityWithValidation(unittest.TestCase):
         order: NightOrderPosition = NightOrderPosition.AFTER_IMP,
     ):
         expected_result, expected_grim = _expected_character_result(grim, role, player, night, order)
-        actual_grim = grim.clone()
         action = branch_actions.character_action(role, player, night, order)
-        actual_result = action(actual_grim)
+        actual_grim = _try_branch(grim, action)
+        actual_result = actual_grim is not None
 
         self.assertEqual(
             actual_result,
