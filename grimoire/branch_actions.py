@@ -61,10 +61,8 @@ def poisoned_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not page.can_be_poisoned(player):
-            return False
-        page.apply_poisoned(player)
+        # _finalize validates this page
+        _get_info_page(grim, night, order).apply_poisoned(player)
         return True
     return action
 
@@ -87,11 +85,8 @@ def imp_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not page.can_be_character(Role.IMP, player):
-            return False
-        deduced = page.apply_character(Role.IMP, player)
-        return _deduce_and_validate([page] if deduced else [])
+        _ = _get_info_page(grim, night, order).apply_character(Role.IMP, player)
+        return True
     return action
 
 def no_outsiders_action() -> BranchAction:
