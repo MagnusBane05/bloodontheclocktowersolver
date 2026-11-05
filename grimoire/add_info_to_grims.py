@@ -133,21 +133,21 @@ def _add_claim(info: Claim, grim: Grimoire) -> list[Grimoire]:
 
     # World where the player is the Drunk
     if claim in TOWNSFOLK_SET:
-        _add_branch(
+        _ = _add_branch(
             out,
             grim,
-            character_action(Role.DRUNK, player, night, order)
+            drunk_action(claim, player, night, order)
         )
 
     # World where the player is an unspecified evil character
-    _add_branch(
+    _ = _add_branch(
         out,
         grim,
         character_action(Role.ANY_OTHER_EVIL, player, night, order)
     )
 
     # World where the player is exactly the claimed character
-    _add_branch(
+    _ = _add_branch(
         out,
         grim,
         character_action(claim, player, night, order)
