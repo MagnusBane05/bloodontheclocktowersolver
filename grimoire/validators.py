@@ -27,6 +27,7 @@ class Validator(NamedTuple):
     validate: Callable[[GrimoirePage], bool]
     reason: str
     affected_by: frozenset[ChangeType]
+    first_night_only: bool = False
 
 def is_outsider_count_valid(first_page: GrimoirePage, num_players: int) -> bool:
     # librarian told no outsiders
@@ -527,7 +528,7 @@ def _is_final_assignment_valid(
 
 def are_minion_types_valid(page: GrimoirePage) -> bool:
     for c in page.characters:
-        if c in MINIONS and c not in page.minion_types:
+        if c in MINIONS_SET and c not in page.minion_types:
             return False
     return True
 
@@ -547,13 +548,12 @@ def is_poisoning_valid(page: GrimoirePage, num_players: int) -> bool:
     if Role.POISONER in dead_characters:
         return False
     # false if all minions are dead (check evil roles, not just minions, in case of star passes)
-    if len([c for c in dead_characters if c in EVIL_ROLES]) == gamerules.get_minion_count(num_players):
+    if len([c for c in dead_characters if c in EVIL_ROLES_SET]) == gamerules.get_minion_count(num_players):
         return False
     return True
 
 def is_no_invalid_duplicates(page: GrimoirePage) -> bool:
-    valid_duplicates = ANY_OTHER_ROLES_SET | {Role.IMP}
-    invalid_duplicates = [c for c in page.characters if c not in valid_duplicates]
+    invalid_duplicates = [c for c in page.characters if c not in VALID_DUPLICATES]
     return len(invalid_duplicates) == len(set(invalid_duplicates))
 
 def is_no_sober_saint_executed(page: GrimoirePage) -> bool:
@@ -612,7 +612,7 @@ def is_chef_number_valid(page: GrimoirePage) -> bool:
     for i, role in enumerate(characters):
         if role == Role.SPY:
             evil_could_be_spy.add(i)
-        elif role in EVIL_CHARACTERS:
+        elif role in EVIL_CHARACTERS_SET:
             definitely_evil.add(i)
         elif not spy_possible and role in [Role.ANY_OTHER_EVIL, Role.ANY_OTHER_MINION]:
             definitely_evil.add(i)
@@ -751,7 +751,8 @@ OUTSIDER_COUNT_VALIDATOR = Validator(
         ChangeType.CHARACTER,
         ChangeType.MINION_TYPE,
         ChangeType.LIBRARIAN_NO
-    })
+    }),
+    first_night_only=True
 )
 
 EVIL_COUNT_VALIDATOR = Validator(
@@ -777,7 +778,8 @@ ROLE_BREAKDOWN_VALIDATOR = Validator(
     frozenset({
         ChangeType.CHARACTER,
         ChangeType.MINION_TYPE
-    })
+    }),
+    first_night_only=True
 )
 
 ROLE_ASSIGNMENT_VALIDATOR = Validator(
@@ -787,7 +789,8 @@ ROLE_ASSIGNMENT_VALIDATOR = Validator(
         ChangeType.CHARACTER,
         ChangeType.MINION_TYPE,
         ChangeType.CHEF_NUMBER
-    })
+    }),
+    first_night_only=True
 )
 
 MINION_TYPE_VALIDATOR = Validator(
@@ -836,7 +839,8 @@ CHEF_NUMBER_VALIDATOR = Validator(
         ChangeType.CHEF_NUMBER,
         ChangeType.CHARACTER,
         ChangeType.MINION_TYPE
-    })
+    }),
+    first_night_only=True
 )
 
 RED_HERRING_VALIDATOR = Validator(
@@ -862,13 +866,6 @@ ALL_VALIDATORS = (
     ROLE_ASSIGNMENT_VALIDATOR,
 )
 
-FIRST_NIGHT_VALIDATORS = (
-    OUTSIDER_COUNT_VALIDATOR,
-    ROLE_BREAKDOWN_VALIDATOR,
-    CHEF_NUMBER_VALIDATOR,
-    ROLE_ASSIGNMENT_VALIDATOR,
-)
-
 FULL_PAGE_VALIDATORS = (
     OUTSIDER_COUNT_VALIDATOR,
     EVIL_COUNT_VALIDATOR,
@@ -887,7 +884,7 @@ def get_affected_validators_forall(change_types: set[ChangeType]) -> tuple[Valid
 def run_validators(page: GrimoirePage, validators: tuple[Validator, ...]) -> tuple[bool, str]:
     is_first_night = gamerules.is_first_night_setup_page(page)
     for validator in validators:
-        if not is_first_night and validator in FIRST_NIGHT_VALIDATORS:
+        if validator.first_night_only and not is_first_night:
             continue
         if not validator.validate(page):
             return False, validator.reason

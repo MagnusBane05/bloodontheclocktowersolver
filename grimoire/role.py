@@ -110,7 +110,7 @@ NON_SPY_EVIL_CHARACTERS = {Role.POISONER, Role.BARON, Role.SCARLET_WOMAN, Role.I
 def get_overlapping(c1: Role, c2: Role, specific: bool = True) -> Role | None:
     if c1 == c2:
         return c1
-    if c1 not in ANY_OTHER_ROLES:
+    if c1 not in ANY_OTHER_ROLES_SET:
         return _get_overlapping_character(c1, c2, specific)
     if c1 == Role.ANY_OTHER_EVIL:
         return _get_overlapping_evil(c2, specific)
@@ -129,17 +129,17 @@ def get_overlapping(c1: Role, c2: Role, specific: bool = True) -> Role | None:
     return None
 
 def _get_overlapping_character(character: Role, c2: Role, specific: bool) -> Role | None:
-    if c2 not in ANY_OTHER_ROLES and c2 != character:
+    if c2 not in ANY_OTHER_ROLES_SET and c2 != character:
         return None
-    if c2 == Role.ANY_OTHER_EVIL and character in EVIL_CHARACTERS:
+    if c2 == Role.ANY_OTHER_EVIL and character in EVIL_CHARACTERS_SET:
         return character if specific else c2
-    if c2 == Role.ANY_OTHER_GOOD and character in GOOD_CHARACTERS:
+    if c2 == Role.ANY_OTHER_GOOD and character in GOOD_CHARACTERS_SET:
         return character if specific else c2
-    if c2 == Role.ANY_OTHER_MINION and character in MINIONS:
+    if c2 == Role.ANY_OTHER_MINION and character in MINIONS_SET:
         return character if specific else c2
-    if c2 == Role.ANY_OTHER_OUTSIDER and character in OUTSIDERS:
+    if c2 == Role.ANY_OTHER_OUTSIDER and character in OUTSIDERS_SET:
         return character if specific else c2
-    if c2 == Role.ANY_OTHER_TOWNSFOLK and character in TOWNSFOLK:
+    if c2 == Role.ANY_OTHER_TOWNSFOLK and character in TOWNSFOLK_SET:
         return character if specific else c2
     if c2 == Role.NON_DEMON and character != Role.IMP:
         return character if specific else c2
@@ -158,7 +158,7 @@ def _get_overlapping_evil(c2: Role, specific: bool) -> Role | None:
         return None
     if c2 == Role.NON_DEMON:
         return Role.ANY_OTHER_MINION if specific else Role.ANY_OTHER_EVIL
-    if c2 not in EVIL_CHARACTERS:
+    if c2 not in EVIL_CHARACTERS_SET:
         return None
     if c2 == Role.IMP:
         return c2 if specific else Role.ANY_OTHER_EVIL
@@ -175,7 +175,7 @@ def _get_overlapping_good(c2: Role, specific: bool) -> Role | None:
         return c2 if specific else Role.ANY_OTHER_GOOD
     if c2 == Role.NON_DEMON:
         return Role.ANY_OTHER_GOOD if specific else c2
-    if c2 not in GOOD_CHARACTERS:
+    if c2 not in GOOD_CHARACTERS_SET:
         return None
     return c2 if specific else Role.ANY_OTHER_GOOD
 
@@ -190,7 +190,7 @@ def _get_overlapping_minion(c2: Role, specific: bool) -> Role | None:
         return None
     if c2 == Role.NON_DEMON:
         return Role.ANY_OTHER_MINION if specific else c2
-    if c2 not in MINIONS:
+    if c2 not in MINIONS_SET:
         return None
     return c2 if specific else Role.ANY_OTHER_MINION
 
@@ -207,7 +207,7 @@ def _get_overlapping_townsfolk(c2: Role, specific: bool) -> Role | None:
         return None
     if c2 == Role.NON_DEMON:
         return Role.ANY_OTHER_TOWNSFOLK if specific else c2
-    if c2 not in TOWNSFOLK:
+    if c2 not in TOWNSFOLK_SET:
         return None
     return c2 if specific else Role.ANY_OTHER_TOWNSFOLK
 
@@ -224,7 +224,7 @@ def _get_overlapping_outsider(c2: Role, specific: bool) -> Role | None:
         return None
     if c2 == Role.NON_DEMON:
         return Role.ANY_OTHER_OUTSIDER if specific else c2
-    if c2 not in OUTSIDERS:
+    if c2 not in OUTSIDERS_SET:
         return None
     return c2 if specific else Role.ANY_OTHER_OUTSIDER
 
@@ -244,7 +244,7 @@ def _get_overlapping_non_demon(c2: Role, specific: bool) -> Role | None:
     return c2 if specific else Role.NON_DEMON
 
 def _get_overlapping_other(c2: Role, specific: bool) -> Role | None:
-    if c2 in ANY_OTHER_ROLES:
+    if c2 in ANY_OTHER_ROLES_SET:
         return c2 if specific else Role.ANY_OTHER
     if c2 == Role.IMP:
         return c2 if specific else Role.ANY_OTHER

@@ -1,6 +1,6 @@
 import math
 
-from grimoire.role import DEMONS, EVIL_CHARACTERS, GOOD_CHARACTERS, MINIONS, OUTSIDERS, TOWNSFOLK, Role, get_overlapping
+from grimoire.role import DEMONS, EVIL_CHARACTERS_SET, GOOD_CHARACTERS_SET, MINIONS_SET, OUTSIDERS_SET, TOWNSFOLK_SET, Role, get_overlapping
 from itertools import combinations
 
 
@@ -14,20 +14,20 @@ def roleLooseEquals(r1: Role, r2: Role) -> bool:
     if r2 == Role.NON_DEMON:
         return r1 != Role.IMP
     if r1 == Role.ANY_OTHER_TOWNSFOLK:
-        return r2 in TOWNSFOLK or r2 == Role.ANY_OTHER_GOOD
+        return r2 in TOWNSFOLK_SET or r2 == Role.ANY_OTHER_GOOD
     if r1 == Role.ANY_OTHER_OUTSIDER:
-        return r2 in OUTSIDERS or r2 == Role.ANY_OTHER_GOOD
+        return r2 in OUTSIDERS_SET or r2 == Role.ANY_OTHER_GOOD
     if r1 == Role.ANY_OTHER_MINION:
-        return r2 in MINIONS or r2 == Role.ANY_OTHER_EVIL
+        return r2 in MINIONS_SET or r2 == Role.ANY_OTHER_EVIL
     if r1 == Role.ANY_OTHER_GOOD:
-        return r2 in GOOD_CHARACTERS or r2 == Role.ANY_OTHER_OUTSIDER or r2 == Role.ANY_OTHER_TOWNSFOLK
+        return r2 in GOOD_CHARACTERS_SET or r2 == Role.ANY_OTHER_OUTSIDER or r2 == Role.ANY_OTHER_TOWNSFOLK
     if r1 == Role.ANY_OTHER_EVIL:
-        return r2 in EVIL_CHARACTERS or r2 == Role.ANY_OTHER_MINION
-    if r1 in TOWNSFOLK:
+        return r2 in EVIL_CHARACTERS_SET or r2 == Role.ANY_OTHER_MINION
+    if r1 in TOWNSFOLK_SET:
         return r2 == Role.ANY_OTHER_TOWNSFOLK or r2 == Role.ANY_OTHER_GOOD
-    if r1 in OUTSIDERS:
+    if r1 in OUTSIDERS_SET:
         return r2 == Role.ANY_OTHER_OUTSIDER or r2 == Role.ANY_OTHER_GOOD
-    if r1 in MINIONS:
+    if r1 in MINIONS_SET:
         return r2 == Role.ANY_OTHER_MINION or r2 == Role.ANY_OTHER_EVIL
     if r1 in DEMONS:
         return r2 == Role.ANY_OTHER_EVIL

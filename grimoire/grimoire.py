@@ -36,8 +36,9 @@ class Grimoire:
     def __init__(self, num_players:int=5):
         if num_players not in ROLE_BREAKDOWNS.keys():
             raise ValueError(f"{num_players} player worlds are not yet handled.")
-        self.pages: list[GrimoirePage] = [GrimoirePage(num_players,1)]
-        self.keys: list[GrimoireKey]= [self._page_key(GrimoirePage(num_players,1))]
+        first_page = GrimoirePage(num_players,1)
+        self.pages: list[GrimoirePage] = [first_page]
+        self.keys: list[GrimoireKey]= [self._page_key(first_page)]
         self.num_players: int = num_players
         self.unsettled: set[GrimoireKey] | None = None
 
@@ -60,7 +61,7 @@ class Grimoire:
                 character = phase.characters[j]
                 dead = phase.dead[j]
                 red_herring = phase.red_herring[j]
-                if character in ANY_OTHER_ROLES:
+                if character in ANY_OTHER_ROLES_SET:
                     ps += f"Player {j} is {CHARACTER_STRINGS[character]}.\n"
                 else:
                     ps += f"Player {j} is the {CHARACTER_STRINGS[character]}.\n"
@@ -101,7 +102,8 @@ class Grimoire:
         return True
     
     def clone(self):
-        new = Grimoire(self.num_players)
+        new = Grimoire.__new__(Grimoire)
+        new.num_players = self.num_players
         new.pages = [p.clone() for p in self.pages]
         new.keys = self.keys.copy()
         new.unsettled = self.unsettled
@@ -140,7 +142,7 @@ class Grimoire:
         key = (night, night_order_position)
         i = bisect.bisect_left(self.keys, key)
 
-        if i < len(self.pages) and self._page_key(self.pages[i]) == key:
+        if i < len(self.keys) and self.keys[i] == key:
             return self.pages[i]
 
         return None
@@ -332,6 +334,9 @@ class Grimoire:
         promotions = 0
         for i in range(len(prev.characters)):
             c1, c2 = curr.characters[i], prev.characters[i]
+            # usually nothing to do, but a player can't be the character the Drunk thinks they are
+            if c1 == c2 and c1 != curr.drunk_token:
+                continue
             # minion became demon
             if c1 == Role.IMP and c2 in GENERIC_MINION_SET:
                 if gamerules.can_minion_become_demon(prev, curr, i):

@@ -263,7 +263,7 @@ def is_minion_type_possible(minion: Role, minion_types: list[Role]):
     return minion in minion_types or Role.ANY_OTHER_MINION in minion_types
 
 def get_valid_red_herrings(characters: list[Role]):
-    return [i for i, c in enumerate(characters) if c not in EVIL_CHARACTERS or c == Role.SPY]
+    return [i for i, c in enumerate(characters) if c not in EVIL_CHARACTERS_SET or c == Role.SPY]
 
 def get_evil_count(num_players: int) -> int:
     return ROLE_BREAKDOWNS[num_players]['minions'] + ROLE_BREAKDOWNS[num_players]['demons']

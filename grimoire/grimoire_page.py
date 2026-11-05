@@ -72,8 +72,6 @@ _FIELDS_NOT_VALIDATED = {
     'red_herring_moved',
 }
 
-_FIELDS_NOT_IN_POISON_FREE_STATE = {'poisoned', 'night', 'night_order_position'}
-
 class GrimoirePage:
     def __init__(self, num_players: int=5, night: int=1, night_order_position: NightOrderPosition=NightOrderPosition.AFTER_IMP):
         self.num_players: int = num_players
@@ -119,7 +117,10 @@ class GrimoirePage:
         ))
         
     def clone(self) -> GrimoirePage:
-        page = GrimoirePage(self.num_players, self.night, self.night_order_position)
+        page = GrimoirePage.__new__(GrimoirePage)
+        page.num_players = self.num_players
+        page.night = self.night
+        page.night_order_position = self.night_order_position
         page.characters = list(self.characters)
         page.minion_types = list(self.minion_types)
         page.poisoned = list(self.poisoned)
@@ -181,23 +182,30 @@ class GrimoirePage:
         return True
 
     def state_without_poison(self) -> tuple[Any,...]:  # pyright: ignore[reportExplicitAny]
-        # hashable: minion types ignore order
-        return tuple(  # pyright: ignore[reportUnknownVariableType]
-            frozenset(value) if field == "minion_types"  # pyright: ignore[reportUnknownArgumentType, reportAny]
-            else tuple(value) if isinstance(value, list) else value  # pyright: ignore[reportUnknownArgumentType]
-            for field, value in vars(self).items()  # pyright: ignore[reportAny]
-            if field not in _FIELDS_NOT_IN_POISON_FREE_STATE
+        # every field except poisoned and when the page is; hashable, and minion types ignore order
+        return (
+            tuple(self.characters),
+            frozenset(self.minion_types),
+            tuple(self.red_herring),
+            tuple(self.dead),
+            tuple(self.slayer_shot),
+            self.num_players,
+            self.drunk_token,
+            self.chef_number,
+            self.in_chef_pair,
+            self.not_in_chef_pair,
+            self.recluse_needed,
+            self.no_outsiders,
+            self.star_passed,
+            self.executee,
+            self.red_herring_moved,
         )
 
     def same_state(self, other: GrimoirePage) -> bool:
-        other_vars = vars(other)
-        for field, value in vars(self).items():  # pyright: ignore[reportAny]
-            if value != other_vars[field]:
-                return False
-        return True
+        return vars(self) == vars(other)
 
     def add_minion_type(self, type: Role) -> bool:
-        if type not in MINIONS:
+        if type not in MINIONS_SET:
             raise ValueError("You are trying to add a non-minion role as a minion type.")
         if type in self.minion_types:
             return False
@@ -373,12 +381,12 @@ class GrimoirePage:
         evil_or_recluse_count = 0
 
         for i, c in enumerate(characters):
-            if c in GOOD_ROLES:
+            if c in GOOD_ROLES_SET:
                 known_good_count += 1
             elif c in GENERIC_MINION_SET:
                 known_minion_count += 1
                 known_evil_count += 1
-            elif c in EVIL_ROLES:
+            elif c in EVIL_ROLES_SET:
                 known_evil_count += 1
             elif self.in_chef_pair & (1 << i):
                 evil_or_recluse_count += 1
@@ -388,7 +396,7 @@ class GrimoirePage:
 
         # assign evil roles to player if all good players are accounted for
         good_player_count = ROLE_BREAKDOWNS[num_players]['townsfolk'] + ROLE_BREAKDOWNS[num_players]['outsiders']
-        # known_good_count = sum(1 for c in characters if c in GOOD_ROLES)
+        # known_good_count = sum(1 for c in characters if c in GOOD_ROLES_SET)
         if known_good_count == good_player_count:
             for i,c in enumerate(characters):
                 if c == Role.ANY_OTHER:
@@ -604,7 +612,7 @@ class GrimoirePage:
                 continue
             if c == Role.NON_DEMON:
                 self.characters[i] = Role.ANY_OTHER
-            if c == Role.ANY_OTHER_MINION or (c in MINIONS and not (c == Role.SPY and self.red_herring[i])):
+            if c == Role.ANY_OTHER_MINION or (c in MINIONS_SET and not (c == Role.SPY and self.red_herring[i])):
                 self.characters[i] = Role.ANY_OTHER_EVIL
     
     def get_alive_characters(self) -> list[Role]:

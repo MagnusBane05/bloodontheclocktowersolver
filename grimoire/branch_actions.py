@@ -7,6 +7,9 @@ from .grimoire_page import GrimoirePage
 from .grimoire import Grimoire, gamerules
 from .nightOrderPosition import NightOrderPosition
 from .role import Role
+# Changes a throwaway copy of a grim. An impossible change returns False or raises RuntimeError
+# or ValueError, and _try_branch treats all of these as a rejected branch. Actions don't need to
+# validate the pages they change: _finalize deduces and validates every page that changed.
 BranchAction = Callable[[Grimoire], bool]
 
 def _get_info_page(
@@ -34,10 +37,12 @@ def character_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        if not grim.can_be_character(role, player, night, order):
+        # grim is a throwaway copy, and _finalize deduces and validates the pages this changes
+        try:
+            _ = grim.apply_character(role, player, night, order)
+            return True
+        except (RuntimeError, ValueError):
             return False
-        changed_pages = grim.apply_character(role, player, night, order)
-        return _deduce_and_validate(changed_pages)
     return action
 
 def drunk_action(
@@ -59,10 +64,8 @@ def poisoned_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not page.can_be_poisoned(player):
-            return False
-        page.apply_poisoned(player)
+        # _finalize validates this page
+        _get_info_page(grim, night, order).apply_poisoned(player)
         return True
     return action
 
@@ -85,11 +88,8 @@ def imp_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not page.can_be_character(Role.IMP, player):
-            return False
-        deduced = page.apply_character(Role.IMP, player)
-        return _deduce_and_validate([page] if deduced else [])
+        _ = _get_info_page(grim, night, order).apply_character(Role.IMP, player)
+        return True
     return action
 
 def no_outsiders_action() -> BranchAction:
