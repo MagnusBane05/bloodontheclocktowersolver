@@ -123,7 +123,7 @@ def _add_drunk_evil_poisoned(
 
     return out, real_base
 
-def _add_claim(info: Claim, grim: Grimoire) -> list[Grimoire]:
+def _add_claim(info: Claim, grim: Grimoire) -> set[Grimoire]:
     player = info["player"]
     claim = info["character"]
     night = 1
@@ -153,9 +153,9 @@ def _add_claim(info: Claim, grim: Grimoire) -> list[Grimoire]:
         character_action(claim, player, night, order)
     )
 
-    return list(out)
+    return out
 
-def _add_investigator_info(info: InvestigatorInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_investigator_info(info: InvestigatorInfo, grim: Grimoire) -> set[Grimoire]:
     player = info["investigator"]
     a = info["first_player"]
     b = info["second_player"]
@@ -171,7 +171,7 @@ def _add_investigator_info(info: InvestigatorInfo, grim: Grimoire) -> list[Grimo
     )
 
     if base is None:
-        return list(out)
+        return out
     
     for target in (a, b):
         # Target is the minion
@@ -188,9 +188,9 @@ def _add_investigator_info(info: InvestigatorInfo, grim: Grimoire) -> list[Grimo
             character_action(Role.RECLUSE, target, night, order)
         )
 
-    return list(out)
+    return out
 
-def _add_washerwoman_info(info: WasherwomanInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_washerwoman_info(info: WasherwomanInfo, grim: Grimoire) -> set[Grimoire]:
     player = info["washerwoman"]
     a = info["first_player"]
     b = info["second_player"]
@@ -206,7 +206,7 @@ def _add_washerwoman_info(info: WasherwomanInfo, grim: Grimoire) -> list[Grimoir
     )
 
     if base is None:
-        return list(out)
+        return out
     
     for target in (a, b):
         # Target is the townsfolk
@@ -223,9 +223,9 @@ def _add_washerwoman_info(info: WasherwomanInfo, grim: Grimoire) -> list[Grimoir
             character_action(Role.SPY, target, night, order)
         )
 
-    return list(out)
+    return out
 
-def _add_librarian_info(info: LibrarianInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_librarian_info(info: LibrarianInfo, grim: Grimoire) -> set[Grimoire]:
     player = info["librarian"]
     a = info["first_player"]
     b = info["second_player"]
@@ -241,7 +241,7 @@ def _add_librarian_info(info: LibrarianInfo, grim: Grimoire) -> list[Grimoire]:
     )
 
     if base is None:
-        return list(out)
+        return out
     
     if outsider is None:
         _add_branch(
@@ -249,7 +249,7 @@ def _add_librarian_info(info: LibrarianInfo, grim: Grimoire) -> list[Grimoire]:
             base,
             no_outsiders_action()
         )
-        return list(out)
+        return out
     
     if a is None or b is None:
         raise RuntimeError(f"Librarian info with token {outsider} shown but no players.")
@@ -269,9 +269,9 @@ def _add_librarian_info(info: LibrarianInfo, grim: Grimoire) -> list[Grimoire]:
             character_action(Role.SPY, target, night, order)
         )
 
-    return list(out)
+    return out
 
-def _add_chef_info(info: ChefInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_chef_info(info: ChefInfo, grim: Grimoire) -> set[Grimoire]:
     player = info["chef"]
     number = info["number"]
     night = 1
@@ -284,7 +284,7 @@ def _add_chef_info(info: ChefInfo, grim: Grimoire) -> list[Grimoire]:
     )
 
     if base is None:
-        return list(out)
+        return out
     
     _add_branch(
         out,
@@ -292,12 +292,12 @@ def _add_chef_info(info: ChefInfo, grim: Grimoire) -> list[Grimoire]:
         chef_number_action(number)
     )
 
-    return list(out)
+    return out
 
 
 
 
-def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> set[Grimoire]:
     player = info['fortune_teller']
     night = info['night']
     order = NightOrderPosition.AFTER_IMP
@@ -311,7 +311,7 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Gr
     )
 
     if ft_base is None:
-        return list(out)
+        return out
 
     if ping:
         for target in (a, b):
@@ -354,9 +354,9 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> list[Gr
             character_action(Role.NON_DEMON, b, night, order)
         )
 
-    return list(out)
+    return out
 
-def _add_empath_info(info: EmpathInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_empath_info(info: EmpathInfo, grim: Grimoire) -> set[Grimoire]:
     player = info["empath"]
     night = info["night"]
     order = NightOrderPosition.AFTER_IMP
@@ -372,7 +372,7 @@ def _add_empath_info(info: EmpathInfo, grim: Grimoire) -> list[Grimoire]:
     )
 
     if empath_base is None:
-        return list(out)
+        return out
     
     if number == 0:
         # Both neighbours are good
@@ -461,9 +461,9 @@ def _add_empath_info(info: EmpathInfo, grim: Grimoire) -> list[Grimoire]:
     else:
         raise RuntimeError("Empath number cannot be greater than 2.")
     
-    return list(out)
+    return out
 
-def _add_undertaker_info(info: UndertakerInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_undertaker_info(info: UndertakerInfo, grim: Grimoire) -> set[Grimoire]:
     player = info["undertaker"]
     night = info["night"]
     character = info["token"]
@@ -478,7 +478,7 @@ def _add_undertaker_info(info: UndertakerInfo, grim: Grimoire) -> list[Grimoire]
     )
 
     if ut_base is None:
-        return list(out)
+        return out
     
     # World where the undertaker sees the actual token (body is that token)
     if character == Role.IMP:
@@ -509,9 +509,9 @@ def _add_undertaker_info(info: UndertakerInfo, grim: Grimoire) -> list[Grimoire]
             character_action(Role.SPY, executee, night, order)
         )
 
-    return list(out)
+    return out
 
-def _add_ravenkeeper_info(info: RavenkeeperInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_ravenkeeper_info(info: RavenkeeperInfo, grim: Grimoire) -> set[Grimoire]:
     player=  info["ravenkeeper"]
     night = info["night"]
     character = info["token"]
@@ -526,7 +526,7 @@ def _add_ravenkeeper_info(info: RavenkeeperInfo, grim: Grimoire) -> list[Grimoir
     )
 
     if rk_base is None:
-        return list(out)
+        return out
     
     # World where the Ravenkeeper sees the actual token (chosen player is that token)
     if character == Role.IMP:
@@ -557,9 +557,9 @@ def _add_ravenkeeper_info(info: RavenkeeperInfo, grim: Grimoire) -> list[Grimoir
             character_action(Role.SPY, chosen, night, order)
         )
 
-    return list(out)   
+    return out   
 
-def _add_virgin_info(info: VirginInfo, grim: Grimoire)  -> list[Grimoire]:
+def _add_virgin_info(info: VirginInfo, grim: Grimoire) -> set[Grimoire]:
     player=  info["virgin"]
     night = info["night"]
     nominator = info["nominator"]
@@ -594,7 +594,7 @@ def _add_virgin_info(info: VirginInfo, grim: Grimoire)  -> list[Grimoire]:
         )
 
         if virgin_base is None or nominator == player:
-            return list(out)
+            return out
 
         # Evil nominated Virgin
         _add_branch(
@@ -610,9 +610,9 @@ def _add_virgin_info(info: VirginInfo, grim: Grimoire)  -> list[Grimoire]:
             character_action(Role.ANY_OTHER_OUTSIDER, nominator, night, order)
         )
 
-    return list(out)
+    return out
 
-def _add_slayer_info(info: SlayerInfo, grim: Grimoire) -> list[Grimoire]:
+def _add_slayer_info(info: SlayerInfo, grim: Grimoire) -> set[Grimoire]:
     player=  info["slayer"]
     night = info["night"]
     target = info["target"]
@@ -647,7 +647,7 @@ def _add_slayer_info(info: SlayerInfo, grim: Grimoire) -> list[Grimoire]:
         )
 
         if slayer_base is None or target == player:
-            return list(out)
+            return out
 
         # World where the slayer's shot hit a non-demon
         _add_branch(
@@ -656,14 +656,14 @@ def _add_slayer_info(info: SlayerInfo, grim: Grimoire) -> list[Grimoire]:
             character_action(Role.NON_DEMON, target, night, order)
         )
 
-    return list(out)
+    return out
 
 
 Y = TypeVar("Y", bound=Info)
 def _apply_info(
     info: Y, 
     grims: list[Grimoire], 
-    add_info_fn: Callable[[Y, Grimoire], list[Grimoire]],
+    add_info_fn: Callable[[Y, Grimoire], set[Grimoire]],
     trace: TrueGrimTrace | None = None
 ) -> list[Grimoire]:
     new_grims: set[Grimoire] = set()
@@ -713,7 +713,7 @@ def _add_demon_kill(
     info: DemonKillInfo, 
     grim: Grimoire, 
     _trace: TrueGrimTrace | None = None,
-) -> list[Grimoire]:
+) -> set[Grimoire]:
     night = info["night"]
     player = info["player"]
     order = NightOrderPosition.AFTER_IMP
@@ -746,13 +746,13 @@ def _add_demon_kill(
         character_action(Role.NON_DEMON, player, night, order),
     )
 
-    return list(new_grims)
+    return new_grims
 
 def _add_execution(
     info: ExecutionInfo, 
     grim: Grimoire,
     trace: TrueGrimTrace | None = None,
-) -> list[Grimoire]:
+) -> set[Grimoire]:
     night = info["night"]
     executee = info["player"]
     order = NightOrderPosition.AFTER_EXECUTION
@@ -782,13 +782,13 @@ def _add_execution(
         trace=trace
     )
 
-    return list(new_grims)
+    return new_grims
 
 def _add_slayer_shot(
     info: SlayerKillInfo, 
     grim: Grimoire,
     _trace: TrueGrimTrace | None = None,
-) -> list[Grimoire]:
+) -> set[Grimoire]:
     night = info["night"]
     target = info["player"]
     order = NightOrderPosition.AFTER_SLAYER
@@ -812,13 +812,13 @@ def _add_slayer_shot(
         character_action(Role.RECLUSE, target, night, order),
     )
 
-    return list(new_grims)
+    return new_grims
 
 T = TypeVar("T", bound=DeathInfo)
 def _apply_death_info(
     info: T, 
     grims: list[Grimoire], 
-    add_info_fn: Callable[[T, Grimoire, TrueGrimTrace | None], list[Grimoire]],
+    add_info_fn: Callable[[T, Grimoire, TrueGrimTrace | None], set[Grimoire]],
     trace: TrueGrimTrace | None = None,
 ) -> list[Grimoire]:
     new_grims: set[Grimoire] = set()
@@ -838,7 +838,7 @@ def add_death_info_to_grims(
     info: DeathInfo, 
     grims: list[Grimoire],
     trace: TrueGrimTrace | None = None,
-)-> list[Grimoire]:
+) -> list[Grimoire]:
     if info['kind'] == "demon":
         return _apply_death_info(info, grims, _add_demon_kill, trace)
     elif info['kind'] == "execution":
