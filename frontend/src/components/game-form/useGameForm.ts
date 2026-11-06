@@ -14,6 +14,7 @@ interface UseGameFormResult {
   players: number;
   allExecutions: ExecutionInfo[];
   demonKills: DemonKillInfo[];
+  infoDeaths: DeathInfo[];
   infos: InfoFormEntry[];
   roles: string[];
   infoKinds: string[];
@@ -40,9 +41,8 @@ interface UseGameFormResult {
   clearInfo: () => void;
   updateInfo: (index: number, field: string, value: any) => void;
   removeInfo: (index: number) => void;
-  setExecutions: (executions: ExecutionInfo[]) => void;
-  setDemonKills: (demonKills: DemonKillInfo[]) => void;
-  removeExecutionInfo: (player: number, night: number) => void;
+  setExecutions: (update: (current: ExecutionInfo[]) => ExecutionInfo[]) => void;
+  setDemonKills: (update: (current: DemonKillInfo[]) => DemonKillInfo[]) => void;
 }
 
 const principalPlayerFields = new Set([
@@ -210,13 +210,22 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
   const virginExecution = useMemo(() => deriveVirginExecutionFromInfos(infos), [infos]);
 
   const allExecutions: ExecutionInfo[] = useMemo(() => 
-    virginExecution ? [...executions, virginExecution] : executions
+    virginExecution
+      ? [virginExecution, ...executions.filter((e) => e.player !== virginExecution.player)]
+      : executions
   , [virginExecution, executions]);
 
-  const allDeaths: DeathInfo[] = useMemo(() => 
-    slayerShot ? [...allExecutions, ...demonKills, slayerShot] : 
-      [...allExecutions, ...demonKills]
-  , [allExecutions, demonKills, slayerShot]);
+  const infoDeaths: DeathInfo[] = useMemo(() => [
+    ...(slayerShot ? [slayerShot] : []),
+    ...(virginExecution ? [virginExecution] : []),
+  ], [slayerShot, virginExecution]);
+
+  // A player can only die once, and the solver rejects every world if told otherwise.
+  // Deaths derived from infos come first so they win over ones set on the circle.
+  const allDeaths: DeathInfo[] = useMemo(() => {
+    const deaths: DeathInfo[] = [...infoDeaths, ...executions, ...demonKills];
+    return deaths.filter((death, index) => deaths.findIndex((d) => d.player === death.player) === index);
+  }, [infoDeaths, executions, demonKills]);
 
   const deadFlags = useMemo(() => {
     const deadPlayers = allDeaths
@@ -427,28 +436,11 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     setDemonKills([]);
   };
 
-  const removeExecutionInfo = (player: number, night: number) => {
-    setExecutions((currentExecution) => currentExecution.filter((e) => 
-      e.player !== player && e.night !== night
-    ));
-
-    if (virginExecution && 
-        virginExecution.player === player && 
-        virginExecution.night === night) {
-        const virginInfoIndex = infos.findIndex((info) => info.kind === 'virgin'
-          && (info as any).nominator === virginExecution.player
-          && (info as any).night === virginExecution.night
-        );
-        if (virginInfoIndex) {
-          updateInfo(virginInfoIndex, 'executed', false);
-        }
-    }
-  }
-
   return {
     players,
     allExecutions,
     demonKills,
+    infoDeaths,
     infos,
     roles,
     infoKinds,
@@ -477,6 +469,5 @@ export function useGameForm(onSubmit: (request: SolveRequest) => void): UseGameF
     removeInfo,
     setExecutions,
     setDemonKills,
-    removeExecutionInfo,
   };
 }

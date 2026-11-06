@@ -1,7 +1,7 @@
 import React from 'react';
 import { ModalHeader } from '../game-form/ModalHeader';
 import { Button } from '../Button';
-import { DemonKillInfo, ExecutionInfo } from '../../types';
+import { DeathInfo, DemonKillInfo, ExecutionInfo } from '../../types';
 
 interface DeathModalProps {
   player: number;
@@ -9,14 +9,12 @@ interface DeathModalProps {
   dayNight: number | null;
   maxDayNight: number;
   playerNames: string[];
-  executions: ExecutionInfo[];
-  demonKills: DemonKillInfo[];
+  infoDeath: DeathInfo | null;
   onSelectedPlayerChange: (value: number | null) => void;
   onDeathTypeChange: (type: 'execution' | 'demon' | null) => void;
   onDayNightChange: (dayNight: number | null) => void;
-  setExecutions: (executions: ExecutionInfo[]) => void;
-  setDemonKills: (demonKills: DemonKillInfo[]) => void;
-  removeExecution: (player: number, night: number) => void;
+  setExecutions: (update: (current: ExecutionInfo[]) => ExecutionInfo[]) => void;
+  setDemonKills: (update: (current: DemonKillInfo[]) => DemonKillInfo[]) => void;
 }
 
 export function DeathModal({
@@ -25,20 +23,19 @@ export function DeathModal({
   dayNight,
   maxDayNight,
   playerNames,
-  executions,
-  demonKills,
+  infoDeath,
   onDeathTypeChange,
   onDayNightChange,
   onSelectedPlayerChange,
   setExecutions,
   setDemonKills,
-  removeExecution,
 }: DeathModalProps): JSX.Element {
 
 
-  const isValid = deathType !== null && dayNight !== null && dayNight > 0;
-  const isExecution = deathType === 'execution';
-  const dayNightLabel = isExecution ? 'Day' : 'Night';
+  const shownType = infoDeath?.kind ?? deathType;
+  const shownDayNight = infoDeath?.night ?? dayNight;
+  const isValid = !infoDeath && deathType !== null && dayNight !== null && dayNight > 0;
+  const dayNightLabel = shownType === 'execution' || shownType === 'slayer' ? 'Day' : 'Night';
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && isValid) {
@@ -50,27 +47,26 @@ export function DeathModal({
 
   const playerName = playerNames[player] ?? `Player ${player + 1}`;
 
-  const isExistingExecution = () => -1 !== executions.findIndex((e) => 
-    e.player === player
-  );
-
   const handleDeathConfirm = () => {
     if (!isValid || player === null || deathType === null || dayNight === null) {
       return;
     }
 
+    // Each list drops the player first, so changing the death type can't leave them in both.
+    const otherPlayers = <T extends { player: number }>(deaths: T[]) => deaths.filter((d) => d.player !== player);
+
     if (deathType === 'execution') {
-      const newExecutions = [
-        ...executions.filter((e) => e.player !== player),
+      setDemonKills(otherPlayers);
+      setExecutions((current) => [
+        ...otherPlayers(current),
         {player: player, night: dayNight, kind: "execution"} as ExecutionInfo
-      ]
-      setExecutions(newExecutions);
+      ]);
     } else {
-      const newDemonKills = [
-        ...demonKills.filter((d) => d.player !== player),
+      setExecutions(otherPlayers);
+      setDemonKills((current) => [
+        ...otherPlayers(current),
         {player: player, night: dayNight, kind: "demon"} as DemonKillInfo
-      ]
-      setDemonKills(newDemonKills);
+      ]);
     }
 
     onSelectedPlayerChange(null);
@@ -83,10 +79,9 @@ export function DeathModal({
       return;
     }
 
-    setDemonKills(demonKills.filter((d) => d.player !== player));
-    if (isExistingExecution() && dayNight !== null) {
-      removeExecution(player, dayNight);
-    }
+    const otherPlayers = <T extends { player: number }>(deaths: T[]) => deaths.filter((d) => d.player !== player);
+    setExecutions(otherPlayers);
+    setDemonKills(otherPlayers);
 
     onDeathTypeChange(null);
     onDayNightChange(null);
@@ -109,24 +104,31 @@ export function DeathModal({
       >
         <ModalHeader content={`${playerName} death`} onClose={handleCloseDeathModal} />
         <div className="space-y-4">
+          {infoDeath && (
+            <p className="text-sm text-amber-300">
+              This death comes from the {infoDeath.kind === 'slayer' ? 'Slayer' : 'Virgin'} info. Change it in the Info List.
+            </p>
+          )}
           {/* Death Type Dropdown */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-white">
               How did they die?
             </label>
             <select
-              value={deathType || ''}
+              value={shownType || ''}
+              disabled={!!infoDeath}
               onChange={(e) =>
                 onDeathTypeChange(
-                  e.target.value as 'execution' | 'demon'
+                  (e.target.value || null) as 'execution' | 'demon' | null
                 )
               }
               onKeyDown={handleKeyDown}
-              className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="">Select...</option>
               <option value="execution">Execution</option>
-              <option value="demon_kill">Demon Kill</option>
+              <option value="demon">Demon Kill</option>
+              {shownType === 'slayer' && <option value="slayer">Slayer Shot</option>}
             </select>
           </div>
 
@@ -139,7 +141,7 @@ export function DeathModal({
               type="number"
               min="1"
               max={maxDayNight}
-              value={dayNight ?? ''}
+              value={shownDayNight ?? ''}
               onChange={(e) => {
                 const val = e.target.value ? parseInt(e.target.value, 10) : null;
                 if (val !== null && !Number.isNaN(val)) {
@@ -148,8 +150,8 @@ export function DeathModal({
               }}
               onKeyDown={handleKeyDown}
               placeholder={`Enter ${dayNightLabel.toLowerCase()} number`}
-              className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={!deathType}
+              className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!!infoDeath || !deathType}
             />
           </div>
         </div>
@@ -159,7 +161,7 @@ export function DeathModal({
           <Button
             type="button"
             onClick={handleClearDeath}
-            disabled={deathType === null && dayNight === null}
+            disabled={!!infoDeath || (deathType === null && dayNight === null)}
             style="remove"
           >
             Clear

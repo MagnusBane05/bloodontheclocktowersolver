@@ -3,7 +3,7 @@ import { PlayerCircleRing } from "../PlayerCircleRing";
 import { ClaimModal } from "./ClaimModal";
 import { InfoFormEntry, SelectOption } from "../game-form/types";
 import { DeathModal } from "./DeathModal";
-import { DemonKillInfo, ExecutionInfo } from "../../types";
+import { DeathInfo, DemonKillInfo, ExecutionInfo } from "../../types";
 
 interface ClaimCircleProps {
   players: number;
@@ -17,13 +17,13 @@ interface ClaimCircleProps {
   infos: InfoFormEntry[];
   executions: ExecutionInfo[];
   demonKills: DemonKillInfo[];
+  infoDeaths: DeathInfo[];
   onPlayerNameChange: (index: number, value: string) => void;
   addInfo: (info: InfoFormEntry | null) => void;
   updateInfo: (index: number, field: string, value: any) => void;
   removeInfo: (index: number) => void;
-  setExecutions: (executions: ExecutionInfo[]) => void;
-  setDemonKills: (demonKills: DemonKillInfo[]) => void;
-  removeExecution: (player: number, night: number) => void;
+  setExecutions: (update: (current: ExecutionInfo[]) => ExecutionInfo[]) => void;
+  setDemonKills: (update: (current: DemonKillInfo[]) => DemonKillInfo[]) => void;
 }
 
 export function ClaimCircle({
@@ -38,13 +38,13 @@ export function ClaimCircle({
   infos,
   executions,
   demonKills,
+  infoDeaths,
   onPlayerNameChange,
   addInfo,
   updateInfo,
   removeInfo,
   setExecutions,
   setDemonKills,
-  removeExecution,
 } : ClaimCircleProps
 ) {
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
@@ -127,14 +127,12 @@ export function ClaimCircle({
           player={selectedPlayer}
           deathType={deathModalType}
           dayNight={deathModalDayNight}
-          executions={executions}
-          demonKills={demonKills}
+          infoDeath={infoDeaths.find((d) => d.player === selectedPlayer) ?? null}
           onDeathTypeChange={setDeathModalType}
           onDayNightChange={setDeathModalDayNight}
           onSelectedPlayerChange={handleSelectDeathPlayer}
           setExecutions={setExecutions}
           setDemonKills={setDemonKills}
-          removeExecution={removeExecution}
         />
       )}
     </>

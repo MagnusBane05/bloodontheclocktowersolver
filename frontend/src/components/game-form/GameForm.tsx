@@ -22,6 +22,7 @@ export function GameForm({
     players,
     allExecutions,
     demonKills,
+    infoDeaths,
     infos,
     claimRoleOptions,
     characterTypeOptions,
@@ -48,7 +49,6 @@ export function GameForm({
     removeInfo,
     setExecutions,
     setDemonKills,
-    removeExecutionInfo,
   } = useGameForm(onSubmit);
 
   const normalizePlayerNames = (names: string[], count: number) =>
@@ -111,6 +111,7 @@ export function GameForm({
                       infos={infos}
                       executions={allExecutions}
                       demonKills={demonKills}
+                      infoDeaths={infoDeaths}
                       deadFlags={deadFlags}
                       evilRoleNames={evilRoleNames}
                       goodRoleNames={goodRoleNames} 
@@ -121,7 +122,6 @@ export function GameForm({
                       playerNames={playerNames}
                       setExecutions={setExecutions}
                       setDemonKills={setDemonKills}
-                      removeExecution={removeExecutionInfo}
                     />
                   </div>
                 </div>

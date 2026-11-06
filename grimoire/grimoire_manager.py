@@ -47,7 +47,7 @@ class GrimoireManager():
     def _add_info(self, info: Info, stage: str | None = None):
         before = self.grims
         if len(before) == 0:
-            self.grims.append(Grimoire(self.game["players"]))
+            return
         night = info['night'] if "night" in info else 1
         trace = self._make_trace(f"night {night} {info['kind']} info")
         new_grims = add_info_to_grims(info, self.grims, trace)
@@ -67,6 +67,7 @@ class GrimoireManager():
 
     def _add_full_game(self, info_list: list[Info], death_info: list[DeathInfo], nights: int):
         self.step_started = time.perf_counter()
+        self.grims = [Grimoire(self.game["players"])]
         for night in range(1,nights+1):
             # add imp kill
             for imp_kill in [
