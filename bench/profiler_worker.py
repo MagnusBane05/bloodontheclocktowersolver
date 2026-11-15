@@ -21,7 +21,7 @@ from grimoire import GrimoireManager
 from grimoire.errors import TrueGrimLostError
 from grimoire.grimoire_manager import StepRecord
 
-from .scenarios import Scenario, load_scenarios
+from .scenarios import CURRENT_VERSION, Scenario, load_scenarios
 from .worker import OOM_EXIT_CODE, GameTimeout, _on_alarm  # pyright: ignore[reportPrivateUsage]
 
 # allocation sites kept from the snapshot taken at the game's memory peak
@@ -150,7 +150,7 @@ def profile_game(
 def main():
     parser = argparse.ArgumentParser(description="Profile benchmark games for one player count")
     _ = parser.add_argument("--players", type=int, required=True)
-    _ = parser.add_argument("--version", default="v1")
+    _ = parser.add_argument("--version", default=CURRENT_VERSION)
     _ = parser.add_argument("--indices", required=True, help="Comma separated scenario indices")
     _ = parser.add_argument("--timeout", type=float, required=True)
     _ = parser.add_argument("--memory-gb", type=float, required=True)

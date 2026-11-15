@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from . import compare, profiler, runner, worlds
+from .scenarios import CURRENT_VERSION
 from .tiers import TIERS
 
 def _parse_timeouts(values: list[str]) -> dict[int, float]:
@@ -19,7 +20,7 @@ def main():
     _ = run.add_argument("--tier", choices=sorted(TIERS), required=True)
     _ = run.add_argument("--label", required=True, help="Name for this run, e.g. the change being measured")
     _ = run.add_argument("--players", type=int, nargs="+", help="Only run these player counts from the tier")
-    _ = run.add_argument("--version", default="v1", help="Scenario version")
+    _ = run.add_argument("--version", default=CURRENT_VERSION, help="Scenario version")
     _ = run.add_argument("--repeat", type=int, default=1, help="Run each game this many times and keep the fastest")
     _ = run.add_argument("--timeout", nargs="+", default=[], metavar="PLAYERS=SECONDS", help="Per game timeouts, e.g. 15=3600")
     _ = run.add_argument("--memory-gb", type=float, default=runner.DEFAULT_MEMORY_GB, help="Memory limit per worker process")
@@ -48,7 +49,7 @@ def main():
     _ = selection.add_argument("--games", metavar="INDICES", help="Game indices for each player count, e.g. 3-7 or 1,4,9")
     _ = selection.add_argument("--tier", choices=sorted(TIERS), help="The same games as a benchmark tier")
     _ = prof.add_argument("--label", default="profile", help="Name for this profile, used in the output directory")
-    _ = prof.add_argument("--version", default="v1", help="Scenario version")
+    _ = prof.add_argument("--version", default=CURRENT_VERSION, help="Scenario version")
     _ = prof.add_argument("--top", type=int, default=profiler.DEFAULT_TOP, help="Functions shown per table")
     _ = prof.add_argument("--sort", choices=[*profiler.SORTS, "both"], default="both", help="Order of the function tables")
     _ = prof.add_argument("--filter", help="Only show functions whose file:line(name) matches this regex, e.g. grimoire")

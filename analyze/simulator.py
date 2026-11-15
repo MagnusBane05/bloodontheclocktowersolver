@@ -69,7 +69,10 @@ def simulate_single_game(players: int, preset: list[Role] | None, seed: int | No
 
     night = 1
 
-    ravenkeeper_claim = virgin_claim = slayer_claim = None
+    # players whose Ravenkeeper, Virgin or Slayer info was made during the game, so it isn't made again at the end
+    gave_info: set[int] = set()
+    # a Virgin's ability is used up the first time they're nominated
+    nominated: set[int] = set()
     while True:
         night_start_page = grim.get_page(night, NightOrderPosition.AFTER_IMP)
         assert(night_start_page != None)
@@ -82,12 +85,15 @@ def simulate_single_game(players: int, preset: list[Role] | None, seed: int | No
         # Handle demon kill
         if night > 1:
             ravenkeeper_claim = handle_demon_kill(night_start_page, info_list, bluffs, death_info)
+            if ravenkeeper_claim is not None:
+                gave_info.add(ravenkeeper_claim)
 
         # If there's an alive slayer, they might take their shot
         slayer_claim = get_slayer_claim(night_start_page)
         slayer_info = apply_slayer_shot(slayer_claim, grim, night_start_page, death_info)
         if slayer_info is not None:
             info_list.append(slayer_info)
+            gave_info.add(slayer_info["slayer"])
 
         alive_players = grim.pages[-1].get_alive_players()
         if len(alive_players) == 3:
@@ -97,9 +103,10 @@ def simulate_single_game(players: int, preset: list[Role] | None, seed: int | No
             break
 
         # Choose execution
-        virgin_claim = None
         if slayer_info is None and len(alive_players) > 4:
-            virgin_claim = handle_execution(grim.pages[-1], info_list, bluffs, grim, death_info)
+            virgin_claim = handle_execution(grim.pages[-1], info_list, bluffs, grim, death_info, nominated)
+            if virgin_claim is not None:
+                gave_info.add(virgin_claim)
 
         grim.add_page(night+1, NightOrderPosition.AFTER_IMP)
         night += 1
@@ -107,7 +114,7 @@ def simulate_single_game(players: int, preset: list[Role] | None, seed: int | No
     assert validators.is_grim_valid(grim)[0], f"Grim not valid \n {grim}"
 
     # Night info
-    info_list.extend(generate_night_info(grim, bluffs, ravenkeeper_claim, virgin_claim, slayer_claim))
+    info_list.extend(generate_night_info(grim, bluffs, gave_info))
     
     random.shuffle(info_list)
     return ((info_list, death_info), grim)
@@ -185,11 +192,12 @@ def apply_slayer_shot(slayer: int | None, grim: Grimoire, page: GrimoirePage, de
 
     return slayer_info
 
-def handle_execution(page: GrimoirePage, info_list: list[Info], bluffs: list[Role], true_world: Grimoire, death_info: list[DeathInfo]):
+def handle_execution(page: GrimoirePage, info_list: list[Info], bluffs: list[Role], true_world: Grimoire, death_info: list[DeathInfo], nominated: set[int]):
     execution_target = get_execution_target(page)
     assert not page.dead[execution_target]
     virgin_claim = None
-    virgin_info, nominator_executed = handle_virgin_claim(page, execution_target, bluffs, true_world, death_info)
+    virgin_info, nominator_executed = handle_virgin_claim(page, execution_target, bluffs, true_world, death_info, execution_target in nominated)
+    nominated.add(execution_target)
     if virgin_info is not None:
         info_list.append(virgin_info)
         virgin_claim = virgin_info['virgin']
@@ -208,12 +216,13 @@ def get_execution_target(page: GrimoirePage):
     assert len(execution_targets) > 0, "No valid execution targets."
     return random.choice(execution_targets)
 
-def handle_virgin_claim(page: GrimoirePage, nominated: int, bluffs: list[Role], grim: Grimoire, death_info: list[DeathInfo]) -> tuple[VirginInfo | None, bool]:
+def handle_virgin_claim(page: GrimoirePage, nominated: int, bluffs: list[Role], grim: Grimoire, death_info: list[DeathInfo], nominated_before: bool = False) -> tuple[VirginInfo | None, bool]:
     if page.characters[nominated] == Role.VIRGIN or \
         (page.characters[nominated] == Role.DRUNK and page.drunk_token == Role.VIRGIN) or \
         (page.characters[nominated] == Role.IMP and Role.VIRGIN in bluffs and random.random() < VIRGIN_BLUFF_CHANCE) or \
         (page.characters[nominated] in MINIONS and random.random() < VIRGIN_NO_BLUFF_CHANCE):
         real = (
+            not nominated_before and
             not page.poisoned[nominated] and
             page.drunk_token != Role.VIRGIN and
             page.characters[nominated] not in EVIL_CHARACTERS
@@ -314,14 +323,12 @@ def handle_demon_kill(page: GrimoirePage, info_list: list[Info], bluffs: list[Ro
 def generate_night_info(
         grim: Grimoire, 
         bluffs: list[Role], 
-        ravenkeeper_claim: int | None, 
-        virgin_claim: int | None, 
-        slayer_claim: int | None):
+        gave_info: set[int]):
     
     info: list[Info] = []
     page = grim.pages[0]
     for j,character in enumerate(page.characters):
-        if j == ravenkeeper_claim or j == virgin_claim or j == slayer_claim:
+        if j in gave_info:
             continue
         if character == Role.IMP:
             info.extend(create_bluff_info(grim, j, bluffs))

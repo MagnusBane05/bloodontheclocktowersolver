@@ -68,10 +68,25 @@ def create_info(world: Grimoire, character: Role, player: int, real: bool) -> li
             return [create_claim_info(player, character)]
         return info
     elif character == Role.SLAYER:
-        return [create_slayer_info(first_phase, player, real and not first_phase.poisoned[player])]
+        # a real Slayer's shot is made during the game, so one who never shot just claims.
+        # The Drunk or a bluffer can say they shot on day 1, which did nothing
+        if real:
+            return [create_claim_info(player, character)]
+        return [create_slayer_info(first_phase, player, False)]
     else:
         return [create_claim_info(player, character)]
     
+def _is_sober_recluse(phase: GrimoirePage, player: int) -> bool:
+    # a poisoned Recluse has no ability, so it can't register as evil
+    return phase.characters[player] == Role.RECLUSE and not phase.poisoned[player]
+
+def _registration_choice(phase: GrimoirePage, player: int) -> bool:
+    """The Spy or a sober Recluse, who can register as either alignment."""
+    return phase.characters[player] == Role.SPY or _is_sober_recluse(phase, player)
+
+def _might_register_evil(phase: GrimoirePage, player: int) -> bool:
+    return phase.characters[player] in EVIL_CHARACTERS or _is_sober_recluse(phase, player)
+
 def create_washerwoman_info(phase: GrimoirePage, player: int, real: bool) -> WasherwomanInfo:
     if real:
         townsfolk_options = [i for i,x in enumerate(phase.characters) if x in TOWNSFOLK or x == Role.SPY and i != player]
@@ -115,7 +130,7 @@ def create_librarian_info(phase: GrimoirePage, player: int, real: bool) -> Libra
 
 def create_investigator_info(phase: GrimoirePage, player: int, real: bool) -> InvestigatorInfo:
     if real:
-        minion_options = [i for i,x in enumerate(phase.characters) if x in MINIONS or x == Role.RECLUSE and i != player]
+        minion_options = [i for i,x in enumerate(phase.characters) if x in MINIONS or x == Role.RECLUSE and not phase.poisoned[i] and i != player]
     else:
         minion_options = [i for i in range(len(phase.characters)) if i != player]
     minion = random.choice(minion_options)
@@ -139,7 +154,7 @@ def create_chef_info(phase: GrimoirePage, player: int, real: bool) -> ChefInfo:
             c_j = phase.characters[j]
             if c in EVIL_CHARACTERS and c_j in EVIL_CHARACTERS and c != Role.SPY and c_j != Role.SPY:
                 chef_number += 1
-            elif c in EVIL_CHARACTERS + [Role.SPY, Role.RECLUSE] and c_j in EVIL_CHARACTERS + [Role.SPY, Role.RECLUSE]:
+            elif _might_register_evil(phase, i) and _might_register_evil(phase, j):
                 chef_number += 1 if random.random() < 0.5 else 0
     else: 
         chef_number = random.randint(0,ROLE_BREAKDOWNS[len(phase.characters)]['minions']+1)
@@ -160,8 +175,8 @@ def create_empath_info(phase: GrimoirePage, player: int, real: bool) -> EmpathIn
     alive_neighbours = [alive_players[(player_idx-1)%len(alive_players)], alive_players[(player_idx+1)%len(alive_players)]]
     if real:
         evil_neighbours = sum([1 if phase.characters[p] in EVIL_CHARACTERS and phase.characters[p] != Role.SPY else 0 for p in alive_neighbours])
-        evil_neighbours += 1 if (phase.characters[alive_neighbours[0]] == Role.SPY or phase.characters[alive_neighbours[0]] == Role.RECLUSE) and random.random() < 0.5 else 0
-        evil_neighbours += 1 if (phase.characters[alive_neighbours[1]] == Role.SPY or phase.characters[alive_neighbours[1]] == Role.RECLUSE) and random.random() < 0.5 else 0
+        evil_neighbours += 1 if _registration_choice(phase, alive_neighbours[0]) and random.random() < 0.5 else 0
+        evil_neighbours += 1 if _registration_choice(phase, alive_neighbours[1]) and random.random() < 0.5 else 0
     else:
         evil_neighbours = random.randint(0,2)
     info: EmpathInfo = {
@@ -179,7 +194,7 @@ def create_fortune_teller_info(phase: GrimoirePage, player: int, real: bool) -> 
     picks: tuple[int,int] = (a,b)
     if real:
         response = any([phase.characters[p] == Role.IMP or phase.red_herring[p] for p in picks])
-        response = True if any([phase.characters[p] == Role.RECLUSE for p in picks]) and random.random() < 0.5 else response
+        response = True if any([_is_sober_recluse(phase, p) for p in picks]) and random.random() < 0.5 else response
     else:
         response = random.random() < 0.5
     info: FortuneTellerInfo = {
@@ -191,13 +206,14 @@ def create_fortune_teller_info(phase: GrimoirePage, player: int, real: bool) -> 
     return info
 
 def create_undertaker_info(phase: GrimoirePage, player: int, executee: int, executed_character: Role, real: bool) -> UndertakerInfo:
+    recluse_registers = executed_character == Role.RECLUSE and not phase.poisoned[executee]
     assert isinstance(ALL_CHARACTERS, list)
     assert isinstance(GOOD_CHARACTERS, list)
     assert isinstance(EVIL_CHARACTERS, list)
 
     character = executed_character if real else random.choice(ALL_CHARACTERS)
     character = random.choice(GOOD_CHARACTERS) if executed_character == Role.SPY and random.random() < 0.5 else character
-    character = random.choice(EVIL_CHARACTERS) if executed_character == Role.RECLUSE and random.random() < 0.5 else character
+    character = random.choice(EVIL_CHARACTERS) if recluse_registers and random.random() < 0.5 else character
     info: UndertakerInfo = {
         'kind': "undertaker",
         'undertaker': player,
@@ -215,7 +231,7 @@ def create_ravenkeeper_info(phase: GrimoirePage, player: int, real: bool) -> Rav
     choice = random.choice(list(compress(range(len(phase.characters)), [not x for x in phase.dead])))
     character = phase.characters[choice] if real else random.choice(ALL_CHARACTERS)
     character = random.choice(GOOD_CHARACTERS) if phase.characters[choice] == Role.SPY and random.random() < 0.5 else character
-    character = random.choice(EVIL_CHARACTERS) if phase.characters[choice] == Role.RECLUSE and random.random() < 0.5 else character
+    character = random.choice(EVIL_CHARACTERS) if _is_sober_recluse(phase, choice) and random.random() < 0.5 else character
     info: RavenkeeperInfo = {
         'kind': "ravenkeeper",
         'ravenkeeper': player,
@@ -250,7 +266,7 @@ def create_slayer_info(phase: GrimoirePage, player: int, real: bool) -> SlayerIn
         and (
             phase.characters[target] == Role.IMP 
             or (
-                phase.characters[target] == Role.RECLUSE 
+                _is_sober_recluse(phase, target)
                 and random.random() < 0.5
         )))
 

@@ -19,7 +19,7 @@ import time
 from typing import Any
 
 from . import report
-from .scenarios import _git_state, load_scenarios  # pyright: ignore[reportPrivateUsage]
+from .scenarios import CURRENT_VERSION, _git_state, load_scenarios  # pyright: ignore[reportPrivateUsage]
 from .tiers import TIERS
 from .worker import OOM_EXIT_CODE
 
@@ -156,7 +156,7 @@ def profile_player_count(
     players: int,
     indices: list[int],
     games_dir: Path,
-    version: str = "v1",
+    version: str = CURRENT_VERSION,
     timeout: float | None = None,
     memory_gb: float = DEFAULT_MEMORY_GB,
     asserts: bool = False,
@@ -380,7 +380,7 @@ def format_summary(result: dict[str, Any], out_dir: Path, sorts: tuple[str, ...]
 def run(
     selection: dict[int, list[int]],
     label: str = "profile",
-    version: str = "v1",
+    version: str = CURRENT_VERSION,
     timeouts: dict[int, float] | None = None,
     memory_gb: float = DEFAULT_MEMORY_GB,
     asserts: bool = False,

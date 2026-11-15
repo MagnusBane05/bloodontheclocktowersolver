@@ -20,7 +20,7 @@ from grimoire import Grimoire, GrimoireManager
 from grimoire.errors import TrueGrimLostError
 from grimoire.grimoire_manager import StepRecord
 
-from .scenarios import Scenario, load_scenarios
+from .scenarios import CURRENT_VERSION, Scenario, load_scenarios
 from .worlds import append_worlds, count_known_invalid
 
 # exit code used after a game raises MemoryError, so the runner starts a fresh worker
@@ -120,7 +120,7 @@ def _emit(out: TextIO, record: dict[str, Any]):
 def main():
     parser = argparse.ArgumentParser(description="Run benchmark games for one player count")
     _ = parser.add_argument("--players", type=int, required=True)
-    _ = parser.add_argument("--version", default="v1")
+    _ = parser.add_argument("--version", default=CURRENT_VERSION)
     _ = parser.add_argument("--start", type=int, required=True)
     _ = parser.add_argument("--count", type=int, required=True)
     _ = parser.add_argument("--timeout", type=float, required=True)

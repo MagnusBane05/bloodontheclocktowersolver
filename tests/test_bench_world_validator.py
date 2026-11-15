@@ -69,16 +69,12 @@ class WorldValidatorCase(unittest.TestCase):
         self.assertIn(reason, found)
 
 class TestTrueGrims(unittest.TestCase):
-    # Simulator divergences from the wiki fixed in the v2 scenarios (phantom Slayer shot, Virgin
-    # triggering twice, poisoned Recluse registering), which v1 still contains
-    V1_KNOWN = {"5p-0002", "5p-0198", "5p-0288", "10p-0011", "10p-0072", "10p-0076", "10p-0078", "10p-0082", "10p-0090"}
-
     def test_every_true_grim_is_valid(self):
         failures: list[str] = []
         for players in (5, 10, 15):
             for s in load_scenarios(players):
                 found = find_world_problem(s.true_grim, s.info, s.deaths, s.nights)
-                if found is not None and s.id not in self.V1_KNOWN:
+                if found is not None:
                     failures.append(f"{s.id}: {found}")
         self.assertEqual(failures, [])
 

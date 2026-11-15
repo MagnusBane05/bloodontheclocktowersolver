@@ -12,7 +12,7 @@ import time
 from typing import Any
 
 from . import report
-from .scenarios import _git_state, load_scenarios  # pyright: ignore[reportPrivateUsage]
+from .scenarios import CURRENT_VERSION, _git_state, load_scenarios  # pyright: ignore[reportPrivateUsage]
 from .tiers import TIERS
 from .worker import OOM_EXIT_CODE
 from .worlds import worlds_file
@@ -77,7 +77,7 @@ def _start_worker(
 def run_player_count(
     players: int,
     count: int,
-    version: str = "v1",
+    version: str = CURRENT_VERSION,
     timeout: float | None = None,
     memory_gb: float = DEFAULT_MEMORY_GB,
     repeat: int = 1,
@@ -152,7 +152,7 @@ def run(
     tier: str,
     label: str,
     players: list[int] | None = None,
-    version: str = "v1",
+    version: str = CURRENT_VERSION,
     timeouts: dict[int, float] | None = None,
     memory_gb: float = DEFAULT_MEMORY_GB,
     repeat: int = 1,

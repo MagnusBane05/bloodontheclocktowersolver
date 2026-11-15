@@ -63,7 +63,7 @@ class TestScenarioFiles(unittest.TestCase):
                     (info, deaths), true_grim = simulate_single_game(players, None, scenario.seed)
                     self.assertEqual(
                         scenario.info, info,
-                        "Saved v1 scenarios no longer match the simulator. If the simulator changed on purpose, generate a new scenario version.",
+                        "Saved scenarios no longer match the simulator. If the simulator changed on purpose, generate a new scenario version.",
                     )
                     self.assertEqual(scenario.deaths, deaths, "Saved deaths no longer match the simulator.")
                     self.assertTrue(_pages_equal(scenario.true_grim, true_grim), "Saved true grim no longer matches the simulator.")

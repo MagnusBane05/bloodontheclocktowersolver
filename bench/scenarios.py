@@ -15,6 +15,8 @@ from .tiers import TIERS
 
 SCENARIOS_DIR = Path(__file__).parent / "scenarios"
 SEED_START = 193
+# v2: the simulator stopped making a second Slayer shot or Virgin trigger, and a poisoned Recluse stopped registering as evil
+CURRENT_VERSION = "v2"
 
 # enums are stored by name so adding or reordering roles doesn't change saved scenarios
 _ENUMS: dict[str, type[Enum]] = {
@@ -105,7 +107,7 @@ def _decode_game(players: int, index: int, game: dict[str, Any]) -> Scenario:
 def _scenario_path(players: int, version: str) -> Path:
     return SCENARIOS_DIR / version / f"{players}p.json"
 
-def load_scenarios(players: int, version: str = "v1", limit: int | None = None) -> list[Scenario]:
+def load_scenarios(players: int, version: str = CURRENT_VERSION, limit: int | None = None) -> list[Scenario]:
     path = _scenario_path(players, version)
     if not path.exists():
         raise FileNotFoundError(
@@ -203,7 +205,7 @@ def main():
     parser = argparse.ArgumentParser(description="Benchmark scenario files")
     subparsers = parser.add_subparsers(dest="command", required=True)
     gen = subparsers.add_parser("generate", help="Generate scenario files from the simulator")
-    _ = gen.add_argument("--version", default="v1")
+    _ = gen.add_argument("--version", default=CURRENT_VERSION)
     _ = gen.add_argument("--players", type=int, nargs="+", default=sorted(next(iter(TIERS.values())).keys()))
     _ = gen.add_argument("--force", action="store_true", help="Overwrite existing scenario files")
     args = parser.parse_args()
