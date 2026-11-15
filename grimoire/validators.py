@@ -6,7 +6,6 @@ from . import helper
 from . import gamerules
 from .nightOrderPosition import NightOrderPosition
 from .role import *
-from .character_type import CharacterType, get_possible_types
 
 if TYPE_CHECKING:
     from .grimoire import Grimoire
@@ -119,73 +118,6 @@ def is_evil_count_valid(page: GrimoirePage, num_players: int):
 def is_good_count_valid(page: GrimoirePage, num_players: int):
     good_count = sum(1 for c in page.characters if c in GOOD_ROLES_SET)
     return good_count <= gamerules.get_good_count(num_players)
-
-def is_role_breakdown_valid(page: GrimoirePage):
-    num_players = page.num_players
-    minions = gamerules.get_minion_count(num_players)
-    demons  = 1
-
-    if gamerules.is_baron_possible(page):
-        if _is_breakdown_possible(
-            page,
-            townsfolk=gamerules.get_townsfolk_count(num_players, True),
-            outsiders=gamerules.get_outsider_count(num_players, True),
-            minions=minions,
-            demons=demons
-        ):
-            return True
-
-    if gamerules.is_no_baron_possible(page):
-        if _is_breakdown_possible(
-            page,
-            townsfolk=gamerules.get_townsfolk_count(num_players, False),
-            outsiders=gamerules.get_outsider_count(num_players, False),
-            minions=minions,
-            demons=demons
-        ):
-            return True
-        
-    return False
-        
-CHARACTER_TYPE_INDEX = {
-    CharacterType.TOWNSFOLK: 0,
-    CharacterType.OUTSIDER: 1,
-    CharacterType.MINION: 2,
-    CharacterType.DEMON: 3,
-}
-
-def _is_breakdown_possible(
-    page: GrimoirePage,
-    *,
-    townsfolk: int,
-    outsiders: int,
-    minions: int,
-    demons: int
-) -> bool:
-    target = (townsfolk, outsiders, minions, demons)
-    possible_counts = {(0, 0, 0, 0)}
-    for character in page.characters:
-        next_counts: set[tuple[int, int, int, int]] = set()
-        for counts in possible_counts:
-            for character_type in get_possible_types(character):
-                new_counts = list(counts)
-                index = CHARACTER_TYPE_INDEX[character_type]
-                new_counts[index] += 1
-                new_counts_tuple = (
-                    new_counts[0],
-                    new_counts[1],
-                    new_counts[2],
-                    new_counts[3],
-                )
-                if all(
-                    count <= maximum
-                    for count, maximum in zip(new_counts_tuple, target)
-                ):
-                    next_counts.add(new_counts_tuple)
-        if not next_counts:
-            return False
-        possible_counts = next_counts
-    return target in possible_counts
 
 def are_minion_types_valid(page: GrimoirePage) -> bool:
     for c in page.characters:
@@ -431,16 +363,6 @@ GOOD_COUNT_VALIDATOR = Validator(
     frozenset({
         ChangeType.CHARACTER
     })
-)
-
-ROLE_BREAKDOWN_VALIDATOR = Validator(
-    is_role_breakdown_valid,
-    "invalid ocmbined evil count and outsider count",
-    frozenset({
-        ChangeType.CHARACTER,
-        ChangeType.MINION_TYPE
-    }),
-    first_night_only=True
 )
 
 MINION_TYPE_VALIDATOR = Validator(

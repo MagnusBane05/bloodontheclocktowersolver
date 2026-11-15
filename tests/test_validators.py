@@ -796,25 +796,5 @@ class TestIsChefNumberValid(unittest.TestCase):
             }
         )
 
-
-
-class TestRoleBreakdownValidator(unittest.TestCase):
-    def test_sanity_check(self):
-        validator = validators.ROLE_BREAKDOWN_VALIDATOR
-        page = GrimoirePage(5)
-        result = validator.validate(page)
-        self.assertTrue(result, "Expected sanity check to pass.")
-
-    def test_baron_possible(self):
-        validator = validators.ROLE_BREAKDOWN_VALIDATOR
-        page = GrimoirePage(5)
-        page.characters[0] = Role.RECLUSE
-        result = validator.validate(page)
-        self.assertTrue(result, "Expected recluse to be possible if Baron is possible.")
-
-        page.minion_types[0] = Role.BARON
-        result = validator.validate(page)
-        self.assertTrue(result, "Expected recluse to be possible if Baron is known.")
-
 if __name__ == "__main__":
     _ = unittest.main()
