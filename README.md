@@ -44,7 +44,7 @@ Occasional full run (10 player and 15 player games take much longer):
 Compare the latest run against the baseline (exits with an error if any game stopped finishing or lost the true grim):
 `python -m bench compare`
 
-The **known invalid** column counts final worlds that no complete game fits: `bench/world_validator.py` searches for characters, starpasses and Storyteller choices that match every page of the world and every info and death in the scenario, following the wiki's Trouble Brewing rules. Its docstring lists the assumptions it shares with the solver and simulator. Runs from before it was added counted only worlds failing the old role assignment check.
+The **known invalid** column counts final worlds that no complete game fits: `bench/world_validator.py` searches for characters, starpasses and Storyteller choices that match every page of the world and every info and death in the scenario, following the wiki's Trouble Brewing rules. Its docstring lists the assumptions it shares with the solver and simulator. Runs from before it was added counted only worlds failing the old role assignment check, which has been removed.
 
 Check which final worlds changed against the baseline, and whether any possibly valid worlds were lost (exits with an error if a removed world passes every validator):
 `python -m bench worlds`
@@ -65,8 +65,8 @@ Make the latest run the new baseline (copied to `bench/baseline.json` and `bench
 Removed worlds are sorted into:
 - **dropped poison**: a kept world is the same apart from having no extra poison, so the poison wasn't needed to explain anything. Only counted unless you use `--game`
 - **merged**: covered by a more general world
-- **invalid**: fails a validator
-- **rejected**: finalizing it again finds it impossible, for example a conflict between pages. Listed with the reason
+- **invalid**: no complete game fits it (`bench/world_validator.py`). Listed with the reason
+- **rejected**: a complete game fits it, but finalizing it again finds it impossible, so the solver and the validator disagree. Listed with the reason
 - **refined**: finalizing it again gives a world that was kept, so it's the same world with more detail
 - **unexplained**: none of these, so possibly a valid world that was lost. The command exits 1 if there are any
 

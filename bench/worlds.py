@@ -1,8 +1,9 @@
 """Saves the final worlds of benchmark games and compares them between runs.
 
 Worlds that one run removed are sorted into dropped poison (a kept world is the same apart from
-having no extra poison), merged (covered by a more general world), invalid (fails a validator),
-rejected (finalizing it again finds it impossible), refined (finalizing it again gives a world
+having no extra poison), merged (covered by a more general world), invalid (no complete game fits
+it, see world_validator.py), rejected (finalizing it again finds it impossible although a complete
+game fits it, so the solver and the validator disagree), refined (finalizing it again gives a world
 that was kept), or unexplained (none of these, so possibly a valid world that was wrongly removed).
 Unexplained worlds are re-run as the true grim of their game to find the step that drops them.
 
@@ -15,7 +16,7 @@ from pathlib import Path
 import re
 from typing import Any, NamedTuple
 
-from grimoire import Grimoire, GrimoireManager, validators
+from grimoire import Grimoire, GrimoireManager
 from grimoire.add_info_to_grims import find_finalize_problem
 from grimoire.errors import TrueGrimLostError
 from grimoire.grimoire import Poisoning
@@ -58,15 +59,11 @@ def load_worlds(path: Path) -> dict[str, list[Grimoire]]:
 def count_known_invalid(grims: list[Grimoire], scenario: Scenario) -> int:
     """Final worlds that no complete game fits (see bench/world_validator.py), so the solver
     kept them although they're impossible."""
-    return sum(1 for g in grims if find_world_problem(g, scenario.info, scenario.deaths, scenario.nights) is not None)
+    return sum(1 for g in grims if validity_problem(g, scenario) is not None)
 
-def validity_problem(grim: Grimoire) -> str | None:
-    valid, reason = validators.is_grim_valid(grim)
-    if not valid:
-        return reason
-    if not validators.ROLE_ASSIGNMENT_VALIDATOR.validate(grim.pages[0]):
-        return validators.ROLE_ASSIGNMENT_VALIDATOR.reason
-    return None
+def validity_problem(grim: Grimoire, scenario: Scenario) -> str | None:
+    """Why no complete game fits the world, or None if one does."""
+    return find_world_problem(grim, scenario.info, scenario.deaths, scenario.nights)
 
 def poisonings_by_state(grims: list[Grimoire]) -> dict[tuple[Any, ...], list[frozenset[Poisoning]]]:
     index: dict[tuple[Any, ...], list[frozenset[Poisoning]]] = {}
@@ -80,10 +77,10 @@ def is_dropped_poison(world: Grimoire, kept_poisonings: dict[tuple[Any, ...], li
     poisonings = world.get_all_poisonings()
     return any(kept <= poisonings for kept in kept_poisonings.get(world.state_without_poison(), []))
 
-def classify_removed(world: Grimoire, kept: list[Grimoire]) -> tuple[str, str | None]:
+def classify_removed(world: Grimoire, kept: list[Grimoire], scenario: Scenario) -> tuple[str, str | None]:
     if any(other.subsumes(world) for other in kept):
         return "merged", None
-    problem = validity_problem(world)
+    problem = validity_problem(world, scenario)
     if problem is not None:
         return "invalid", problem
     settled = world.clone()
@@ -98,10 +95,10 @@ def classify_removed(world: Grimoire, kept: list[Grimoire]) -> tuple[str, str | 
         return "refined", None
     return "unexplained", None
 
-def classify_added(world: Grimoire, previous: list[Grimoire]) -> tuple[str, str | None]:
+def classify_added(world: Grimoire, previous: list[Grimoire], scenario: Scenario) -> tuple[str, str | None]:
     if any(world.subsumes(other) for other in previous):
         return "generalized", None
-    problem = validity_problem(world)
+    problem = validity_problem(world, scenario)
     if problem is not None:
         return "known_invalid", problem
     if any(other.subsumes(world) for other in previous):
@@ -193,14 +190,14 @@ def compare_worlds(a_path: Path, b_path: Path, game_id: str | None = None) -> di
                 if is_dropped_poison(world, kept_poisonings):
                     removed.append(WorldDiff(i, world, "dropped_poison", None, None))
                     continue
-                category, reason = classify_removed(world, worlds_b[i])
+                category, reason = classify_removed(world, worlds_b[i], scenarios[i])
                 drop_step = None
                 if category == "unexplained":
                     s = scenarios[i]
                     drop_step = find_drop_step(int(players), s.info, s.deaths, s.nights, world)
                 removed.append(WorldDiff(i, world, category, reason, drop_step))
             for world in only_b:
-                category, reason = classify_added(world, worlds_a[i])
+                category, reason = classify_added(world, worlds_a[i], scenarios[i])
                 added.append(WorldDiff(i, world, category, reason, None))
 
         by_players[players] = {

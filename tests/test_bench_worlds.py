@@ -6,7 +6,7 @@ import unittest
 from unittest import mock
 
 from bench import compare, report, runner, worlds
-from bench.scenarios import _pages_equal, load_scenarios  # pyright: ignore[reportPrivateUsage]
+from bench.scenarios import Scenario, _pages_equal, load_scenarios  # pyright: ignore[reportPrivateUsage]
 from bench.worker import run_game
 from grimoire import Grimoire, GrimoireManager, GrimoirePage, NightOrderPosition, Role
 from grimoire.add_info_to_grims import find_finalize_problem
@@ -22,6 +22,8 @@ def _world(characters: list[Role], minion_types: list[Role]) -> Grimoire:
 # 5 players with a Baron: 1 townsfolk, 2 outsiders, 1 minion, 1 demon
 VALID = [Role.IMP, Role.BARON, Role.SAINT, Role.RECLUSE, Role.CHEF]
 TWO_IMPS = [Role.IMP, Role.IMP, Role.SAINT, Role.RECLUSE, Role.CHEF]
+# a one night game with no info or deaths, so only a world's own pages decide whether it's valid
+EMPTY = Scenario(id="5p-test", seed=0, info=[], deaths=[], true_grim=Grimoire(5), nights=1)
 
 def _uncovered_index(grims: list[Grimoire]) -> int:
     """A world that no other world in the list covers, so removing it can't count as merged."""
@@ -109,23 +111,23 @@ class TestDroppedPoison(unittest.TestCase):
 
 class TestClassify(unittest.TestCase):
     def test_fixtures(self):
-        self.assertIsNone(worlds.validity_problem(_world(VALID, [Role.BARON])), "Expected the valid fixture to pass every check.")
-        self.assertIsNotNone(worlds.validity_problem(_world(TWO_IMPS, [Role.BARON])))
+        self.assertIsNone(worlds.validity_problem(_world(VALID, [Role.BARON]), EMPTY), "Expected the valid fixture to pass every check.")
+        self.assertIsNotNone(worlds.validity_problem(_world(TWO_IMPS, [Role.BARON]), EMPTY))
 
     def test_removed(self):
         valid = _world(VALID, [Role.BARON])
         general = Grimoire(5)
-        self.assertEqual(worlds.classify_removed(valid, [general]), ("merged", None))
-        category, reason = worlds.classify_removed(_world(TWO_IMPS, [Role.BARON]), [])
+        self.assertEqual(worlds.classify_removed(valid, [general], EMPTY), ("merged", None))
+        category, reason = worlds.classify_removed(_world(TWO_IMPS, [Role.BARON]), [], EMPTY)
         self.assertEqual(category, "invalid")
         self.assertIsNotNone(reason)
-        self.assertEqual(worlds.classify_removed(valid, []), ("unexplained", None))
+        self.assertEqual(worlds.classify_removed(valid, [], EMPTY), ("unexplained", None))
 
     def test_added(self):
         valid = _world(VALID, [Role.BARON])
-        self.assertEqual(worlds.classify_added(Grimoire(5), [valid]), ("generalized", None))
-        self.assertEqual(worlds.classify_added(_world(TWO_IMPS, [Role.BARON]), [])[0], "known_invalid")
-        self.assertEqual(worlds.classify_added(valid, []), ("other", None))
+        self.assertEqual(worlds.classify_added(Grimoire(5), [valid], EMPTY), ("generalized", None))
+        self.assertEqual(worlds.classify_added(_world(TWO_IMPS, [Role.BARON]), [], EMPTY)[0], "known_invalid")
+        self.assertEqual(worlds.classify_added(valid, [], EMPTY), ("other", None))
 
     def _unsettled_world(self) -> Grimoire:
         # night 1 knows player 0 is the Imp, but that hasn't been passed to night 2 yet
@@ -141,12 +143,12 @@ class TestClassify(unittest.TestCase):
         self.assertIsNone(find_finalize_problem(settled))
         self.assertEqual(settled.pages[1].characters[0], Role.IMP)
         self.assertFalse(settled.subsumes(world), "Expected the fixture not to count as merged.")
-        self.assertEqual(worlds.classify_removed(world, [settled]), ("refined", None))
-        self.assertEqual(worlds.classify_added(settled, [world]), ("refined", None))
+        self.assertEqual(worlds.classify_removed(world, [settled], EMPTY), ("refined", None))
+        self.assertEqual(worlds.classify_added(settled, [world], EMPTY), ("refined", None))
 
     def test_refining_into_a_world_that_was_not_kept_is_unexplained(self):
         other = _world([Role.IMP, Role.BARON, Role.SAINT, Role.CHEF, Role.RECLUSE], [Role.BARON])
-        self.assertEqual(worlds.classify_removed(self._unsettled_world(), [other]), ("unexplained", None))
+        self.assertEqual(worlds.classify_removed(self._unsettled_world(), [other], EMPTY), ("unexplained", None))
 
     def test_removed_rejected(self):
         # one minion slot, but the pages disagree on its type
@@ -154,16 +156,18 @@ class TestClassify(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night2.characters = [Role.IMP, Role.ANY_OTHER_MINION, Role.ANY_OTHER, Role.ANY_OTHER, Role.CHEF]
         night2.minion_types = [Role.POISONER]
-        self.assertIsNone(worlds.validity_problem(world), "Expected only a pass between pages to catch this.")
-        self.assertEqual(
-            worlds.classify_removed(world, []),
-            ("rejected", "mismatched minion types between pages"),
-        )
+        self.assertIsNotNone(worlds.validity_problem(world, EMPTY))
+        # only reached when finalize rejects a world the validator accepts, i.e. they disagree
+        with mock.patch.object(worlds, "find_world_problem", return_value=None):
+            self.assertEqual(
+                worlds.classify_removed(world, [], EMPTY),
+                ("rejected", "mismatched minion types between pages"),
+            )
 
     def test_finalize_bug_is_not_explained_away(self):
         with mock.patch.object(GrimoirePage, "make_deductions", return_value=True):
             with self.assertRaises(FinalizeDidNotSettleError):
-                _ = worlds.classify_removed(_world(VALID, [Role.BARON]), [])
+                _ = worlds.classify_removed(_world(VALID, [Role.BARON]), [], EMPTY)
 
     def test_only_unexplained_fails_the_comparison(self):
         for category in ("dropped_poison", "merged", "refined", "rejected", "invalid"):

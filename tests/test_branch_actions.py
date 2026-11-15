@@ -77,16 +77,6 @@ class Scenario(NamedTuple):
     role: Role
     player: int
 
-def print_rejects(rejects: list[Scenario], num_to_print: int, rng: random.Random):
-    rejects_to_print = rng.sample(rejects, min(num_to_print, len(rejects)))
-    for reject in rejects_to_print:
-        print("Failed scenario:")
-        print(reject.grim)
-        print(f"Chef number: {reject.grim.pages[0].chef_number}")
-        print(f"No outsiders? {reject.grim.pages[0].no_outsiders}")
-        print(f"Role: {reject.role.name}")
-        print(f"Player: {reject.player}")
-
 class TestCharacterActionParityWithValidation(unittest.TestCase):
     def assert_character_action_matches_validation(
         self,
@@ -136,51 +126,6 @@ class TestCharacterActionParityWithValidation(unittest.TestCase):
                 with self.subTest(num_players=num_players, case=case_idx):
                     grim, role, player = self.setup_scenario(num_players, rng)
                     self.assert_character_action_matches_validation(grim, role, player)
-
-    def role_assignment_matches_validation(
-        self, 
-        grim: Grimoire, 
-        role: Role, 
-        player: int,
-        night: int = 1,
-        order: NightOrderPosition = NightOrderPosition.AFTER_IMP
-    ) -> bool | None:
-        expected_result, expected_grim = _expected_character_result(grim, role, player, night, order) 
-        if expected_result:
-            page = expected_grim.get_page(night, order)
-            assert page
-            actual_result = validators.ROLE_ASSIGNMENT_VALIDATOR.validate(page)
-            return expected_result == actual_result
-        return None
-
-    @staticmethod
-    def apply_match(total: int, matches: int, rejects: list[Scenario], match: bool | None, scenario: Scenario) -> tuple[int, int, list[Scenario]]:
-        new_rejects = rejects[:]
-        if not match:
-            new_rejects.append(scenario)
-        return total + 1, matches + (1 if match else 0), new_rejects
-
-    def test_role_assignment_gap(self):
-        rng = random.Random(2342)
-        n = 1000
-        total = 0
-        matches = 0
-        rejects: list[Scenario] = []
-        for num_players in (5, 8, 9, 10, 13):
-            player_count_total = 0
-            player_count_matches = 0
-            for case_idx in tqdm(range(n)):
-                with self.subTest(num_players=num_players, case=case_idx):
-                    scenario = self.setup_scenario(num_players, rng)
-                    match = self.role_assignment_matches_validation(scenario.grim, scenario.role, scenario.player)
-                    if match is not None:
-                        player_count_total, player_count_matches, rejects = self.apply_match(player_count_total, player_count_matches, rejects, match, scenario)
-            print(f"Player count: {num_players}, total compared: {player_count_total}, matches: {player_count_matches}")
-            total += player_count_total
-            matches += player_count_matches
-        num_rejects_to_print = 3
-        print_rejects(rejects, num_rejects_to_print, rng)
-        self.assertLess(total - matches, 0.01 * total)
 
 
 def _unknown_with_evils_at(num_players: int, evils: list[int]) -> list[Role]:
