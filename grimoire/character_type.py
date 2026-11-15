@@ -20,33 +20,3 @@ def get_type(character: Role) -> CharacterType | None:
         return CharacterType.DEMON
     else:
         return None
-
-def get_possible_types(character: Role) -> tuple[CharacterType, ...]:
-    if character == Role.ANY_OTHER:
-        return (
-            CharacterType.TOWNSFOLK,
-            CharacterType.OUTSIDER,
-            CharacterType.MINION,
-            CharacterType.DEMON,
-        )
-    if character == Role.NON_DEMON:
-        return (
-            CharacterType.TOWNSFOLK,
-            CharacterType.OUTSIDER,
-            CharacterType.MINION,
-        )
-    if character == Role.ANY_OTHER_GOOD:
-        return (
-            CharacterType.TOWNSFOLK,
-            CharacterType.OUTSIDER,
-        )
-    if character == Role.ANY_OTHER_EVIL:
-        return (
-            CharacterType.MINION,
-            CharacterType.DEMON,
-        )
-
-    type = get_type(character)
-    if type is None:
-        raise RuntimeError("Character has no possible types.")
-    return (type,)
