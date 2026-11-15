@@ -21,7 +21,8 @@ from grimoire.errors import TrueGrimLostError
 from grimoire.grimoire import Poisoning
 
 from . import report
-from .scenarios import _decode_hook, _git_state, decode_grim, encode_grim, load_scenarios  # pyright: ignore[reportPrivateUsage]
+from .scenarios import Scenario, _decode_hook, _git_state, decode_grim, encode_grim, load_scenarios  # pyright: ignore[reportPrivateUsage]
+from .world_validator import find_world_problem
 
 WORLD_CATEGORIES_REMOVED = ("dropped_poison", "merged", "refined", "rejected", "invalid", "unexplained")
 WORLD_CATEGORIES_ADDED = ("generalized", "refined", "known_invalid", "other")
@@ -54,10 +55,10 @@ def load_worlds(path: Path) -> dict[str, list[Grimoire]]:
             worlds[record["id"]] = [decode_grim(g) for g in record["worlds"]]
     return worlds
 
-def count_known_invalid(grims: list[Grimoire]) -> int:
-    """Worlds the joint role assignment check rejects. It isn't run during solving because
-    it's too slow there, so these are worlds the solver keeps that are known to be impossible."""
-    return sum(1 for g in grims if not validators.ROLE_ASSIGNMENT_VALIDATOR.validate(g.pages[0]))
+def count_known_invalid(grims: list[Grimoire], scenario: Scenario) -> int:
+    """Final worlds that no complete game fits (see bench/world_validator.py), so the solver
+    kept them although they're impossible."""
+    return sum(1 for g in grims if find_world_problem(g, scenario.info, scenario.deaths, scenario.nights) is not None)
 
 def validity_problem(grim: Grimoire) -> str | None:
     valid, reason = validators.is_grim_valid(grim)

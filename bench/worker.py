@@ -69,7 +69,7 @@ def _play(scenario: Scenario, players: int, timeout: float, fault: str | None, k
     final_grims = len(manager.grims) if status == "ok" else None
     # done after timing, so neither counts towards the game's time
     worlds: list[Grimoire] | None = manager.grims if status == "ok" and keep_worlds else None
-    known_invalid = count_known_invalid(worlds) if worlds is not None else None
+    known_invalid = count_known_invalid(worlds, scenario) if worlds is not None else None
     # free the grims before building the result, in case we're out of memory
     del manager
     _ = gc.collect()

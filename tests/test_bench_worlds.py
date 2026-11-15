@@ -48,11 +48,11 @@ class TestWorldFiles(unittest.TestCase):
 
 class TestKnownInvalid(unittest.TestCase):
     def test_counted_when_worlds_kept(self):
-        # 5p-0030 ends with at least one world that role assignment rejects
-        scenario = load_scenarios(5, limit=31)[30]
+        # 5p-0005 ends with worlds where the Imp killed a sober Soldier, which no complete game fits
+        scenario = load_scenarios(5, limit=6)[5]
         result = run_game(scenario, 5, timeout=60, keep_worlds=True)
         self.assertGreaterEqual(result["known_invalid"], 1)
-        self.assertEqual(result["known_invalid"], worlds.count_known_invalid(result["worlds"]))
+        self.assertEqual(result["known_invalid"], worlds.count_known_invalid(result["worlds"], scenario))
 
     def test_not_counted_without_worlds(self):
         scenario = load_scenarios(5, limit=1)[0]
