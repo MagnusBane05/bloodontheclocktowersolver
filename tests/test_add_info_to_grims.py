@@ -5,12 +5,12 @@ from unittest import mock
 from bench.scenarios import load_scenarios
 from grimoire import GrimoireManager
 from grimoire import add_info_to_grims as add_info_module
-from grimoire.add_info_to_grims import MAX_FINALIZE_ROUNDS, _finalize, _try_branch, _try_intermediate_branch, add_death_info_to_grims, add_info_to_grims, find_finalize_problem  # pyright: ignore[reportPrivateUsage]
+from grimoire.add_info_to_grims import MAX_FINALIZE_ROUNDS, _finalize, _is_virgin_spent, _try_branch, _try_intermediate_branch, add_death_info_to_grims, add_info_to_grims, find_finalize_problem  # pyright: ignore[reportPrivateUsage]
 from grimoire.branch_actions import character_action
 from grimoire.errors import FinalizeDidNotSettleError
 from grimoire.grimoire import Grimoire, GrimoireKey
 from grimoire.grimoire_page import GrimoirePage
-from grimoire.info import DemonKillInfo, ExecutionInfo, Info, SlayerKillInfo, FortuneTellerInfo
+from grimoire.info import DemonKillInfo, ExecutionInfo, Info, SlayerKillInfo, FortuneTellerInfo, VirginInfo
 from grimoire.nightOrderPosition import NightOrderPosition
 from grimoire.role import Role
 
@@ -757,6 +757,76 @@ def _grim(pages: list[GrimoirePage]) -> Grimoire:
     grim.pages = pages
     grim.keys = [(p.night, p.night_order_position) for p in pages]
     return grim
+
+
+class TestSpentVirgin(unittest.TestCase):
+    VIRGIN = 0
+    NOMINATOR = 1
+
+    @staticmethod
+    def _virgin_info(night: int, executed: bool, virgin: int = 0, nominator: int = 1) -> VirginInfo:
+        return {"kind": "virgin", "virgin": virgin, "nominator": nominator, "executed": executed, "night": night}
+
+    def _townsfolk_nominator_base(self) -> Grimoire:
+        base = Grimoire(10)
+        base.get_first_page().characters[self.NOMINATOR] = Role.WASHERWOMAN
+        return base
+
+    def _has_sober_virgin(self, worlds: list[Grimoire]) -> bool:
+        return any(
+            (page := w.pages[-1]).characters[self.VIRGIN] == Role.VIRGIN
+            and not page.poisoned[self.VIRGIN]
+            for w in worlds
+        )
+
+    def test_earlier_nomination_spends_the_ability(self):
+        info = self._virgin_info(2, executed=False)
+        for executed in (True, False):
+            earlier = self._virgin_info(1, executed=executed, nominator=2)
+            self.assertTrue(_is_virgin_spent(info, [earlier, info]), f"earlier executed={executed}")
+
+    def test_other_nominations_do_not_spend_the_ability(self):
+        info = self._virgin_info(2, executed=False)
+        cases: dict[str, list[Info]] = {
+            "only itself": [info],
+            "same night": [self._virgin_info(2, executed=False, nominator=2), info],
+            "different virgin": [self._virgin_info(1, executed=True, virgin=3), info],
+            "later night": [info, self._virgin_info(3, executed=False, nominator=2)],
+            "other kind of info": [
+                {"kind": "slayer", "slayer": 0, "target": 1, "successful": False, "night": 1},
+                info,
+            ],
+            "no info list": [],
+        }
+        for name, info_list in cases.items():
+            self.assertFalse(_is_virgin_spent(info, info_list), name)
+
+    def test_spent_virgin_nominated_by_townsfolk_is_not_executed(self):
+        info = self._virgin_info(2, executed=False)
+        earlier = self._virgin_info(1, executed=True, nominator=2)
+
+        unspent = add_info_to_grims(info, [self._townsfolk_nominator_base()])
+        self.assertFalse(
+            self._has_sober_virgin(unspent),
+            "An unspent sober Virgin nominated by a Townsfolk would have executed them.",
+        )
+
+        spent = add_info_to_grims(info, [self._townsfolk_nominator_base()], info_list=[earlier, info])
+        self.assertTrue(
+            self._has_sober_virgin(spent),
+            "A sober Virgin whose ability is spent doesn't execute a Townsfolk nominator.",
+        )
+
+    def test_spent_virgin_cannot_execute(self):
+        info = self._virgin_info(2, executed=True)
+        earlier = self._virgin_info(1, executed=False, nominator=2)
+
+        self.assertGreater(len(add_info_to_grims(info, [Grimoire(10)])), 0)
+        self.assertEqual(
+            add_info_to_grims(info, [Grimoire(10)], info_list=[earlier, info]),
+            [],
+            "No world explains an execution by a spent Virgin.",
+        )
 
 
 class TestFinalize(unittest.TestCase):
