@@ -110,6 +110,13 @@ def compare_runs(a: dict[str, Any], b: dict[str, Any], force: bool = False) -> d
             for i in common
             if games_a[i]["status"] != "ok" and games_b[i]["status"] == "ok"
         ]
+        # games B ran that A didn't (e.g. a full run against a standard baseline) can't be
+        # compared, but one that didn't finish is still a problem to report
+        failing_only_b = [
+            {"id": i, "status": g["status"], "error": g["error"]}
+            for i, g in sorted(games_b.items())
+            if i not in games_a and g["status"] != "ok"
+        ]
         final_changes = sorted(
             (
                 {"id": i, "before": games_a[i]["final_grims"], "after": games_b[i]["final_grims"]}
@@ -160,6 +167,7 @@ def compare_runs(a: dict[str, Any], b: dict[str, Any], force: bool = False) -> d
             "both_ok": len(both_ok),
             "worse": worse,
             "fixed": fixed,
+            "failing_only_b": failing_only_b,
             "final_changes": final_changes,
             "summary_a": summary_a,
             "summary_b": summary_b,
@@ -171,7 +179,7 @@ def compare_runs(a: dict[str, Any], b: dict[str, Any], force: bool = False) -> d
     return {"a": a["meta"], "b": b["meta"], "warnings": warnings, "players": by_players}
 
 def has_regressions(comparison: dict[str, Any]) -> bool:
-    return any(data["worse"] for data in comparison["players"].values())
+    return any(data["worse"] or data["failing_only_b"] for data in comparison["players"].values())
 
 def _describe(meta: dict[str, Any]) -> str:
     dirty = " + uncommitted changes" if meta["dirty"] else ""
@@ -204,6 +212,11 @@ def format_comparison(comparison: dict[str, Any]) -> str:
                 lines.append(f"    {w['id']} {w['before']} -> {w['after']}{detail}")
         else:
             lines.append("  Got worse: none")
+        if data["failing_only_b"]:
+            lines.append(f"  FAILED IN GAMES ONLY IN B ({len(data['failing_only_b'])}):")
+            for f in data["failing_only_b"]:
+                detail = f": {f['error']}" if f["error"] else ""
+                lines.append(f"    {f['id']} {f['status']}{detail}")
         if data["fixed"]:
             lines.append(f"  Got fixed ({len(data['fixed'])}):")
             for f in data["fixed"]:

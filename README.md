@@ -41,7 +41,7 @@ Before committing a performance change (~5 minutes):
 Occasional full run (10 player and 15 player games take much longer):
 `python -m bench run --tier full --label "Describe the change"`
 
-Compare the latest run against the baseline (exits with an error if any game stopped finishing or lost the true grim):
+Compare the latest run against the baseline (exits with an error if any game stopped finishing or lost the true grim, or if a game that's only in the latest run, e.g. from a full run, didn't finish):
 `python -m bench compare`
 
 The **known invalid** column counts final worlds that no complete game fits: `bench/world_validator.py` searches for characters, starpasses and Storyteller choices that match every page of the world and every info and death in the scenario, following the wiki's Trouble Brewing rules. Its docstring lists the assumptions it shares with the solver and simulator. Runs from before it was added counted only worlds failing the old role assignment check, which has been removed.

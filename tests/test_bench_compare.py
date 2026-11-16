@@ -65,6 +65,24 @@ class TestCompareRuns(unittest.TestCase):
         self.assertTrue(compare.has_regressions(result))
         self.assertIn("GOT WORSE", compare.format_comparison(result))
 
+    def test_failures_in_games_only_in_b(self):
+        a = _run({"5": [_game("5p-0000")]})
+        b = _run({"5": [_game("5p-0000"), _game("5p-0001"), _game("5p-0002", status="true_grim_lost")]})
+        result = compare.compare_runs(a, b)
+        data = result["players"]["5"]
+        self.assertEqual(data["worse"], [])
+        self.assertEqual([(f["id"], f["status"]) for f in data["failing_only_b"]], [("5p-0002", "true_grim_lost")])
+        self.assertTrue(compare.has_regressions(result), "A game only in B that didn't finish should fail the compare.")
+        self.assertIn("5p-0002 true_grim_lost: boom", compare.format_comparison(result))
+
+    def test_games_only_in_a_or_ok_only_in_b_are_not_regressions(self):
+        a = _run({"5": [_game("5p-0000"), _game("5p-0001", status="timeout")]})
+        b = _run({"5": [_game("5p-0000"), _game("5p-0002")]})
+        result = compare.compare_runs(a, b)
+        self.assertEqual(result["players"]["5"]["failing_only_b"], [])
+        self.assertFalse(compare.has_regressions(result))
+        self.assertNotIn("ONLY IN B", compare.format_comparison(result))
+
     def test_no_regressions(self):
         a = _run({"5": [_game("5p-0000")]})
         self.assertFalse(compare.has_regressions(compare.compare_runs(a, a)))
