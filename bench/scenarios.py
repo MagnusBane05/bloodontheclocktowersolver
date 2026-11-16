@@ -16,7 +16,7 @@ from .tiers import TIERS
 SCENARIOS_DIR = Path(__file__).parent / "scenarios"
 SEED_START = 193
 # v2: the simulator stopped making a second Slayer shot or Virgin trigger, and a poisoned Recluse stopped registering as evil
-CURRENT_VERSION = "v2"
+CURRENT_VERSION = "v3"
 
 # enums are stored by name so adding or reordering roles doesn't change saved scenarios
 _ENUMS: dict[str, type[Enum]] = {

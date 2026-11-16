@@ -941,6 +941,12 @@ class TestNotRedHerring(unittest.TestCase):
         self.assertTrue(page.add_red_herring([False, False, True, False, False]))
         self.assertEqual(self._marks(page), [])
 
+    def test_add_red_herring_without_a_red_herring_keeps_marks(self):
+        page = GrimoirePage()
+        page.apply_not_red_herring(1)
+        self.assertFalse(page.add_red_herring([False] * 5))
+        self.assertEqual(self._marks(page), [1], "Expected marks to stay until a red herring is known.")
+
     def test_fewer_marks_subsume_more(self):
         general = GrimoirePage()
         general.apply_not_red_herring(1)

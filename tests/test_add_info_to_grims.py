@@ -619,6 +619,35 @@ class TestStarpassToRedHerringSpy(unittest.TestCase):
         )
 
 
+class TestRedHerringAfterMove(unittest.TestCase):
+    SPY = 0
+    FORTUNE_TELLER = 1
+    IMP = 3
+
+    def test_new_red_herring_can_be_marked_after_a_move(self):
+        # 5 players: the red herring Spy is the only minion, so it catches the starpass and the red herring moves
+        base = Grimoire(5)
+        first = base.get_first_page()
+        first.add_minion_type(Role.SPY)
+        first.characters[self.SPY] = Role.SPY
+        first.red_herring[self.SPY] = True
+        kill: DemonKillInfo = {"kind": "demon", "night": 2, "player": self.IMP}
+        moved = [
+            w for w in add_death_info_to_grims(kill, [base])
+            if get_required_page(w, 2, NightOrderPosition.AFTER_IMP).red_herring_moved
+        ]
+        self.assertGreater(len(moved), 0)
+
+        reading: FortuneTellerInfo = {"kind": "fortune teller", "fortune_teller": self.FORTUNE_TELLER, "night": 2, "pings": ((2, 4), True)}
+        worlds = add_info_to_grims(reading, moved)
+        new_red_herrings = [
+            w for w in worlds
+            if (page := get_required_page(w, 2, NightOrderPosition.AFTER_IMP)).red_herring[2] or page.red_herring[4]
+        ]
+        self.assertGreater(len(new_red_herrings), 0, "Expected the new red herring to explain a yes after the old one moved.")
+        for world in new_red_herrings:
+            self.assertTrue(world.get_first_page().red_herring[self.SPY], "Expected the Spy to stay the red herring before the move.")
+
 class TestAddInfoToGrims(unittest.TestCase):
     def test_fortune_teller_no(self):
         fortune_teller = 0
@@ -793,6 +822,17 @@ class TestFortuneTellerRulesOutRedHerring(unittest.TestCase):
 
     def test_yes_then_no(self):
         worlds = self._worlds([self._info(1, (1, 3), True), self._info(2, (1, 2), False)])
+        self.assertEqual(self._red_herring_after_sober_no(worlds, 2), [], "A sober Fortune Teller's no ruled player 1 out.")
+
+    def test_no_after_the_first_night_then_yes(self):
+        # marks set on a later page have to survive passing from an earlier page that has none
+        worlds = self._worlds([self._info(2, (1, 2), False)])
+        self.assertTrue(any(
+            (page := w.get_page(2, NightOrderPosition.AFTER_IMP)) is not None
+            and page.not_red_herring[1] and page.not_red_herring[2]
+            for w in worlds
+        ))
+        worlds = self._worlds([self._info(2, (1, 2), False), self._info(3, (1, 3), True)])
         self.assertEqual(self._red_herring_after_sober_no(worlds, 2), [], "A sober Fortune Teller's no ruled player 1 out.")
 
     def test_no_marks_from_an_unreliable_reading(self):

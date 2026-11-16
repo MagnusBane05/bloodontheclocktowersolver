@@ -75,10 +75,8 @@ def red_herring_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        if not grim.can_be_red_herring(player, night, order):
-            return False
-        page = _get_info_page(grim, night, order)
-        page.apply_red_herring(player)
+        # _finalize validates this page and copies the red herring to the pages around it
+        _get_info_page(grim, night, order).apply_red_herring(player)
         return True
     return action
 
@@ -88,10 +86,8 @@ def not_red_herring_action(
     order: NightOrderPosition = NightOrderPosition.AFTER_IMP
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
-        page = _get_info_page(grim, night, order)
-        if not page.can_be_non_red_herring(player):
-            return False
-        page.apply_not_red_herring(player)
+        # _finalize validates this page
+        _get_info_page(grim, night, order).apply_not_red_herring(player)
         return True
     return action
 

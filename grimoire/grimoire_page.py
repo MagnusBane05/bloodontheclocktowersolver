@@ -274,24 +274,31 @@ class GrimoirePage:
         self.drunk_token = character
 
     def add_red_herring(self, rh: list[bool]) -> bool:
-        combined = [a or b for a, b in zip(rh, self.red_herring)]
-        if sum(combined) > 1:
+        # called on every pass between pages, and usually there's no red herring to add
+        if True not in rh:
+            return False
+        player = rh.index(True)
+        if rh.count(True) > 1 or (True in self.red_herring and not self.red_herring[player]):
             raise ValueError(f"You cannot add a red herring when a different red herring exists, new: {rh}, existing: {self.red_herring}")
-        if any (a and b for a, b in zip(combined, self.not_red_herring)):
+        if self.not_red_herring[player]:
             raise ValueError(f"You cannot add the Red Herring to a player marked as not the Red Herring, player: {rh}")
-        changed = combined != self.red_herring
-        self.red_herring = combined
-        # clear not red herring
-        changed |= True in self.not_red_herring
-        self.not_red_herring = [False] * self.num_players
+        changed = not self.red_herring[player]
+        self.red_herring[player] = True
+        # once the red herring is known, ruling out other players adds nothing
+        if True in self.not_red_herring:
+            self.not_red_herring = [False] * self.num_players
+            changed = True
         return changed
 
     def add_not_red_herring(self, not_rh: list[bool]) -> bool:
-        combined = [a or b for a, b in zip(not_rh, self.not_red_herring)]
-        if any(a and b for a, b in zip(combined, self.red_herring)):
-            raise ValueError(f"You cannot rule out the red herring, ruled out: {combined}, red herring: {self.red_herring}")
-        if True in self.red_herring:
+        # called on every pass between pages, and usually nobody is ruled out
+        if True not in not_rh:
             return False
+        if True in self.red_herring:
+            if not_rh[self.red_herring.index(True)]:
+                raise ValueError(f"You cannot rule out the red herring, ruled out: {not_rh}, red herring: {self.red_herring}")
+            return False
+        combined = [a or b for a, b in zip(not_rh, self.not_red_herring)]
         changed = combined != self.not_red_herring
         self.not_red_herring = combined
         return changed
@@ -354,11 +361,6 @@ class GrimoirePage:
 
         return self._can_apply(lambda page: page.apply_character(character, player))
 
-    def can_be_red_herring(self, player: int):
-        return self._can_apply(lambda page: page.apply_red_herring(player))
-
-    def can_be_non_red_herring(self, player: int):
-        return self._can_apply(lambda page: page.apply_not_red_herring(player))
     
     def can_be_poisoned(self, player: int) -> bool:
         return self._can_apply(lambda page: page.apply_poisoned(player))

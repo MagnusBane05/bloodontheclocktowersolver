@@ -64,6 +64,15 @@ class TestRedHerringBetweenPages(unittest.TestCase):
         self.assertTrue(result)
         self.assertTrue(world.pages[1].not_red_herring[1])
 
+    def test_marks_on_a_later_page_survive_passing(self):
+        world = self._world(2)
+        world.pages[1].not_red_herring[1] = True
+        result, _reason, changed = Grimoire.pass_between_pages(world.pages[0], world.pages[1])
+        self.assertTrue(result)
+        self.assertTrue(world.pages[1].not_red_herring[1])
+        self.assertFalse(changed)
+        self.assertFalse(world.pages[0].not_red_herring[1], "Expected marks not to pass backward.")
+
     def test_marks_not_passed_onto_a_starpass(self):
         # the Spy who caught it may have been the red herring, moving it to a player ruled out before
         world = self._world(2)
