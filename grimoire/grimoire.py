@@ -165,6 +165,9 @@ class Grimoire:
         new_page.night_order_position = night_order_position
         new_page.poisoned = [False]*len(new_page.poisoned)
         new_page.chef_number = None
+        # these mark the page a starpass or red herring move happened on, so they aren't copied
+        new_page.star_passed = False
+        new_page.red_herring_moved = False
         self.pages.insert(i, new_page)
         self.keys.insert(i, key)
         return new_page
@@ -316,6 +319,22 @@ class Grimoire:
                 return PassThroughPagesResult(False, reason, changed)
             if curr_changed:
                 changed.add(i)
+
+        # the red herring stays on one player until a starpass, so a red herring found later
+        # was also the red herring on the earlier pages back to the last starpass
+        for i in range(len(grim.pages) - 1, 0, -1):
+            prev = grim.pages[i-1]
+            curr = grim.pages[i]
+            if curr.star_passed or True not in curr.red_herring or prev.red_herring == curr.red_herring:
+                continue
+            try:
+                _ = prev.add_red_herring(curr.red_herring)
+            except ValueError:
+                return PassThroughPagesResult(False, f"night {prev.night} {prev.night_order_position.name} red herring doesn't match a later page", changed)
+            valid, reason = validators.is_page_valid(prev)
+            if not valid:
+                return PassThroughPagesResult(False, f"night {prev.night} {prev.night_order_position.name} page validity check failed. {reason}", changed)
+            changed.add(i-1)
         return PassThroughPagesResult(True, "", changed)
     
     @staticmethod
@@ -365,6 +384,13 @@ class Grimoire:
                 changed |= curr.add_red_herring(prev.red_herring)
             except ValueError:
                 return PassBetweenPagesResult(False, "different red herrings", changed)
+        # a starpass may have been caught by a red herring Spy nobody had identified yet, moving
+        # the red herring without red_herring_moved being set, so ruling players out stops here
+        if not curr.star_passed:
+            try:
+                changed |= curr.add_not_red_herring(prev.not_red_herring)
+            except ValueError:
+                return PassBetweenPagesResult(False, "red herring was ruled out", changed)
 
         # pass drunk token
         try:

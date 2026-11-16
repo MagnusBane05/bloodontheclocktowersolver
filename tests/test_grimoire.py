@@ -32,6 +32,107 @@ class TestAddPage(unittest.TestCase):
         self.assertEqual(world.pages[2].night_order_position, NightOrderPosition.AFTER_SLAYER)
         self.assertEqual(world.pages[3].night_order_position, NightOrderPosition.AFTER_EXECUTION)        
 
+class TestAddPageResetsEventFlags(unittest.TestCase):
+    def test_starpass_flags_not_copied(self):
+        world = Grimoire()
+        night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
+        night2.star_passed = True
+        night2.red_herring_moved = True
+        for night, order in ((3, NightOrderPosition.AFTER_IMP), (2, NightOrderPosition.AFTER_EXECUTION)):
+            page = world.add_page(night, order)
+            with self.subTest(night=night, order=order.name):
+                self.assertFalse(page.star_passed, "Expected star_passed only on the page the starpass happened on.")
+                self.assertFalse(page.red_herring_moved, "Expected red_herring_moved only on the page the move happened on.")
+
+class TestRedHerringBetweenPages(unittest.TestCase):
+    @staticmethod
+    def _world(nights: int) -> Grimoire:
+        world = Grimoire()
+        for night in range(2, nights + 1):
+            _ = world.add_page(night, NightOrderPosition.AFTER_IMP)
+        return world
+
+    @staticmethod
+    def _pass(world: Grimoire) -> tuple[bool, str]:
+        valid, reason, _ = Grimoire.pass_through_pages(world, set(range(len(world.pages))))
+        return valid, reason
+
+    def test_marks_passed_forward(self):
+        world = self._world(2)
+        world.pages[0].not_red_herring[1] = True
+        result, _reason, _ = Grimoire.pass_between_pages(world.pages[0], world.pages[1])
+        self.assertTrue(result)
+        self.assertTrue(world.pages[1].not_red_herring[1])
+
+    def test_marks_not_passed_onto_a_starpass(self):
+        # the Spy who caught it may have been the red herring, moving it to a player ruled out before
+        world = self._world(2)
+        world.pages[0].not_red_herring[1] = True
+        world.pages[1].star_passed = True
+        world.pages[1].red_herring[1] = True
+        result, _reason, _ = Grimoire.pass_between_pages(world.pages[0], world.pages[1])
+        self.assertTrue(result)
+        self.assertFalse(world.pages[1].not_red_herring[1])
+
+    def test_red_herring_ruled_out_on_an_earlier_page_is_invalid(self):
+        world = self._world(2)
+        world.pages[0].not_red_herring[1] = True
+        world.pages[1].red_herring[1] = True
+        result, _reason, _ = Grimoire.pass_between_pages(world.pages[0], world.pages[1])
+        self.assertFalse(result)
+
+    def test_red_herring_copied_back_to_the_first_page(self):
+        world = self._world(3)
+        world.pages[0].not_red_herring[2] = True
+        world.pages[2].red_herring[1] = True
+        valid, reason = self._pass(world)
+        self.assertTrue(valid, reason)
+        for page in world.pages:
+            with self.subTest(night=page.night):
+                self.assertEqual(page.red_herring, [False, True, False, False, False])
+                self.assertFalse(any(page.not_red_herring), "Expected marks cleared once the red herring is known.")
+
+    def test_red_herring_not_copied_back_past_a_starpass(self):
+        world = self._world(3)
+        world.pages[1].star_passed = True
+        world.pages[2].red_herring[1] = True
+        valid, reason = self._pass(world)
+        self.assertTrue(valid, reason)
+        self.assertTrue(world.pages[1].red_herring[1])
+        self.assertFalse(world.pages[0].red_herring[1], "Expected the red herring before a starpass to stay unknown.")
+
+    def test_later_red_herring_ruled_out_earlier_is_invalid(self):
+        # covers a "no" reading before a "yes" reading even if the red herring was only marked later
+        world = self._world(3)
+        world.pages[0].not_red_herring[1] = True
+        world.pages[2].red_herring[1] = True
+        valid, _reason = self._pass(world)
+        self.assertFalse(valid)
+
+    def test_ruled_out_before_a_starpass_then_red_herring_after_is_valid(self):
+        # an unidentified red herring Spy caught the starpass and the red herring moved to player 1
+        world = self._world(3)
+        world.pages[0].not_red_herring[1] = True
+        world.pages[1].star_passed = True
+        world.pages[2].red_herring[1] = True
+        valid, reason = self._pass(world)
+        self.assertTrue(valid, reason)
+
+    def test_different_red_herring_earlier_is_invalid(self):
+        world = self._world(3)
+        world.pages[0].red_herring[2] = True
+        world.pages[2].red_herring[1] = True
+        valid, _reason = self._pass(world)
+        self.assertFalse(valid)
+
+    def test_red_herring_copied_back_onto_an_evil_player_is_invalid(self):
+        world = self._world(2)
+        world.pages[0].characters[1] = Role.IMP
+        world.pages[1].red_herring[1] = True
+        # no page needs a forward pass, so only the backward copy can find the problem
+        valid, _reason, _ = Grimoire.pass_through_pages(world, set())
+        self.assertFalse(valid, "Expected the earlier page to be validated after the red herring is copied back.")
+
 class TestGrimoireEquality(unittest.TestCase):
     @staticmethod
     def _poisoned_on_night(*nights: int) -> Grimoire:

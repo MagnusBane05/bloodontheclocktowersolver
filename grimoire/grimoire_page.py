@@ -61,6 +61,7 @@ _FIELD_CHANGE_TYPES = {
     'not_in_chef_pair': ChangeType.CHEF_NUMBER,
     'recluse_needed': ChangeType.CHEF_NUMBER,
     'red_herring': ChangeType.RED_HERRING,
+    'not_red_herring': ChangeType.RED_HERRING,
 }
 
 _FIELDS_NOT_VALIDATED = {
@@ -79,6 +80,7 @@ class GrimoirePage:
         self.poisoned: list[bool] = [False]*num_players
         self.minion_types: list[Role] = [Role.ANY_OTHER_MINION]*ROLE_BREAKDOWNS[num_players]['minions']
         self.red_herring: list[bool] = [False]*num_players
+        self.not_red_herring: list[bool] = [False]*num_players
         self.dead: list[bool] = [False]*num_players
         self.drunk_token: Role | None = None
         self.chef_number: int | None = None
@@ -125,6 +127,7 @@ class GrimoirePage:
         page.minion_types = list(self.minion_types)
         page.poisoned = list(self.poisoned)
         page.red_herring = list(self.red_herring)
+        page.not_red_herring = list(self.not_red_herring)
         page.dead = list(self.dead)
         page.slayer_shot = list(self.slayer_shot)
         page.drunk_token = self.drunk_token
@@ -145,6 +148,8 @@ class GrimoirePage:
             helper.minion_types_loose_equals(self.minion_types, other.minion_types) and
             sum(a or b for a, b in zip(self.poisoned, other.poisoned)) <= 1 and 
             sum(a or b for a, b in zip(self.red_herring, other.red_herring)) <= 1 and
+            not any(a and b for a, b in zip(self.red_herring, other.not_red_herring)) and
+            not any(a and b for a, b in zip(self.not_red_herring, other.red_herring)) and
             (self.chef_number is None or other.chef_number is None or self.chef_number == other.chef_number) and
             (self.drunk_token is None or other.drunk_token is None or self.drunk_token == other.drunk_token)
         )
@@ -163,6 +168,10 @@ class GrimoirePage:
             return False
         
         if self.red_herring != other.red_herring:
+            return False
+
+        # a page with fewer players ruled out as the red herring is more general
+        if any(a and not b for a, b in zip(self.not_red_herring, other.not_red_herring)):
             return False
         
         if (
@@ -187,6 +196,7 @@ class GrimoirePage:
             tuple(self.characters),
             frozenset(self.minion_types),
             tuple(self.red_herring),
+            tuple(self.not_red_herring),
             tuple(self.dead),
             tuple(self.slayer_shot),
             self.num_players,
@@ -267,12 +277,35 @@ class GrimoirePage:
         combined = [a or b for a, b in zip(rh, self.red_herring)]
         if sum(combined) > 1:
             raise ValueError(f"You cannot add a red herring when a different red herring exists, new: {rh}, existing: {self.red_herring}")
+        if any (a and b for a, b in zip(combined, self.not_red_herring)):
+            raise ValueError(f"You cannot add the Red Herring to a player marked as not the Red Herring, player: {rh}")
         changed = combined != self.red_herring
         self.red_herring = combined
+        # clear not red herring
+        changed |= True in self.not_red_herring
+        self.not_red_herring = [False] * self.num_players
+        return changed
+
+    def add_not_red_herring(self, not_rh: list[bool]) -> bool:
+        combined = [a or b for a, b in zip(not_rh, self.not_red_herring)]
+        if any(a and b for a, b in zip(combined, self.red_herring)):
+            raise ValueError(f"You cannot rule out the red herring, ruled out: {combined}, red herring: {self.red_herring}")
+        if True in self.red_herring:
+            return False
+        changed = combined != self.not_red_herring
+        self.not_red_herring = combined
         return changed
 
     def apply_red_herring(self, player: int):
+        if not self.not_red_herring[player]:
+            # once the red herring is known, ruling out other players adds nothing
+            self.not_red_herring = [False] * self.num_players
         self.red_herring[player] = True
+
+    def apply_not_red_herring(self, player: int):
+        if True in self.red_herring and not self.red_herring[player]:
+            return
+        self.not_red_herring[player] = True
 
     def clear_poisoned(self):
         self.poisoned = [False] * len(self.poisoned)
@@ -323,6 +356,9 @@ class GrimoirePage:
 
     def can_be_red_herring(self, player: int):
         return self._can_apply(lambda page: page.apply_red_herring(player))
+
+    def can_be_non_red_herring(self, player: int):
+        return self._can_apply(lambda page: page.apply_not_red_herring(player))
     
     def can_be_poisoned(self, player: int) -> bool:
         return self._can_apply(lambda page: page.apply_poisoned(player))

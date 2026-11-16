@@ -323,6 +323,9 @@ def is_red_herring_valid(page: GrimoirePage) -> bool:
     character = page.characters[rh_player]
     if character in EVIL_PLAYERS_WITHOUT_SPY:
         return False
+    # Red herring wasn't ruled out by a FT no
+    if page.not_red_herring[rh_player]:
+        return False
     return True
 
 def _is_outsider_count_valid(page: GrimoirePage) -> bool:

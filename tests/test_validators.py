@@ -248,6 +248,20 @@ class TestValidation(unittest.TestCase):
         result = validators.is_no_sober_saint_executed(page)
         self.assertTrue(result, "Expected non-execution page to be valid.")
 
+class TestIsRedHerringValid(unittest.TestCase):
+    def test_red_herring_ruled_out(self):
+        page = GrimoirePage()
+        page.red_herring[1] = True
+        self.assertTrue(validators.is_red_herring_valid(page))
+        page.not_red_herring[1] = True
+        self.assertFalse(validators.is_red_herring_valid(page), "Expected a red herring a sober Fortune Teller ruled out to be invalid.")
+
+    def test_other_players_ruled_out(self):
+        page = GrimoirePage()
+        page.red_herring[1] = True
+        page.not_red_herring[2] = True
+        self.assertTrue(validators.is_red_herring_valid(page))
+
 class TestIsChefNumberValid(unittest.TestCase):
     def make_page(
         self,

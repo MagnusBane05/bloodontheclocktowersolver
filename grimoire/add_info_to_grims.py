@@ -26,7 +26,8 @@ def find_finalize_problem(grim: Grimoire, dirty_keys: set[GrimoireKey] | None = 
             break
     else:
         raise FinalizeDidNotSettleError(f"Finalize did not settle after {MAX_FINALIZE_ROUNDS} rounds.")
-    # passing validates every page it reaches, and nothing passes into the first page
+    # passing validates every page it reaches. The first page only changes when it's dirty or a
+    # red herring is copied back into it, which validates it too
     if first_page_changed:
         valid, reason = validators.is_page_valid(grim.pages[0])
         if not valid:
@@ -316,14 +317,14 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> set[Gri
     if ping:
         for target in (a, b):
             # Target is the demon
-            _add_branch(
+            _ = _add_branch(
                 out,
                 ft_base,
                 imp_action(target, night, order)
             )
 
             # Target is the red herring and Spy
-            _add_branch(
+            _ = _add_branch(
                 out,
                 ft_base,
                 character_action(Role.SPY, target, night, order),
@@ -331,7 +332,7 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> set[Gri
             )
 
             # Target is the red herring and good
-            _add_branch(
+            _ = _add_branch(
                 out,
                 ft_base,
                 character_action(Role.ANY_OTHER_GOOD, target, night, order),
@@ -339,7 +340,7 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> set[Gri
             )
 
             # Target is Recluse registering as demon
-            _add_branch(
+            _ = _add_branch(
                 out,
                 ft_base,
                 character_action(Role.RECLUSE, target, night, order)
@@ -347,11 +348,13 @@ def _add_fortune_teller_info(info: FortuneTellerInfo, grim: Grimoire) -> set[Gri
 
     else:
         # Both targets are not the demon
-        _add_branch(
+        _ = _add_branch(
             out,
             ft_base,
             character_action(Role.NON_DEMON, a, night, order),
-            character_action(Role.NON_DEMON, b, night, order)
+            character_action(Role.NON_DEMON, b, night, order),
+            not_red_herring_action(a, night, order),
+            not_red_herring_action(b, night, order),
         )
 
     return out

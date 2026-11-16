@@ -759,6 +759,51 @@ def _grim(pages: list[GrimoirePage]) -> Grimoire:
     return grim
 
 
+class TestFortuneTellerRulesOutRedHerring(unittest.TestCase):
+    FORTUNE_TELLER = 0
+    PLAYER = 1
+
+    @staticmethod
+    def _info(night: int, pair: tuple[int, int], ping: bool) -> FortuneTellerInfo:
+        return {"kind": "fortune teller", "fortune_teller": 0, "night": night, "pings": (pair, ping)}
+
+    def _worlds(self, infos: list[FortuneTellerInfo]) -> list[Grimoire]:
+        worlds = [Grimoire(5)]
+        for info in infos:
+            worlds = add_info_to_grims(info, worlds)
+        return worlds
+
+    def _red_herring_after_sober_no(self, worlds: list[Grimoire], no_night: int) -> list[Grimoire]:
+        out: list[Grimoire] = []
+        for world in worlds:
+            page = world.get_page(no_night, NightOrderPosition.AFTER_IMP)
+            if page is None or page.characters[self.FORTUNE_TELLER] != Role.FORTUNE_TELLER or page.poisoned[self.FORTUNE_TELLER]:
+                continue
+            if any(p.red_herring[self.PLAYER] for p in world.pages):
+                out.append(world)
+        return out
+
+    def test_no_then_yes(self):
+        worlds = self._worlds([self._info(1, (1, 2), False), self._info(2, (1, 3), True)])
+        self.assertEqual(self._red_herring_after_sober_no(worlds, 1), [], "A sober Fortune Teller's no ruled player 1 out.")
+        self.assertTrue(
+            any(any(p.red_herring[self.PLAYER] for p in w.pages) for w in worlds),
+            "Expected player 1 to still be the red herring when the Fortune Teller wasn't sober on night 1.",
+        )
+
+    def test_yes_then_no(self):
+        worlds = self._worlds([self._info(1, (1, 3), True), self._info(2, (1, 2), False)])
+        self.assertEqual(self._red_herring_after_sober_no(worlds, 2), [], "A sober Fortune Teller's no ruled player 1 out.")
+
+    def test_no_marks_from_an_unreliable_reading(self):
+        worlds = self._worlds([self._info(1, (1, 2), False)])
+        for world in worlds:
+            page = world.get_first_page()
+            if page.characters[self.FORTUNE_TELLER] == Role.FORTUNE_TELLER and not page.poisoned[self.FORTUNE_TELLER]:
+                self.assertTrue(page.not_red_herring[1] and page.not_red_herring[2])
+            else:
+                self.assertFalse(any(page.not_red_herring), "Expected only a sober Fortune Teller's reading to rule players out.")
+
 class TestSpentVirgin(unittest.TestCase):
     VIRGIN = 0
     NOMINATOR = 1

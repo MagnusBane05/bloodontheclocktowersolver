@@ -739,6 +739,7 @@ class TestSameState(unittest.TestCase):
         "poisoned": lambda p: p.poisoned.__setitem__(0, True),
         "minion_types": lambda p: p.minion_types.__setitem__(0, Role.BARON),
         "red_herring": lambda p: p.red_herring.__setitem__(0, True),
+        "not_red_herring": lambda p: p.not_red_herring.__setitem__(0, True),
         "dead": lambda p: p.dead.__setitem__(0, True),
         "drunk_token": lambda p: setattr(p, "drunk_token", Role.MONK),
         "chef_number": lambda p: setattr(p, "chef_number", 1),
@@ -875,6 +876,89 @@ class TestChangeReportingSetters(unittest.TestCase):
         self.assertFalse(page.add_deaths(none), "Expected deaths never to be undone.")
         self.assertTrue(page.add_deaths([False, True, False, False, False]))
         self.assertEqual([True, True, False, False, False], page.dead)
+
+class TestNotRedHerring(unittest.TestCase):
+    @staticmethod
+    def _marks(page: GrimoirePage) -> list[int]:
+        return [i for i, x in enumerate(page.not_red_herring) if x]
+
+    def test_apply_red_herring_clears_other_marks(self):
+        page = GrimoirePage()
+        page.apply_not_red_herring(1)
+        page.apply_not_red_herring(2)
+        page.apply_red_herring(3)
+        self.assertEqual(self._marks(page), [], "Expected marks to add nothing once the red herring is known.")
+        self.assertTrue(page.red_herring[3])
+
+    def test_apply_red_herring_keeps_marks_on_a_ruled_out_player(self):
+        page = GrimoirePage()
+        page.apply_not_red_herring(1)
+        page.apply_red_herring(1)
+        self.assertEqual(self._marks(page), [1], "Expected the conflict to stay on the page for the validator.")
+
+    def test_apply_not_red_herring_skipped_when_red_herring_is_someone_else(self):
+        page = GrimoirePage()
+        page.apply_red_herring(3)
+        page.apply_not_red_herring(1)
+        self.assertEqual(self._marks(page), [])
+
+    def test_apply_not_red_herring_on_the_red_herring_is_kept(self):
+        page = GrimoirePage()
+        page.apply_red_herring(1)
+        page.apply_not_red_herring(1)
+        self.assertEqual(self._marks(page), [1], "Expected the conflict to stay on the page for the validator.")
+
+    def test_add_not_red_herring(self):
+        page = GrimoirePage()
+        none = [False] * 5
+        self.assertFalse(page.add_not_red_herring(none))
+        self.assertTrue(page.add_not_red_herring([False, True, False, False, False]))
+        self.assertFalse(page.add_not_red_herring([False, True, False, False, False]))
+        self.assertTrue(page.add_not_red_herring([False, False, True, False, False]))
+        self.assertEqual(self._marks(page), [1, 2], "Expected marks to accumulate.")
+
+    def test_add_not_red_herring_on_the_red_herring_raises(self):
+        page = GrimoirePage()
+        page.apply_red_herring(1)
+        with self.assertRaises(ValueError):
+            _ = page.add_not_red_herring([False, True, False, False, False])
+
+    def test_add_not_red_herring_skipped_when_red_herring_is_known(self):
+        page = GrimoirePage()
+        page.apply_red_herring(3)
+        self.assertFalse(page.add_not_red_herring([False, True, False, False, False]))
+        self.assertEqual(self._marks(page), [])
+
+    def test_add_red_herring_on_a_ruled_out_player_raises(self):
+        page = GrimoirePage()
+        page.apply_not_red_herring(1)
+        with self.assertRaises(ValueError):
+            _ = page.add_red_herring([False, True, False, False, False])
+
+    def test_add_red_herring_clears_other_marks(self):
+        page = GrimoirePage()
+        page.apply_not_red_herring(1)
+        self.assertTrue(page.add_red_herring([False, False, True, False, False]))
+        self.assertEqual(self._marks(page), [])
+
+    def test_fewer_marks_subsume_more(self):
+        general = GrimoirePage()
+        general.apply_not_red_herring(1)
+        specific = general.clone()
+        specific.apply_not_red_herring(2)
+        self.assertTrue(general.subsumes(specific))
+        self.assertFalse(specific.subsumes(general), "Expected a page ruling out more players not to cover one ruling out fewer.")
+
+    def test_loose_equals_rejects_a_ruled_out_red_herring(self):
+        true_page = GrimoirePage()
+        true_page.apply_red_herring(1)
+        world = GrimoirePage()
+        world.apply_not_red_herring(1)
+        self.assertFalse(world.loose_equals(true_page))
+        self.assertFalse(true_page.loose_equals(world))
+        other = GrimoirePage()
+        other.apply_not_red_herring(2)
+        self.assertTrue(other.loose_equals(true_page))
 
 class TestFields(unittest.TestCase):
     def test_all_fields_validated(self):
