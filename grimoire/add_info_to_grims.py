@@ -559,18 +559,20 @@ def _add_ravenkeeper_info(info: RavenkeeperInfo, grim: Grimoire) -> set[Grimoire
 
     return out   
 
-def _add_virgin_info(info: VirginInfo, grim: Grimoire) -> set[Grimoire]:
+def _add_virgin_info(info: VirginInfo, grim: Grimoire, spent_virgin: bool) -> set[Grimoire]:
     player=  info["virgin"]
     night = info["night"]
     nominator = info["nominator"]
     executed = info["executed"]
     order = NightOrderPosition.AFTER_IMP
 
-    if executed:
-        out: set[Grimoire] = set()
+    out: set[Grimoire] = set()
+    if executed and spent_virgin:
+        return out
 
+    if executed:
         # Townsfolk nominated virgin
-        _add_branch(
+        _ = _add_branch(
             out,
             grim,
             character_action(Role.VIRGIN, player, night, order),
@@ -578,7 +580,7 @@ def _add_virgin_info(info: VirginInfo, grim: Grimoire) -> set[Grimoire]:
         )
 
         # Spy nominated virgin
-        _add_branch(
+        _ = _add_branch(
             out,
             grim,
             character_action(Role.VIRGIN, player, night, order),
@@ -596,19 +598,28 @@ def _add_virgin_info(info: VirginInfo, grim: Grimoire) -> set[Grimoire]:
         if virgin_base is None or nominator == player:
             return out
 
-        # Evil nominated Virgin
-        _add_branch(
-            out,
-            virgin_base,
-            character_action(Role.ANY_OTHER_EVIL, nominator, night, order)
-        )
+        if spent_virgin:
+            # Spent Virgin
+            _ = _add_branch(
+                out,
+                virgin_base,
+                character_action(Role.VIRGIN, player, night, order)
+            )
 
-        # Outsider nominated Virgin
-        _add_branch(
-            out,
-            virgin_base,
-            character_action(Role.ANY_OTHER_OUTSIDER, nominator, night, order)
-        )
+        else:
+            # Evil nominated Virgin
+            _ = _add_branch(
+                out,
+                virgin_base,
+                character_action(Role.ANY_OTHER_EVIL, nominator, night, order)
+            )
+
+            # Outsider nominated Virgin
+            _ = _add_branch(
+                out,
+                virgin_base,
+                character_action(Role.ANY_OTHER_OUTSIDER, nominator, night, order)
+            )
 
     return out
 
@@ -679,10 +690,19 @@ def _apply_info(
     )
     return list(new_grims)
 
+def _is_virgin_spent(info: VirginInfo, info_list: list[Info]) -> bool:
+    return any(
+        other["kind"] == "virgin"
+        and other["night"] < info["night"]
+        and other["virgin"] == info["virgin"]
+        for other in info_list
+    )
+
 def add_info_to_grims(
     info: Info, 
     grims: list[Grimoire], 
-    trace: TrueGrimTrace | None = None
+    trace: TrueGrimTrace | None = None,
+    info_list: list[Info] | None = None
 ) -> list[Grimoire]:
     if info["kind"] == "claim":
         return _apply_info(info, grims, _add_claim, trace)
@@ -703,7 +723,8 @@ def add_info_to_grims(
     elif info["kind"] == "ravenkeeper":
         return _apply_info(info, grims, _add_ravenkeeper_info, trace)
     elif info["kind"] == "virgin":
-        return _apply_info(info, grims, _add_virgin_info, trace)
+        spent_virgin = _is_virgin_spent(info, info_list or [])
+        return _apply_info(info, grims, lambda i, g: _add_virgin_info(i, g, spent_virgin), trace)
     elif info["kind"] == "slayer":
         return _apply_info(info, grims, _add_slayer_info, trace)
     else:

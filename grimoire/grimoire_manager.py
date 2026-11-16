@@ -44,13 +44,13 @@ class GrimoireManager():
             stage=stage,
         )
     
-    def _add_info(self, info: Info, stage: str | None = None):
+    def _add_info(self, info: Info, info_list: list[Info], stage: str | None = None):
         before = self.grims
         if len(before) == 0:
             return
         night = info['night'] if "night" in info else 1
         trace = self._make_trace(f"night {night} {info['kind']} info")
-        new_grims = add_info_to_grims(info, self.grims, trace)
+        new_grims = add_info_to_grims(info, self.grims, trace, info_list)
         self._set_grims_checked(
             new_grims,
             stage or f"info {info}",
@@ -88,9 +88,9 @@ class GrimoireManager():
             # add info
             for info in info_list:
                 if night == 1 and info["kind"] in FIRST_NIGHT_INFO:
-                    self._add_info(info)
+                    self._add_info(info, info_list)
                 elif info["kind"] in ANY_NIGHT_INFO and "night" in info and info['night'] == night:
-                    self._add_info(info, f"night {night} {info["kind"]} info.")
+                    self._add_info(info, info_list, f"night {night} {info["kind"]} info.")
 
             for death in [d for d in death_info if d["night"] == night]:
                 # add slayer shot and execution
