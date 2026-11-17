@@ -866,6 +866,50 @@ class TestNotRedHerring(unittest.TestCase):
         other.apply_not_red_herring(2)
         self.assertTrue(other.loose_equals(true_page))
 
+    def test_starpass_clears_marks(self):
+        page = GrimoirePage()
+        page.apply_not_red_herring(1)
+        page.apply_not_red_herring(2)
+        _ = page.apply_starpass(0)
+        self.assertEqual(self._marks(page), [], "Expected an unidentified red herring Spy to be able to move the red herring to anyone.")
+
+    def test_starpass_keeps_marks_without_a_possible_spy(self):
+        page = GrimoirePage()
+        page.minion_types = [Role.POISONER]
+        page.apply_not_red_herring(1)
+        _ = page.apply_starpass(0)
+        self.assertEqual(self._marks(page), [1], "Expected the red herring to stay put when no Spy can catch the starpass.")
+
+    def test_starpass_keeps_marks_when_the_catcher_is_ruled_out(self):
+        page = GrimoirePage()
+        page.characters = [Role.IMP, Role.EMPATH, Role.ANY_OTHER_MINION, Role.MONK, Role.CHEF]
+        page.apply_not_red_herring(1)
+        page.apply_not_red_herring(2)
+        _ = page.apply_starpass(0)
+        self.assertEqual(self._marks(page), [1, 2], "Expected a minion who isn't the red herring not to move it.")
+
+    def test_starpass_keeps_marks_when_a_known_non_spy_catches(self):
+        page = GrimoirePage()
+        page.minion_types = [Role.SCARLET_WOMAN]
+        page.characters = [Role.IMP, Role.EMPATH, Role.SCARLET_WOMAN, Role.MONK, Role.CHEF]
+        page.apply_not_red_herring(1)
+        _ = page.apply_starpass(0)
+        self.assertEqual(self._marks(page), [1])
+
+    def test_starpass_to_a_known_spy_clears_marks(self):
+        page = GrimoirePage()
+        page.minion_types = [Role.SPY]
+        page.characters = [Role.IMP, Role.EMPATH, Role.SPY, Role.MONK, Role.CHEF]
+        page.apply_not_red_herring(1)
+        _ = page.apply_starpass(0)
+        self.assertEqual(self._marks(page), [], "Expected a Spy nobody has ruled out to be able to hold and move the red herring.")
+
+    def test_sw_catch_keeps_marks(self):
+        page = GrimoirePage()
+        page.apply_not_red_herring(1)
+        _ = page.apply_sw_catch(0)
+        self.assertEqual(self._marks(page), [1], "Expected a Scarlet Woman catch not to move the red herring.")
+
 class TestFields(unittest.TestCase):
     def test_all_fields_validated(self):
         page = GrimoirePage()

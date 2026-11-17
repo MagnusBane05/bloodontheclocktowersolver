@@ -28,6 +28,8 @@ MINION_CANDIDATE_SET = MINIONS_SET | {
     Role.NON_DEMON,
     Role.ANY_OTHER
 }
+# roles a minion nobody has identified can still be recorded as
+UNIDENTIFIED_MINION_SET = MINION_CANDIDATE_SET - MINIONS_SET
 
 SCARLET_WOMAN_CANDIDATE_SET = {
     Role.ANY_OTHER_MINION,
@@ -597,6 +599,18 @@ class GrimoirePage:
                 return i
         return None
 
+    def _could_be_unidentified_red_herring_spy(self, player: int) -> bool:
+        if True in self.red_herring or self.not_red_herring[player]:
+            return False
+        character = self.characters[player]
+        if character == Role.SPY:
+            return True
+        return character in UNIDENTIFIED_MINION_SET and gamerules.is_minion_type_possible(Role.SPY, self.minion_types)
+
+    def _clear_marks_if_red_herring_could_move(self, catchers: list[int]):
+        if any(self._could_be_unidentified_red_herring_spy(p) for p in catchers):
+            self.not_red_herring = [False] * self.num_players
+
     # returns new imp if known
     def apply_starpass(self, imp: int, red_herring_spy_catches: bool = False) -> int | None:
         # dead player was the imp
@@ -630,8 +644,11 @@ class GrimoirePage:
             alive_minion = alive_potential_minions[0]
         # Alive minion becomes the new demon
         if alive_minion is not None:
+            self._clear_marks_if_red_herring_could_move([alive_minion])
             self._promote_minion(alive_minion)
             return alive_minion
+
+        self._clear_marks_if_red_herring_could_move(alive_potential_minions)
 
         # non-demons become any role
         # minions become any other evil

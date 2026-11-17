@@ -848,6 +848,45 @@ class TestFortuneTellerRulesOutRedHerring(unittest.TestCase):
             else:
                 self.assertFalse(any(page.not_red_herring), "Expected only a sober Fortune Teller's reading to rule players out.")
 
+    def test_starpass_page_drops_the_marks(self):
+        # the night 2 page is made as a copy of night 1, marks included
+        base = Grimoire()
+        first = base.get_first_page()
+        first.apply_not_red_herring(1)
+        first.apply_not_red_herring(2)
+        kill: DemonKillInfo = {"kind": "demon", "night": 2, "player": 0}
+        results = add_death_info_to_grims(kill, [base])
+
+        starpasses = [grim for grim in results if grim.pages[-1].star_passed]
+        others = [grim for grim in results if not grim.pages[-1].star_passed]
+        self.assertGreater(len(starpasses), 0)
+        self.assertGreater(len(others), 0)
+        for grim in starpasses:
+            self.assertTrue(grim.pages[0].not_red_herring[1] and grim.pages[0].not_red_herring[2], "Expected the marks to stay on the page before the starpass.")
+            self.assertFalse(any(grim.pages[-1].not_red_herring), "Expected the red herring to be able to move to a ruled out player on a starpass.")
+        for grim in others:
+            self.assertTrue(grim.pages[-1].not_red_herring[1] and grim.pages[-1].not_red_herring[2], "Expected the marks to stay when nobody starpassed.")
+
+    def test_true_grim_with_red_herring_moved_onto_a_ruled_out_player_is_kept(self):
+        base = Grimoire()
+        base.get_first_page().apply_not_red_herring(1)
+        kill: DemonKillInfo = {"kind": "demon", "night": 2, "player": 0}
+
+        true_grim = Grimoire()
+        true_first = true_grim.get_first_page()
+        true_first.minion_types = [Role.SPY]
+        true_first.characters = [Role.IMP, Role.EMPATH, Role.SPY, Role.MONK, Role.CHEF]
+        true_first.red_herring[2] = True
+        true_night2 = true_grim.add_page(2, NightOrderPosition.AFTER_IMP)
+        true_night2.dead[0] = True
+        true_night2.characters[2] = Role.IMP
+        true_night2.red_herring = [False, True, False, False, False]
+        true_night2.star_passed = True
+        true_night2.red_herring_moved = True
+
+        results = add_death_info_to_grims(kill, [base])
+        self.assertTrue(any(true_grim.loose_equals(grim) for grim in results))
+
 class TestSpentVirgin(unittest.TestCase):
     VIRGIN = 0
     NOMINATOR = 1
