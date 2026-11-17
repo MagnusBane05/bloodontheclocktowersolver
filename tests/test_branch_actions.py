@@ -146,7 +146,9 @@ class TestChefNumberAction(unittest.TestCase):
             page.characters = characters
         if minion_types is not None:
             page.minion_types = minion_types
-        self.assertEqual(expected, branch_actions.chef_number_action(number)(grim))
+        # the action only records the number; _finalize is what rejects an impossible one
+        result = _try_branch(grim, branch_actions.chef_number_action(number))
+        self.assertEqual(expected, result is not None)
 
     def test_chef_0(self):
         with self.subTest("Imp and Scarlet Woman not adjacent"):
@@ -208,16 +210,52 @@ class TestChefNumberAction(unittest.TestCase):
         with self.subTest("an unknown good that can't be the Recluse can't add to the number"):
             self.assertChefAction(False, 2, unknown_goods, [Role.SCARLET_WOMAN])
 
+    def test_known_evil_pair(self):
+        characters = [Role.IMP, Role.ANY_OTHER_MINION, Role.MONK, Role.EMPATH, Role.SLAYER]
+        with self.subTest("the pair counts once"):
+            self.assertChefAction(True, 1, characters)
+        with self.subTest("nobody else can add to the number"):
+            self.assertChefAction(False, 2, characters)
+
+    def test_recluse_next_to_spy(self):
+        with self.subTest("0 needs a non-Spy evil somewhere"):
+            self.assertChefAction(False, 0, [Role.RECLUSE, Role.SPY, Role.MONK, Role.MONK, Role.MONK])
+        characters = [Role.RECLUSE, Role.SPY, Role.WASHERWOMAN, Role.IMP, Role.LIBRARIAN, Role.SLAYER]
+        with self.subTest("neither registers as evil"):
+            self.assertChefAction(True, 0, characters, [Role.SPY], 6)
+        with self.subTest("both register as evil"):
+            self.assertChefAction(True, 1, characters, [Role.SPY], 6)
+        with self.subTest("one pair can't count twice"):
+            self.assertChefAction(False, 2, characters, [Role.SPY], 6)
+
+    def test_adjacent_unknown_evils_by_minion_type(self):
+        adjacent_evils = _unknown_with_evils_at(5, [0, 1])
+        adjacent_evils = [Role.ANY_OTHER_GOOD if c == Role.ANY_OTHER else c for c in adjacent_evils]
+        with self.subTest("Scarlet Woman: the pair must count"):
+            self.assertChefAction(False, 0, adjacent_evils, [Role.SCARLET_WOMAN])
+            self.assertChefAction(True, 1, adjacent_evils, [Role.SCARLET_WOMAN])
+        with self.subTest("Spy: the pair may count or not, but no Recluse can add a second"):
+            self.assertChefAction(True, 0, adjacent_evils, [Role.SPY])
+            self.assertChefAction(True, 1, adjacent_evils, [Role.SPY])
+            self.assertChefAction(False, 2, adjacent_evils, [Role.SPY])
+        with self.subTest("Baron: a neighbour could be the Recluse"):
+            self.assertChefAction(True, 2, adjacent_evils, [Role.BARON])
+
 class TestNoOutsidersAction(unittest.TestCase):
     def test_without_the_info_the_flag_stays_off(self):
         grim = Grimoire()
         self.assertTrue(validators.is_grim_valid(grim)[0])
         self.assertFalse(grim.get_first_page().no_outsiders)
 
+    # the action only sets the flag; _finalize is what rejects an impossible one
+    def assertNoOutsidersAction(self, expected: bool, grim: Grimoire, msg: str | None = None) -> None:
+        result = _try_branch(grim, branch_actions.no_outsiders_action())
+        self.assertEqual(expected, result is not None, msg)
+
     def test_sets_the_flag(self):
-        grim = Grimoire()
-        self.assertTrue(branch_actions.no_outsiders_action()(grim))
-        self.assertTrue(grim.get_first_page().no_outsiders)
+        result = _try_branch(Grimoire(), branch_actions.no_outsiders_action())
+        assert result is not None
+        self.assertTrue(result.get_first_page().no_outsiders)
 
     def test_baron_without_the_info_is_valid(self):
         grim = Grimoire()
@@ -228,4 +266,51 @@ class TestNoOutsidersAction(unittest.TestCase):
     def test_baron_rules_out_the_info(self):
         grim = Grimoire()
         self.assertTrue(grim.get_first_page().add_minion_type(Role.BARON))
-        self.assertFalse(branch_actions.no_outsiders_action()(grim))
+        self.assertNoOutsidersAction(False, grim)
+
+    def test_player_count(self):
+        self.assertNoOutsidersAction(True, Grimoire(5), "5 players have no outsiders")
+        self.assertNoOutsidersAction(True, Grimoire(6), "an unknown player could be the Recluse")
+        self.assertNoOutsidersAction(False, Grimoire(9), "9 players have 2 outsiders")
+
+    def test_known_outsiders(self):
+        grim = Grimoire(6)
+        grim.get_first_page().characters[0] = Role.RECLUSE
+        self.assertNoOutsidersAction(True, grim, "the only outsider is a Recluse")
+
+        grim = Grimoire(6)
+        grim.get_first_page().characters[0] = Role.SAINT
+        self.assertNoOutsidersAction(False, grim, "a known outsider that isn't the Recluse")
+
+class TestPoisonedAction(unittest.TestCase):
+    # the action only marks the player; _finalize is what rejects an impossible poisoning
+    def assertPoisonedAction(self, expected: bool, grim: Grimoire, msg: str | None = None) -> None:
+        action = branch_actions.poisoned_action(0, 1, NightOrderPosition.AFTER_IMP)
+        result = _try_branch(grim, action)
+        self.assertEqual(expected, result is not None, msg)
+
+    def test_poisoner_can_be_added(self):
+        self.assertPoisonedAction(True, Grimoire(5))
+
+    def test_known_poisoner(self):
+        grim = Grimoire(5)
+        grim.get_first_page().minion_types[0] = Role.POISONER
+        self.assertPoisonedAction(True, grim)
+
+    def test_no_room_for_a_poisoner(self):
+        grim = Grimoire(5)
+        grim.get_first_page().minion_types[0] = Role.BARON
+        self.assertPoisonedAction(False, grim)
+
+    def test_another_player_is_already_poisoned(self):
+        grim = Grimoire(5)
+        grim.get_first_page().apply_poisoned(1)
+        self.assertPoisonedAction(False, grim)
+
+    def test_known_poisoner_is_dead(self):
+        grim = Grimoire(5)
+        page = grim.get_first_page()
+        page.minion_types[0] = Role.POISONER
+        page.characters[1] = Role.POISONER
+        page.dead[1] = True
+        self.assertPoisonedAction(False, grim)

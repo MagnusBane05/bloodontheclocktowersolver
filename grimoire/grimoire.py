@@ -254,23 +254,6 @@ class Grimoire:
             page.apply_drunk(character, player)
         
 
-    def can_be_character(
-        self, 
-        character: Role, 
-        player: int,
-        night: int,
-        night_order_position: NightOrderPosition
-    ):
-        for page in self.pages:
-            if (
-                page.night >= night
-                and page.night_order_position > night_order_position
-            ):
-                continue
-            if not page.can_be_character(character, player):
-                return False
-        return True
-
     def make_deductions(self) -> bool:
         deduced = False
         for phase in self.pages:
