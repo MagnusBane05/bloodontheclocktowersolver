@@ -314,3 +314,87 @@ class TestPoisonedAction(unittest.TestCase):
         page.characters[1] = Role.POISONER
         page.dead[1] = True
         self.assertPoisonedAction(False, grim)
+
+class TestScarletWomanCatchAction(unittest.TestCase):
+    """A living Scarlet Woman takes the first Imp death, so a catch can't follow an earlier Imp
+    death, and it needs 5 alive counting the dying Imp."""
+    @staticmethod
+    def _starpass(grim: Grimoire, imp: int, night: int) -> Grimoire | None:
+        order = NightOrderPosition.AFTER_IMP
+        return _try_branch(
+            grim,
+            branch_actions.mark_dead_action(imp, night, order),
+            branch_actions.starpass_action(imp, night, order, red_herring_spy_catches=False),
+        )
+
+    @staticmethod
+    def _execution_catch(grim: Grimoire, imp: int, day: int) -> Grimoire | None:
+        order = NightOrderPosition.AFTER_EXECUTION
+        return _try_branch(
+            grim,
+            branch_actions.mark_dead_action(imp, day, order),
+            branch_actions.sw_catch_action(imp, day, order),
+            branch_actions.mark_executee_action(imp, day, order),
+        )
+
+    @staticmethod
+    def _slayer_catch(grim: Grimoire, imp: int, day: int) -> Grimoire | None:
+        order = NightOrderPosition.AFTER_SLAYER
+        return _try_branch(
+            grim,
+            branch_actions.slayer_shot_action(imp, day, order),
+            branch_actions.mark_dead_action(imp, day, order),
+            branch_actions.sw_catch_action(imp, day, order),
+        )
+
+    @staticmethod
+    def _grim_with_dead(num_players: int, dead: int) -> Grimoire:
+        grim = Grimoire(num_players)
+        page = grim.get_first_page()
+        for i in range(num_players - dead, num_players):
+            page.characters[i] = Role.NON_DEMON
+            page.dead[i] = True
+        return grim
+
+    def test_first_catch_on_an_execution(self):
+        self.assertIsNotNone(self._execution_catch(Grimoire(10), 0, 1))
+
+    def test_first_catch_on_a_slayer_shot(self):
+        self.assertIsNotNone(self._slayer_catch(Grimoire(10), 0, 1))
+
+    def test_no_execution_catch_after_a_starpass(self):
+        grim = self._starpass(Grimoire(10), 0, 2)
+        assert grim is not None
+        self.assertIsNone(self._execution_catch(grim, 1, 2))
+
+    def test_no_slayer_catch_after_a_starpass(self):
+        grim = self._starpass(Grimoire(10), 0, 2)
+        assert grim is not None
+        self.assertIsNone(self._slayer_catch(grim, 1, 2))
+
+    def test_no_catch_several_pages_after_a_starpass(self):
+        grim = self._starpass(Grimoire(10), 0, 2)
+        assert grim is not None
+        grim = self._starpass(grim, 1, 3)
+        assert grim is not None
+        self.assertIsNone(self._execution_catch(grim, 2, 4))
+
+    def test_no_second_catch(self):
+        grim = self._execution_catch(Grimoire(10), 0, 1)
+        assert grim is not None
+        self.assertIsNone(self._execution_catch(grim, 1, 2))
+        self.assertIsNone(self._slayer_catch(grim, 1, 2))
+
+    def test_starpass_after_a_catch(self):
+        # the Scarlet Woman who became the Imp can still starpass to another minion
+        grim = self._execution_catch(Grimoire(10), 0, 1)
+        assert grim is not None
+        self.assertIsNotNone(self._starpass(grim, 1, 2))
+
+    def test_catch_with_five_alive_before_the_imp_dies(self):
+        self.assertIsNotNone(self._execution_catch(self._grim_with_dead(10, 5), 0, 1))
+        self.assertIsNotNone(self._slayer_catch(self._grim_with_dead(10, 5), 0, 1))
+
+    def test_no_catch_with_four_alive_before_the_imp_dies(self):
+        self.assertIsNone(self._execution_catch(self._grim_with_dead(10, 6), 0, 1))
+        self.assertIsNone(self._slayer_catch(self._grim_with_dead(10, 6), 0, 1))

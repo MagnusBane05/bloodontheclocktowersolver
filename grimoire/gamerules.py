@@ -2,10 +2,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from .nightOrderPosition import NightOrderPosition
-from . import helper
 
 if TYPE_CHECKING:
-    from .grimoire import Grimoire
     from .grimoire_page import GrimoirePage
 
 from .role import *
@@ -89,7 +87,7 @@ ROLE_BREAKDOWNS: dict[
 ALLOWED_MULTIPLES = {Role.IMP} | ANY_OTHER_ROLES_SET
 EVIL_PLAYERS_WITHOUT_SPY = EVIL_ROLES_SET - {Role.SPY}
 
-def can_scarlet_woman_catch(page: GrimoirePage, dead_player: int) -> bool:
+def can_scarlet_woman_catch(page: GrimoirePage, dead_player: int, prev_pages: list[GrimoirePage]) -> bool:
     # known non-demon player died
     if not can_player_be_demon(page.characters[dead_player]):
         return False
@@ -115,6 +113,16 @@ def can_scarlet_woman_catch(page: GrimoirePage, dead_player: int) -> bool:
     
     # scarlet woman cannot be in minion types
     if not is_minion_type_possible(Role.SCARLET_WOMAN, page.minion_types):
+        return False
+
+    # Imp has already starpassed
+    for prev_page in prev_pages:
+        if prev_page.star_passed:
+            return False
+
+    # fewer than 5 players alive (including the to be dead player)
+    alive = sum(1 for d in page.dead if not d) + (1 if dead else 0)
+    if alive < 5:
         return False
     
     return True

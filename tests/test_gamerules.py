@@ -8,27 +8,27 @@ class TestScarletWomanCatch(unittest.TestCase):
     def test_can_scarlet_woman_catch(self):
         imp = 3
         page = GrimoirePage(10)        
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [])
         self.assertTrue(result, "Expected blank pagee to be true.")
 
         scarlet_woman = 0
         page.characters[scarlet_woman] = Role.SCARLET_WOMAN
         page.characters[imp] = Role.IMP
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [])
         self.assertTrue(result, "Expected page with known Imp and Scarlet Woman to be true.")
 
         page.characters[imp] = Role.NON_DEMON
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [])
         self.assertFalse(result, "Expected executing a non-demon to be false.")
 
         page.characters[imp] = Role.IMP
         page.dead[scarlet_woman] = True        
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [])
         self.assertFalse(result, "Expected a page with a known dead Scalet Woman to be false.")
 
         page = GrimoirePage(10)
         page.minion_types = [Role.BARON, Role.POISONER]
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [])
         self.assertFalse(result, "Expected a page with no room for a Scarlet Woman in the minion types to be false.")
 
         page = GrimoirePage(10)
@@ -36,14 +36,14 @@ class TestScarletWomanCatch(unittest.TestCase):
         page.characters[1] = Role.ANY_OTHER_MINION
         page.dead[0] = True
         page.dead[1] = True
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [])
         self.assertFalse(result, "Expected a page with all minions dead to be false.")
 
         page.characters = [Role.ANY_OTHER_GOOD] * 10
         page.characters[0] = Role.IMP
         page.characters[1] = Role.IMP
         page.characters[3] = Role.IMP
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [])
         self.assertFalse(result, "Expected a page with no Scarlet Woman candidates to be false.")
 
         page = GrimoirePage(5)
@@ -51,8 +51,50 @@ class TestScarletWomanCatch(unittest.TestCase):
         page.characters[2] = Role.ANY_OTHER_TOWNSFOLK
         page.characters[4] = Role.ANY_OTHER_TOWNSFOLK
         page.dead[0] = True
-        result = gamerules.can_scarlet_woman_catch(page, imp)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [])
         self.assertFalse(result, "Expected an unknown character being executed with all evils dead can't be the Imp.")
+
+    def test_cannot_catch_after_an_earlier_imp_death(self):
+        # a living Scarlet Woman takes the first Imp death, so she can't catch a later one
+        imp = 3
+        page = GrimoirePage(10)
+        earlier = GrimoirePage(10)
+        result = gamerules.can_scarlet_woman_catch(page, imp, [earlier])
+        self.assertTrue(result, "Expected a catch with no earlier Imp death to be true.")
+
+        earlier.star_passed = True
+        result = gamerules.can_scarlet_woman_catch(page, imp, [earlier])
+        self.assertFalse(result, "Expected a catch after an earlier Imp death to be false.")
+
+        result = gamerules.can_scarlet_woman_catch(page, imp, [GrimoirePage(10), earlier, GrimoirePage(10)])
+        self.assertFalse(result, "Expected an Imp death on any earlier page to make the catch false.")
+
+    @staticmethod
+    def _page_with_others_dead(imp: int, others_dead: int, imp_marked_dead: bool) -> GrimoirePage:
+        page = GrimoirePage(10)
+        others = [i for i in range(10) if i != imp]
+        for i in others[:others_dead]:
+            page.characters[i] = Role.NON_DEMON
+            page.dead[i] = True
+        page.dead[imp] = imp_marked_dead
+        return page
+
+    def test_catch_needs_five_alive_counting_the_dying_imp(self):
+        imp = 3
+        # the branch marks the Imp dead before asking, so both orders must give the same answer
+        for imp_marked_dead in (False, True):
+            with self.subTest(imp_marked_dead=imp_marked_dead):
+                page = self._page_with_others_dead(imp, 4, imp_marked_dead)
+                result = gamerules.can_scarlet_woman_catch(page, imp, [])
+                self.assertTrue(result, "Expected a catch with 6 alive before the Imp dies to be true.")
+
+                page = self._page_with_others_dead(imp, 5, imp_marked_dead)
+                result = gamerules.can_scarlet_woman_catch(page, imp, [])
+                self.assertTrue(result, "Expected a catch with exactly 5 alive before the Imp dies to be true.")
+
+                page = self._page_with_others_dead(imp, 6, imp_marked_dead)
+                result = gamerules.can_scarlet_woman_catch(page, imp, [])
+                self.assertFalse(result, "Expected a catch with 4 alive before the Imp dies to be false.")
 
     def test_can_imp_starpass(self):
         imp = 3

@@ -135,8 +135,9 @@ def sw_catch_action(
 ) -> BranchAction:
     def action(grim: Grimoire) -> bool:
         page = _get_info_page(grim, night, order)
+        prev_pages = grim.get_all_previous_pages(page)
         # a game rule, not a validity check: no validator rejects an impossible catch
-        if not gamerules.can_scarlet_woman_catch(page, demon):
+        if not gamerules.can_scarlet_woman_catch(page, demon, prev_pages):
             return False
         grim.apply_sw_catch(demon, page)
         return True
