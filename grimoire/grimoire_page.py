@@ -361,15 +361,6 @@ class GrimoirePage:
 
         return self._can_apply(lambda page: page.apply_character(character, player))
 
-    
-    def can_be_poisoned(self, player: int) -> bool:
-        return self._can_apply(lambda page: page.apply_poisoned(player))
-    
-    def can_have_no_outsiders(self) -> bool:
-        return self._can_apply(lambda page: page.apply_no_outsiders())
-
-    def can_have_chef_number(self, number: int) -> bool:
-        return self._can_apply(lambda page: page.apply_chef_number(number))
 
     def can_be_slayer_shot(self, player: int) -> bool:
         # Can't have other slayer shot

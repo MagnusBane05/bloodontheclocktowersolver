@@ -71,8 +71,9 @@ class TestAddDeathInfoToGrims(unittest.TestCase):
         base_page.characters[target] = Role.ANY_OTHER
         base_page.dead[target] = True
 
-        results = add_death_info_to_grims(info, [base])
-        self.assertEqual(len(results), 0, "Expected no results if the player was dead already.")
+        # a second death for the same player is a bug in the caller, not a world to reject
+        with self.assertRaises(AssertionError):
+            _ = add_death_info_to_grims(info, [base])
 
     def test_startpass(self):
         base = Grimoire()
@@ -123,8 +124,9 @@ class TestAddDeathInfoToGrims(unittest.TestCase):
         base_page.characters[target] = Role.ANY_OTHER
         base_page.dead[target] = True
 
-        results = add_death_info_to_grims(info, [base])
-        self.assertEqual(len(results), 0, "Expected no results if the player was dead already.")
+        # a second death for the same player is a bug in the caller, not a world to reject
+        with self.assertRaises(AssertionError):
+            _ = add_death_info_to_grims(info, [base])
 
     def test_starpass_to_minions(self):
         base = Grimoire()
@@ -278,8 +280,9 @@ class TestAddDeathInfoToGrims(unittest.TestCase):
         base_page.characters[target] = Role.ANY_OTHER
         base_page.dead[target] = True
 
-        results = add_death_info_to_grims(info, [base])
-        self.assertEqual(len(results), 0, "Expected no results if the player was dead already.")
+        # a second death for the same player is a bug in the caller, not a world to reject
+        with self.assertRaises(AssertionError):
+            _ = add_death_info_to_grims(info, [base])
 
     def test_demon_executed(self):
         base = Grimoire()
@@ -331,8 +334,9 @@ class TestAddDeathInfoToGrims(unittest.TestCase):
         base_page.characters[target] = Role.ANY_OTHER
         base_page.dead[target] = True
 
-        results = add_death_info_to_grims(info, [base])
-        self.assertEqual(len(results), 0, "Expected no results if the player was dead already.")
+        # a second death for the same player is a bug in the caller, not a world to reject
+        with self.assertRaises(AssertionError):
+            _ = add_death_info_to_grims(info, [base])
 
         base = Grimoire()
         scarlet_woman = 0
