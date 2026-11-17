@@ -14,7 +14,8 @@ import gzip
 import json
 from pathlib import Path
 import re
-from typing import Any, NamedTuple
+import time
+from typing import Any, NamedTuple, TextIO
 
 from grimoire import Grimoire, GrimoireManager
 from grimoire.add_info_to_grims import find_finalize_problem
@@ -34,6 +35,35 @@ QUIET_CATEGORIES = ("dropped_poison", "merged", "refined", "generalized")
 NOT_DROPPED = "not dropped"
 # worlds of each kind listed in the summary; --game lists all of them for one game
 SHOWN_PER_CATEGORY = 10
+# unexplained worlds per game whose drop step is found when no game is picked. Each one re-runs
+# the whole game, which takes about 20s for a 15 player game, and one change's unexplained worlds
+# usually drop at the same few steps
+DEFAULT_DROP_STEPS = 5
+DROP_STEP_NOT_CHECKED = "drop step not checked"
+
+def drop_step_limit(text: str | None, game_id: str | None) -> int | None:
+    """The --drop-steps value as a per-game limit, None meaning every unexplained world. Without
+    the option, a single game gets every drop step and a whole run gets DEFAULT_DROP_STEPS."""
+    if text is None:
+        return None if game_id is not None else DEFAULT_DROP_STEPS
+    if text == "all":
+        return None
+    limit = int(text)
+    if limit < 0:
+        raise ValueError(f"--drop-steps must be 'all' or at least 0, not {limit}")
+    return limit
+
+def _say(progress: TextIO | None, message: str):
+    if progress is not None:
+        print(message, file=progress, flush=True)
+
+def _duration(seconds: float) -> str:
+    seconds = round(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m{seconds % 60:02d}s"
+    return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
 
 def worlds_dir(run_path: Path) -> Path:
     """The directory holding a run's worlds, next to its JSON: <run>.worlds/"""
@@ -143,7 +173,15 @@ class WorldDiff(NamedTuple):
     reason: str | None
     drop_step: str | None
 
-def compare_worlds(a_path: Path, b_path: Path, game_id: str | None = None) -> dict[str, Any]:
+def compare_worlds(
+    a_path: Path,
+    b_path: Path,
+    game_id: str | None = None,
+    drop_steps: int | None = None,
+    progress: TextIO | None = None,
+) -> dict[str, Any]:
+    """drop_steps limits how many unexplained worlds per game are re-run to find the step that
+    drops them (None for all of them). Progress lines go to `progress` when it's given."""
     with open(a_path) as f:
         a = json.load(f)
     with open(b_path) as f:
@@ -176,6 +214,7 @@ def compare_worlds(a_path: Path, b_path: Path, game_id: str | None = None) -> di
             ids = [game_id]
         scenarios = {s.id: s for s in load_scenarios(int(players), a["meta"]["scenario_version"], limit=len(a["players"][players]["games"]))}
 
+        _say(progress, f"{players}p: comparing {len(ids)} games")
         removed: list[WorldDiff] = []
         added: list[WorldDiff] = []
         changed_games = 0
@@ -185,17 +224,18 @@ def compare_worlds(a_path: Path, b_path: Path, game_id: str | None = None) -> di
             only_b = [w for w in worlds_b[i] if w not in set_a]
             if only_a or only_b:
                 changed_games += 1
+                _say(progress, f"{i}: {len(only_a)} removed, {len(only_b)} added")
             kept_poisonings = poisonings_by_state(worlds_b[i]) if only_a else {}
+            unexplained: list[int] = []
             for world in only_a:
                 if is_dropped_poison(world, kept_poisonings):
                     removed.append(WorldDiff(i, world, "dropped_poison", None, None))
                     continue
                 category, reason = classify_removed(world, worlds_b[i], scenarios[i])
-                drop_step = None
                 if category == "unexplained":
-                    s = scenarios[i]
-                    drop_step = find_drop_step(int(players), s.info, s.deaths, s.nights, world)
-                removed.append(WorldDiff(i, world, category, reason, drop_step))
+                    unexplained.append(len(removed))
+                removed.append(WorldDiff(i, world, category, reason, None))
+            _find_drop_steps(removed, unexplained, int(players), scenarios[i], drop_steps, progress)
             for world in only_b:
                 category, reason = classify_added(world, worlds_a[i], scenarios[i])
                 added.append(WorldDiff(i, world, category, reason, None))
@@ -207,7 +247,38 @@ def compare_worlds(a_path: Path, b_path: Path, game_id: str | None = None) -> di
             "added": added,
         }
 
-    return {"a": a["meta"], "b": b["meta"], "warnings": warnings, "players": by_players, "game": game_id}
+    return {
+        "a": a["meta"],
+        "b": b["meta"],
+        "warnings": warnings,
+        "players": by_players,
+        "game": game_id,
+        "drop_steps": drop_steps,
+    }
+
+def _find_drop_steps(
+    removed: list[WorldDiff],
+    unexplained: list[int],
+    players: int,
+    scenario: Scenario,
+    limit: int | None,
+    progress: TextIO | None,
+):
+    """Fills in the drop step of the unexplained worlds at these indices of `removed`, re-running
+    the game for at most `limit` of them."""
+    if not unexplained:
+        return
+    checked = unexplained if limit is None else unexplained[:limit]
+    _say(progress, f"{scenario.id}: {len(unexplained)} unexplained, re-running the game for {len(checked)} of them to find their drop steps")
+    start = time.perf_counter()
+    for n, index in enumerate(checked, start=1):
+        step = find_drop_step(players, scenario.info, scenario.deaths, scenario.nights, removed[index].world)
+        removed[index] = removed[index]._replace(drop_step=step)
+        elapsed = time.perf_counter() - start
+        left = elapsed / n * (len(checked) - n)
+        _say(progress, f"{scenario.id}: drop step {n}/{len(checked)}, {_duration(elapsed)} so far, about {_duration(left)} left")
+    for index in unexplained[len(checked):]:
+        removed[index] = removed[index]._replace(drop_step=DROP_STEP_NOT_CHECKED)
 
 def has_unexplained(comparison: dict[str, Any]) -> bool:
     return any(
@@ -246,6 +317,12 @@ def format_world_comparison(comparison: dict[str, Any]) -> str:
                     continue
                 if category == "unexplained":
                     lines.append("  UNEXPLAINED - possibly valid worlds that were removed [step that drops them now]:")
+                    unchecked = sum(1 for d in in_category if d.drop_step == DROP_STEP_NOT_CHECKED)
+                    if unchecked:
+                        lines.append(
+                            f"  ({unchecked} not re-run: drop steps were found for {comparison['drop_steps']} per game. " +
+                            "Use --game ID or --drop-steps all for the rest)"
+                        )
                 else:
                     lines.append(f"  {category.replace('_', ' ')}:")
                 shown = in_category if show_all or category == "unexplained" else in_category[:SHOWN_PER_CATEGORY]
