@@ -11,6 +11,7 @@ from grimoire import GrimoireManager
 # game id -> what went wrong
 KNOWN_GAMES = {
     "10p-0048": "true grim lost at night 2 demon kill: a known Spy who caught the starpass was narrowed back to Spy",
+    "10p-0092": "true grim lost at night 5 demon kill: a starpass to an unidentified red herring Spy moved the red herring onto a player an earlier Fortune Teller no had ruled out",
     "10p-0011": "true grim lost at night 2 virgin info: a Virgin nominated again by a Townsfolk after her ability was spent on day 1",
 }
 
