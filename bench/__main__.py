@@ -12,6 +12,14 @@ def _parse_timeouts(values: list[str]) -> dict[int, float]:
         timeouts[int(players)] = float(seconds)
     return timeouts
 
+def _drop_steps(text: str) -> str:
+    # checked here so argparse reports a bad value; the limit itself also depends on --game
+    try:
+        _ = worlds.drop_step_limit(text, None)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"must be 'all' or a whole number of at least 0, not {text!r}")
+    return text
+
 def main():
     parser = argparse.ArgumentParser(prog="python -m bench", description="Solver benchmarks")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -40,6 +48,13 @@ def main():
     _ = worlds_parser.add_argument("a", nargs="?", default="baseline", help="Run to compare against (default: baseline)")
     _ = worlds_parser.add_argument("b", nargs="?", default="latest", help="Run to compare (default: latest)")
     _ = worlds_parser.add_argument("--game", help="List every world that differs for one game, e.g. 5p-0074")
+    _ = worlds_parser.add_argument(
+        "--drop-steps",
+        type=_drop_steps,
+        metavar="N",
+        help="Unexplained worlds per game whose drop step is found by re-running the game, or 'all' " +
+        f"(default: {worlds.DEFAULT_DROP_STEPS}, or all with --game)",
+    )
 
     prof = subparsers.add_parser("profile", help="Profile games with cProfile")
     _ = prof.add_argument("--players", type=int, nargs="+", help="Player counts to profile (default: 5 10 15, or narrows --game/--tier)")
@@ -114,7 +129,11 @@ def _run_command(args: argparse.Namespace):
             if compare.has_regressions(comparison):
                 sys.exit(1)
     elif args.command == "worlds":
-        comparison = worlds.compare_worlds(compare.resolve_run(args.a), compare.resolve_run(args.b), args.game)
+        limit = worlds.drop_step_limit(args.drop_steps, args.game)
+        # progress goes to stderr so the report on stdout can still be piped or saved
+        comparison = worlds.compare_worlds(
+            compare.resolve_run(args.a), compare.resolve_run(args.b), args.game, limit, progress=sys.stderr,
+        )
         print(worlds.format_world_comparison(comparison))
         # worlds that pass every check but were removed may be valid worlds that were lost
         if worlds.has_unexplained(comparison):

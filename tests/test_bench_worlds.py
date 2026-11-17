@@ -1,3 +1,4 @@
+import io
 import json
 from pathlib import Path
 import shutil
@@ -292,6 +293,54 @@ class TestCompareWorlds(unittest.TestCase):
         self.assertFalse(worlds.has_unexplained(comparison))
         find_drop_step.assert_not_called()
 
+    def test_drop_steps_not_checked_past_the_limit(self):
+        with mock.patch("bench.worlds.find_drop_step") as find_drop_step:
+            comparison = worlds.compare_worlds(self.run_a, self.run_b, drop_steps=0)
+        find_drop_step.assert_not_called()
+        removed = comparison["players"]["5"]["removed"]
+        self.assertEqual([(d.category, d.drop_step) for d in removed], [("unexplained", worlds.DROP_STEP_NOT_CHECKED)])
+        # an unchecked world still fails the comparison
+        self.assertTrue(worlds.has_unexplained(comparison))
+        report_text = worlds.format_world_comparison(comparison)
+        self.assertIn("1 not re-run", report_text)
+        self.assertIn(worlds.DROP_STEP_NOT_CHECKED, report_text)
+
+    def test_drop_steps_limit_is_per_game(self):
+        # B is A without the first three worlds of the game with the most worlds, and every
+        # removal is treated as unexplained so only the limit decides which get re-run
+        saved = worlds.load_worlds(worlds.worlds_file(self.run_a, 5))
+        game = max(saved, key=lambda g: len(saved[g]))
+        self.assertGreaterEqual(len(saved[game]), 3, "Expected a game with at least 3 worlds.")
+        del saved[game][:3]
+        run_c = Path(self.tmp.name) / "results" / "three_removed.json"
+        _ = shutil.copyfile(self.run_a, run_c)
+        for game_id, grims in saved.items():
+            worlds.append_worlds(worlds.worlds_file(run_c, 5), game_id, grims)
+
+        with (
+            mock.patch("bench.worlds.is_dropped_poison", return_value=False),
+            mock.patch("bench.worlds.classify_removed", return_value=("unexplained", None)),
+            mock.patch("bench.worlds.find_drop_step", return_value="night 1 claim") as find_drop_step,
+        ):
+            comparison = worlds.compare_worlds(self.run_a, run_c, drop_steps=2)
+        self.assertEqual(find_drop_step.call_count, 2)
+        steps = [d.drop_step for d in comparison["players"]["5"]["removed"]]
+        self.assertEqual(steps, ["night 1 claim", "night 1 claim", worlds.DROP_STEP_NOT_CHECKED])
+
+    def test_progress(self):
+        progress = io.StringIO()
+        with mock.patch("bench.worlds.find_drop_step", return_value=worlds.NOT_DROPPED):
+            _ = worlds.compare_worlds(self.run_a, self.run_b, progress=progress)
+        lines = progress.getvalue().splitlines()
+        self.assertTrue(lines[0].startswith("5p: comparing"), lines)
+        self.assertIn("5p-0000: 1 removed, 0 added", lines)
+        self.assertTrue(any(line.startswith("5p-0000: drop step 1/1,") for line in lines), lines)
+
+    def test_no_progress_by_default(self):
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr, mock.patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            _ = worlds.compare_worlds(self.run_a, self.run_b, drop_steps=0)
+        self.assertEqual("", stderr.getvalue() + stdout.getvalue())
+
     def test_single_game(self):
         comparison = worlds.compare_worlds(self.run_a, self.run_b, game_id="5p-0000")
         self.assertEqual(comparison["players"]["5"]["games"], 1)
@@ -327,3 +376,24 @@ class TestCompareWorlds(unittest.TestCase):
 
 if __name__ == "__main__":
     _ = unittest.main()
+
+class TestDropStepLimit(unittest.TestCase):
+    def test_default(self):
+        self.assertEqual(worlds.drop_step_limit(None, None), worlds.DEFAULT_DROP_STEPS)
+        self.assertIsNone(worlds.drop_step_limit(None, "5p-0000"), "Expected every drop step for a single game.")
+
+    def test_given(self):
+        self.assertIsNone(worlds.drop_step_limit("all", None))
+        self.assertEqual(worlds.drop_step_limit("0", None), 0)
+        self.assertEqual(worlds.drop_step_limit("3", "5p-0000"), 3)
+
+    def test_invalid(self):
+        for text in ("-1", "some", "1.5"):
+            with self.subTest(text=text):
+                with self.assertRaises(ValueError):
+                    _ = worlds.drop_step_limit(text, None)
+
+    def test_duration(self):
+        self.assertEqual(worlds._duration(42.4), "42s")  # pyright: ignore[reportPrivateUsage]
+        self.assertEqual(worlds._duration(200), "3m20s")  # pyright: ignore[reportPrivateUsage]
+        self.assertEqual(worlds._duration(3 * 3600 + 5 * 60 + 30), "3h05m")  # pyright: ignore[reportPrivateUsage]
