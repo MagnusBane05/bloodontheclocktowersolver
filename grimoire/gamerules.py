@@ -250,6 +250,17 @@ def can_non_demon_become_potential_demon(prev: GrimoirePage, curr: GrimoirePage,
             return False
     return True
 
+POSSIBLE_POISONER_ROLES = {Role.POISONER, Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.NON_DEMON, Role.ANY_OTHER}
+
+def can_player_be_alive_poisoner(page: GrimoirePage, player: int) -> bool:
+    if page.dead[player]:
+        return False
+    # can't be ANY_OTHER_MINION, the check is explicitly Poisoner
+    if Role.POISONER not in page.minion_types:
+        return False
+    character = page.characters[player]
+    return character in POSSIBLE_POISONER_ROLES
+
 def get_characters_of_type(characters: list[Role], type: set[Role]):
     return [c for c in characters if c in type]
 

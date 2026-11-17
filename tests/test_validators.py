@@ -209,6 +209,38 @@ class TestValidation(unittest.TestCase):
         page.dead[0] = True
         self.assertFalse(validators.is_poisoning_valid(page, 5), "Expected poisoning with a dead Poisoner to be invalid.")
 
+    @staticmethod
+    def _poisoned_page(characters: list[Role], dead: list[int]) -> GrimoirePage:
+        """10 players, the Poisoner and Spy in play, player 9 poisoned and the rest known good."""
+        page = GrimoirePage(10)
+        page.minion_types = [Role.POISONER, Role.SPY]
+        page.characters = list(characters) + [Role.ANY_OTHER_GOOD] * (10 - len(characters))
+        for player in dead:
+            page.dead[player] = True
+        page.poisoned[9] = True
+        return page
+
+    def test_poisoning_needs_a_living_player_who_could_be_the_poisoner(self):
+        page = self._poisoned_page([Role.POISONER, Role.SPY, Role.IMP], [])
+        self.assertTrue(validators.is_poisoning_valid(page, 10), "Expected a living known Poisoner to be enough.")
+
+        page = self._poisoned_page([Role.ANY_OTHER_MINION, Role.SPY, Role.IMP], [])
+        self.assertTrue(validators.is_poisoning_valid(page, 10), "Expected a living unknown minion to be enough.")
+
+    def test_poisoning_after_an_unidentified_poisoner_died(self):
+        # the dead unknown minion must have been the Poisoner, since the living evils are the Spy and the Imp
+        page = self._poisoned_page([Role.ANY_OTHER_MINION, Role.SPY, Role.IMP], [0])
+        self.assertFalse(validators.is_poisoning_valid(page, 10))
+
+    def test_poisoning_after_the_poisoner_became_the_imp(self):
+        # player 0 was the Poisoner and caught the starpass from player 2, so nobody alive can poison
+        page = self._poisoned_page([Role.IMP, Role.SPY, Role.IMP], [2])
+        self.assertFalse(validators.is_poisoning_valid(page, 10))
+
+        # an unknown living player could still be the Poisoner, if player 0 was someone else
+        page = self._poisoned_page([Role.IMP, Role.SPY, Role.IMP, Role.ANY_OTHER], [2])
+        self.assertTrue(validators.is_poisoning_valid(page, 10))
+
     def test_is_no_invalid_deuplicates(self):
         page = GrimoirePage(10)
         result = validators.is_no_invalid_duplicates(page)

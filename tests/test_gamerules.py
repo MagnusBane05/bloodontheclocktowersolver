@@ -687,5 +687,41 @@ class TestDyingPlayerIsNotTheNewImp(unittest.TestCase):
                 prev, curr = self._pages(phase, self.imp)
                 self.assertTrue(gamerules.can_minion_become_demon(prev, curr, self.minion))
 
+class TestCanPlayerBeAlivePoisoner(unittest.TestCase):
+    @staticmethod
+    def _page(character: Role, minion_types: list[Role] | None = None) -> GrimoirePage:
+        page = GrimoirePage(10)
+        page.minion_types = list(minion_types or [Role.POISONER, Role.ANY_OTHER_MINION])
+        page.characters[0] = character
+        return page
+
+    def test_roles_that_could_be_the_poisoner(self):
+        for role in (Role.POISONER, Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.NON_DEMON, Role.ANY_OTHER):
+            with self.subTest(role=role):
+                self.assertTrue(gamerules.can_player_be_alive_poisoner(self._page(role), 0))
+
+    def test_roles_that_cant(self):
+        for role in (Role.IMP, Role.SPY, Role.SCARLET_WOMAN, Role.ANY_OTHER_GOOD, Role.ANY_OTHER_TOWNSFOLK, Role.EMPATH):
+            with self.subTest(role=role):
+                self.assertFalse(gamerules.can_player_be_alive_poisoner(self._page(role), 0))
+
+    def test_dead(self):
+        page = self._page(Role.POISONER)
+        page.dead[0] = True
+        self.assertFalse(gamerules.can_player_be_alive_poisoner(page, 0))
+
+    def test_poisoner_not_in_minion_types(self):
+        page = self._page(Role.ANY_OTHER, [Role.ANY_OTHER_MINION, Role.ANY_OTHER_MINION])
+        self.assertFalse(
+            gamerules.can_player_be_alive_poisoner(page, 0),
+            "Expected the Poisoner to have to be a known minion type.",
+        )
+
+    def test_known_poisoner_elsewhere(self):
+        # a dead known Poisoner is rejected by the validator before this is asked
+        page = self._page(Role.ANY_OTHER)
+        page.characters[1] = Role.POISONER
+        self.assertTrue(gamerules.can_player_be_alive_poisoner(page, 1))
+
 if __name__ == '__main__':
     _ = unittest.main()

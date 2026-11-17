@@ -133,9 +133,6 @@ def is_poisoning_valid(page: GrimoirePage, num_players: int) -> bool:
     # don't allow 2 instances of poisoning
     if poisoned_count > 1:
         return False
-    # return false if no poisoner (must be explicit)
-    if Role.POISONER not in page.minion_types:
-        return False
     # return false if known poisoner is dead
     dead_characters = [c for i, c in enumerate(page.characters) if page.dead[i]]
     if Role.POISONER in dead_characters:
@@ -143,7 +140,8 @@ def is_poisoning_valid(page: GrimoirePage, num_players: int) -> bool:
     # false if all minions are dead (check evil roles, not just minions, in case of star passes)
     if len([c for c in dead_characters if c in EVIL_ROLES_SET]) == gamerules.get_minion_count(num_players):
         return False
-    return True
+    # can any alive player be the Poisoner
+    return any(gamerules.can_player_be_alive_poisoner(page, player) for player in range(num_players))
 
 def is_no_invalid_duplicates(page: GrimoirePage) -> bool:
     invalid_duplicates = [c for c in page.characters if c not in VALID_DUPLICATES]
