@@ -398,3 +398,34 @@ class TestScarletWomanCatchAction(unittest.TestCase):
     def test_no_catch_with_four_alive_before_the_imp_dies(self):
         self.assertIsNone(self._execution_catch(self._grim_with_dead(10, 6), 0, 1))
         self.assertIsNone(self._slayer_catch(self._grim_with_dead(10, 6), 0, 1))
+
+class TestStarpassGoesToTheScarletWoman(unittest.TestCase):
+    """A known Spy stays the Spy through a night starpass when the Scarlet Woman is in play."""
+    spy = 1
+    imp = 0
+
+    def _starpass(self, minion_types: list[Role]) -> Grimoire:
+        grim = Grimoire(10)
+        page = grim.get_first_page()
+        page.characters[self.spy] = Role.SPY
+        page.minion_types = list(minion_types)
+        order = NightOrderPosition.AFTER_IMP
+        result = _try_branch(
+            grim,
+            branch_actions.mark_dead_action(self.imp, 2, order),
+            branch_actions.starpass_action(self.imp, 2, order, red_herring_spy_catches=False),
+        )
+        assert result is not None
+        return result
+
+    def test_spy_stays_the_spy(self):
+        grim = self._starpass([Role.SPY, Role.SCARLET_WOMAN])
+        page = grim.get_page(2, NightOrderPosition.AFTER_IMP)
+        assert page is not None
+        self.assertEqual(Role.SPY, page.characters[self.spy])
+
+    def test_spy_may_take_it_without_a_scarlet_woman(self):
+        grim = self._starpass([Role.SPY, Role.POISONER])
+        page = grim.get_page(2, NightOrderPosition.AFTER_IMP)
+        assert page is not None
+        self.assertIn(page.characters[self.spy], (Role.ANY_OTHER_EVIL, Role.IMP))

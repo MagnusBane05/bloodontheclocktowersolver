@@ -86,6 +86,7 @@ ROLE_BREAKDOWNS: dict[
 
 ALLOWED_MULTIPLES = {Role.IMP} | ANY_OTHER_ROLES_SET
 EVIL_PLAYERS_WITHOUT_SPY = EVIL_ROLES_SET - {Role.SPY}
+POSSIBLE_SCARLET_WOMEN = {Role.SCARLET_WOMAN, Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL, Role.NON_DEMON, Role.ANY_OTHER}
 
 def can_scarlet_woman_catch(page: GrimoirePage, dead_player: int, prev_pages: list[GrimoirePage]) -> bool:
     # known non-demon player died
@@ -154,24 +155,36 @@ def can_imp_starpass(page: GrimoirePage, dead_player: int, red_herring_spy_catch
     
     return True
 
+def can_non_scarlet_woman_catch_starpass(prev: GrimoirePage, curr: GrimoirePage) -> bool:
+    if Role.SCARLET_WOMAN not in curr.minion_types:
+        return True
+    if sum(1 for d in prev.dead if not d) < 5:
+        return True
+    if Role.SCARLET_WOMAN in prev.get_alive_characters_of_type({Role.SCARLET_WOMAN}):
+        return False
+    if any(c == Role.IMP and d for c, d in zip(prev.characters, prev.dead)): 
+        return True
+    if any(d and c in POSSIBLE_SCARLET_WOMEN for c, d in zip(prev.characters, prev.dead)):
+        return True
+    return False
+
 def can_minion_become_demon(prev: GrimoirePage, curr: GrimoirePage, minion: int) -> bool:
     minion_type = prev.characters[minion]
     if not minion_type in GENERIC_MINION_SET and curr.characters[minion] == Role.IMP:
         raise AssertionError(
-            f"Called function with incompatible characters. "
+            f"Called function with incompatible characters. " +
             f"Prev: {prev.characters[minion].name}, curr: {curr.characters[minion].name}"
         )
+    # if the minion just died, that means they were the Imp that starrpassed and can't be the minion who caught it
+    if curr.dead[minion] and not prev.dead[minion]:
+        return False
     phase = curr.night_order_position
     if phase == NightOrderPosition.AFTER_IMP:
         if not curr.star_passed:
             return False
-        if Role.SCARLET_WOMAN not in curr.minion_types:
+        if minion_type == Role.SCARLET_WOMAN or minion_type == Role.ANY_OTHER_MINION:
             return True
-        if minion_type == Role.SCARLET_WOMAN:
-            return True
-        if Role.SCARLET_WOMAN in curr.get_alive_characters_of_type({Role.SCARLET_WOMAN}):
-            return False
-        return True
+        return can_non_scarlet_woman_catch_starpass(prev, curr)
     elif phase == NightOrderPosition.AFTER_EXECUTION:
         if curr.executee is None:
             return False
@@ -206,10 +219,12 @@ def can_non_demon_become_potential_demon(prev: GrimoirePage, curr: GrimoirePage,
             f"Called function with incompatible characters. " +
             f"Prev: {previous.name}, curr: {curr.characters[player].name}"
         )
-    could_be_scarlet_woman = previous in (Role.NON_DEMON, Role.ANY_OTHER_MINION, Role.SCARLET_WOMAN)
+    could_be_scarlet_woman = previous in POSSIBLE_SCARLET_WOMEN
     phase = curr.night_order_position
     if phase == NightOrderPosition.AFTER_IMP:
         if not curr.star_passed:
+            return False
+        if not could_be_scarlet_woman and not can_non_scarlet_woman_catch_starpass(prev, curr):
             return False
     elif phase == NightOrderPosition.AFTER_EXECUTION:
         if curr.executee is None:

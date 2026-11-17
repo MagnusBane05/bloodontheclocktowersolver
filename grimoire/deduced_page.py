@@ -792,3 +792,39 @@ def deduce_from_chef_number(page: GrimoirePage) -> bool:
         possible_pairs,
         possibilities,
     )
+
+def deduce_from_known_outsider_count(page: GrimoirePage, known_townsfolk_count: int) -> bool:
+    num_players = page.num_players
+    characters = page.characters
+    minion_types = page.minion_types
+    deduced = False
+    baron = Role.BARON in minion_types 
+    # assign leftover outsiders to good players if outsider count is known
+    townsfolk_count = gamerules.get_townsfolk_count(num_players, baron)
+    if known_townsfolk_count == townsfolk_count:
+        for i,c in enumerate(characters):
+            if c == Role.ANY_OTHER_GOOD:
+                page.characters[i] = Role.ANY_OTHER_OUTSIDER
+                deduced = True
+
+    # assign townsfolk to good players if outsider count is known
+    outsider_count = gamerules.get_outsider_count(num_players, baron)
+    known_outsider_count = 0
+    for c in characters:
+        if c in GENERIC_OUTSIDER_SET:
+            known_outsider_count += 1
+    if known_outsider_count == outsider_count:
+        for i,c in enumerate(characters):
+            if c == Role.ANY_OTHER_GOOD:
+                page.characters[i] = Role.ANY_OTHER_TOWNSFOLK
+                deduced = True
+
+    # add minion types if Baron can't be a minion due to known outsider count
+    if not baron:
+        remaining_minions = [minion for minion in MINIONS if minion not in minion_types and minion != Role.BARON]
+        unknown_minions = sum(1 for minion in minion_types if minion == Role.ANY_OTHER_MINION)
+        if len(remaining_minions) == unknown_minions:
+            for minion in remaining_minions:
+                deduced |= page.add_minion_type(minion)
+
+    return deduced 

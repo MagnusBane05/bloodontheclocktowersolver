@@ -924,5 +924,53 @@ class TestFields(unittest.TestCase):
             with self.subTest(field):
                 self.assertNotIn(field, _FIELD_CHANGE_TYPES.keys(), f"Expected {field} not to be both mapped to a ChangeType and explicitly not validated.")
 
+class TestDeduceMinionTypesFromOutsiderCount(unittest.TestCase):
+    """When the Outsider count rules out the Baron, the minion types left fill the unknown slots."""
+    # 15 players: 9 Townsfolk, or 7 with a Baron, so 8 known Townsfolk rule the Baron out
+    KNOWN_TOWNSFOLK = [
+        Role.WASHERWOMAN, Role.LIBRARIAN, Role.INVESTIGATOR, Role.CHEF,
+        Role.EMPATH, Role.FORTUNE_TELLER, Role.UNDERTAKER, Role.MONK,
+    ]
+
+    def _page(self, minion_types: list[Role], known_townsfolk: int) -> GrimoirePage:
+        page = GrimoirePage(15)
+        page.characters = self.KNOWN_TOWNSFOLK[:known_townsfolk] + [Role.ANY_OTHER] * (15 - known_townsfolk)
+        page.minion_types = list(minion_types)
+        return page
+
+    def test_last_minion_type_when_baron_is_ruled_out(self):
+        page = self._page([Role.POISONER, Role.SPY, Role.ANY_OTHER_MINION], 8)
+        page.make_deductions()
+        self.assertCountEqual([Role.POISONER, Role.SPY, Role.SCARLET_WOMAN], page.minion_types)
+
+    def test_two_minion_types_when_baron_is_ruled_out(self):
+        page = self._page([Role.POISONER, Role.ANY_OTHER_MINION, Role.ANY_OTHER_MINION], 8)
+        page.make_deductions()
+        self.assertCountEqual([Role.POISONER, Role.SPY, Role.SCARLET_WOMAN], page.minion_types)
+
+    def test_baron_still_possible(self):
+        page = self._page([Role.POISONER, Role.SPY, Role.ANY_OTHER_MINION], 7)
+        page.make_deductions()
+        self.assertCountEqual([Role.POISONER, Role.SPY, Role.ANY_OTHER_MINION], page.minion_types)
+
+    def test_all_unknown_when_baron_is_ruled_out(self):
+        page = self._page([Role.ANY_OTHER_MINION] * 3, 8)
+        page.make_deductions()
+        self.assertCountEqual([Role.POISONER, Role.SPY, Role.SCARLET_WOMAN], page.minion_types)
+
+    def test_more_types_left_than_unknown_slots(self):
+        # 10 players: 7 Townsfolk, or 5 with a Baron, so 6 known Townsfolk rule the Baron out,
+        # leaving three types for two slots
+        page = GrimoirePage(10)
+        page.characters = self.KNOWN_TOWNSFOLK[:6] + [Role.ANY_OTHER] * 4
+        page.minion_types = [Role.ANY_OTHER_MINION] * 2
+        page.make_deductions()
+        self.assertEqual([Role.ANY_OTHER_MINION] * 2, page.minion_types)
+
+    def test_baron_in_play(self):
+        page = self._page([Role.BARON, Role.ANY_OTHER_MINION, Role.ANY_OTHER_MINION], 0)
+        page.make_deductions()
+        self.assertCountEqual([Role.BARON, Role.ANY_OTHER_MINION, Role.ANY_OTHER_MINION], page.minion_types)
+
 if __name__ == "__main__":
     _ = unittest.main()

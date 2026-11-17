@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, override
 
 from .validators import ChangeType, get_affected_validators_forall, run_validators
-from .deduced_page import deduce_from_chef_number
+from .deduced_page import deduce_from_chef_number, deduce_from_known_outsider_count
 from . import helper
 from .gamerules import ROLE_BREAKDOWNS
 from . import gamerules, role, character_type
@@ -496,7 +496,6 @@ class GrimoirePage:
             if c in GENERIC_TOWNSFOLK_SET:
                 known_townsfolk_count += 1
         townsfolk_count_with_baron = gamerules.get_townsfolk_count(num_players, True)
-        # assign leftover outsiders to good players if outsider count is known
         outsider_count_known = (
             Role.BARON in minion_types 
             or Role.ANY_OTHER_MINION not in minion_types
@@ -504,26 +503,8 @@ class GrimoirePage:
         )
 
         if outsider_count_known:
-            townsfolk_count = ROLE_BREAKDOWNS[num_players]["townsfolk"]-2 if Role.BARON in minion_types else ROLE_BREAKDOWNS[num_players]["townsfolk"]
-            if known_townsfolk_count == townsfolk_count:
-                for i,c in enumerate(characters):
-                    if c == Role.ANY_OTHER_GOOD:
-                        self.characters[i] = Role.ANY_OTHER_OUTSIDER
-                        deduced = True
+            deduced |= deduce_from_known_outsider_count(self, known_townsfolk_count)
 
-        # assign townsfolk to good players if outsider count is known
-        if outsider_count_known:
-            outsider_count = gamerules.get_outsider_count(num_players, Role.BARON in self.minion_types)
-            known_outsider_count = 0
-            for c in characters:
-                if c in GENERIC_OUTSIDER_SET:
-                    known_outsider_count += 1
-            if known_outsider_count == outsider_count:
-                for i,c in enumerate(characters):
-                    if c == Role.ANY_OTHER_GOOD:
-                        self.characters[i] = Role.ANY_OTHER_TOWNSFOLK
-                        deduced = True
-        
         if self.chef_number is not None:
             deduced |= deduce_from_chef_number(self)
 
