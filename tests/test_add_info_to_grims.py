@@ -12,7 +12,7 @@ from grimoire.grimoire import Grimoire, GrimoireKey
 from grimoire.grimoire_page import GrimoirePage
 from grimoire.info import DemonKillInfo, ExecutionInfo, Info, SlayerKillInfo, FortuneTellerInfo, VirginInfo
 from grimoire.nightOrderPosition import NightOrderPosition
-from grimoire.role import Role
+from grimoire.role import EVIL_ROLES_SET, Role
 
 
 def get_required_page(grim: Grimoire, night: int, order: NightOrderPosition):
@@ -1249,6 +1249,69 @@ class TestDirtyPageFinalizeMatchesFullFinalize(unittest.TestCase):
 
         self.assertGreater(compared["kept"], 1000)
         self.assertGreater(compared["rejected"], 0)
+
+
+class TestSoldierKilledAtNight(unittest.TestCase):
+    """A sober Soldier can't die to the Imp, so a killed Soldier claimant is the Drunk, evil or poisoned."""
+    PLAYERS = 10
+    SOLDIER = 2
+
+    def _claimed(self, minion_types: list[Role] | None = None, dead_poisoner: int | None = None) -> list[Grimoire]:
+        base = Grimoire(self.PLAYERS)
+        first = base.get_first_page()
+        if minion_types is not None:
+            first.minion_types = list(minion_types)
+        if dead_poisoner is not None:
+            first.characters[dead_poisoner] = Role.POISONER
+            first.dead[dead_poisoner] = True
+        claim: Info = {"kind": "claim", "player": self.SOLDIER, "character": Role.SOLDIER}  # pyright: ignore[reportAssignmentType]
+        return add_info_to_grims(claim, [base])
+
+    def _kill_pages(self, grims: list[Grimoire]) -> list[GrimoirePage]:
+        kill: DemonKillInfo = {"kind": "demon", "night": 2, "player": self.SOLDIER}
+        results = add_death_info_to_grims(kill, grims)
+        self.assertGreater(len(results), 0, "Expected the claimed Soldier to be killable as the Drunk or an evil player.")
+        return [get_required_page(grim, 2, NightOrderPosition.AFTER_IMP) for grim in results]
+
+    def _soldier_pages(self, pages: list[GrimoirePage]) -> list[GrimoirePage]:
+        return [p for p in pages if p.characters[self.SOLDIER] == Role.SOLDIER]
+
+    def test_kill_is_recorded(self):
+        for page in self._kill_pages(self._claimed()):
+            self.assertEqual(page.demon_kill, self.SOLDIER)
+
+    def test_killed_soldier_is_poisoned(self):
+        soldiers = self._soldier_pages(self._kill_pages(self._claimed()))
+        self.assertGreater(len(soldiers), 0, "Expected a world where the Poisoner poisoned the Soldier.")
+        for page in soldiers:
+            self.assertTrue(page.poisoned[self.SOLDIER], "Expected no world where the Imp killed a sober Soldier.")
+
+    def test_other_worlds_still_kept(self):
+        pages = self._kill_pages(self._claimed())
+        self.assertTrue(any(p.characters[self.SOLDIER] == Role.DRUNK for p in pages), "Expected a world where the claimant is the Drunk.")
+        self.assertTrue(
+            any(p.characters[self.SOLDIER] in EVIL_ROLES_SET | {Role.ANY_OTHER_MINION, Role.ANY_OTHER_EVIL} for p in pages),
+            "Expected a world where the claimant is evil.",
+        )
+
+    def test_no_poisoner_in_play(self):
+        pages = self._kill_pages(self._claimed(minion_types=[Role.SPY, Role.BARON]))
+        self.assertEqual(self._soldier_pages(pages), [], "Expected the Soldier to need a Poisoner to die.")
+
+    def test_poisoner_already_dead(self):
+        pages = self._kill_pages(self._claimed(minion_types=[Role.POISONER, Role.SPY], dead_poisoner=0))
+        self.assertEqual(self._soldier_pages(pages), [], "Expected a dead Poisoner not to be able to poison the Soldier.")
+
+    def test_full_game_keeps_poisoned_soldier(self):
+        # the claim is applied on night 1 before any kill, so the kill sees the Soldier. this breaks if claims ever come after kills
+        manager = GrimoireManager({"players": self.PLAYERS})
+        claim: Info = {"kind": "claim", "player": self.SOLDIER, "character": Role.SOLDIER}  # pyright: ignore[reportAssignmentType]
+        kill: DemonKillInfo = {"kind": "demon", "night": 2, "player": self.SOLDIER}
+        manager.add_full_game([claim], [kill], 2)
+        pages = [get_required_page(grim, 2, NightOrderPosition.AFTER_IMP) for grim in manager.grims]
+        soldiers = self._soldier_pages(pages)
+        self.assertGreater(len(soldiers), 0, "Expected the poisoned Soldier world to survive a full game.")
+        self.assertTrue(all(p.poisoned[self.SOLDIER] for p in soldiers), "Expected no world where the Imp killed a sober Soldier.")
 
 
 if __name__ == "__main__":

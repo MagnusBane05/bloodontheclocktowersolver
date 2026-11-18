@@ -128,6 +128,17 @@ def mark_executee_action(
         return True
     return action
 
+def mark_demon_kill_action(
+    kill: int,
+    night: int,
+    order: NightOrderPosition,
+) -> BranchAction:
+    def action(grim: Grimoire) -> bool:
+        page = _get_info_page(grim, night, order)
+        page.demon_kill = kill
+        return True
+    return action
+
 def sw_catch_action(
     demon: int,
     night: int,

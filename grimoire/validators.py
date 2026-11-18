@@ -19,6 +19,7 @@ class ChangeType(IntEnum):
     POISONED = auto()
     NIGHT_ORDER = auto()
     EXECUTEE = auto()
+    DEMON_KILL = auto()
     CHEF_NUMBER = auto()
     RED_HERRING = auto()
 
@@ -155,6 +156,15 @@ def is_no_sober_saint_executed(page: GrimoirePage) -> bool:
     if page.characters[page.executee] != Role.SAINT:
         return True
     return page.poisoned[page.executee]
+
+def is_no_sober_soldier_killed(page: GrimoirePage) -> bool:
+    if page.night_order_position != NightOrderPosition.AFTER_IMP:
+        return True
+    if page.demon_kill is None:
+        return True
+    if page.characters[page.demon_kill] != Role.SOLDIER:
+        return True
+    return page.poisoned[page.demon_kill]
 
 def is_chef_number_valid(page: GrimoirePage) -> bool:
     chef_number = page.chef_number
@@ -405,6 +415,17 @@ SAINT_EXECUTION_VALIDATOR = Validator(
     })
 )
 
+SOLDIER_KILLED_VALIDATOR = Validator(
+    is_no_sober_soldier_killed,
+    "sober Soldier killed by Imp",
+    frozenset({
+        ChangeType.NIGHT_ORDER,
+        ChangeType.DEMON_KILL,
+        ChangeType.CHARACTER,
+        ChangeType.POISONED,
+    })
+)
+
 CHEF_NUMBER_VALIDATOR = Validator(
     is_chef_number_valid,
     "invalid chef number",
@@ -433,6 +454,7 @@ FULL_PAGE_VALIDATORS = (
     POISONING_VALIDATOR,
     DUPLICATES_VALIDATOR,
     SAINT_EXECUTION_VALIDATOR,
+    SOLDIER_KILLED_VALIDATOR,
     RED_HERRING_VALIDATOR,
     CHEF_NUMBER_VALIDATOR,
 )

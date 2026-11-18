@@ -51,8 +51,8 @@ class TestWorldFiles(unittest.TestCase):
 
 class TestKnownInvalid(unittest.TestCase):
     def test_counted_when_worlds_kept(self):
-        # 5p-0005 ends with worlds where the Imp killed a sober Soldier, which no complete game fits
-        scenario = load_scenarios(5, limit=6)[5]
+        # 5p-0009 ends with worlds that no complete game fits
+        scenario = load_scenarios(5, limit=10)[9]
         result = run_game(scenario, 5, timeout=60, keep_worlds=True)
         self.assertGreaterEqual(result["known_invalid"], 1)
         self.assertEqual(result["known_invalid"], worlds.count_known_invalid(result["worlds"], scenario))

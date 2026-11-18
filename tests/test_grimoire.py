@@ -38,11 +38,13 @@ class TestAddPageResetsEventFlags(unittest.TestCase):
         night2 = world.add_page(2, NightOrderPosition.AFTER_IMP)
         night2.star_passed = True
         night2.red_herring_moved = True
+        night2.demon_kill = 3
         for night, order in ((3, NightOrderPosition.AFTER_IMP), (2, NightOrderPosition.AFTER_EXECUTION)):
             page = world.add_page(night, order)
             with self.subTest(night=night, order=order.name):
                 self.assertFalse(page.star_passed, "Expected star_passed only on the page the starpass happened on.")
                 self.assertFalse(page.red_herring_moved, "Expected red_herring_moved only on the page the move happened on.")
+                self.assertIsNone(page.demon_kill, "Expected demon_kill only on the page the kill happened on.")
 
 class TestRedHerringBetweenPages(unittest.TestCase):
     @staticmethod

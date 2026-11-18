@@ -750,6 +750,7 @@ def _add_demon_kill(
         grim,
         mark_dead_action(player, night, order),
         starpass_action(player, night, order, red_herring_spy_catches=False),
+        mark_demon_kill_action(player, night, order),
         label=f"player {player} is Imp who starpassed",
     )
 
@@ -759,6 +760,7 @@ def _add_demon_kill(
         grim,
         mark_dead_action(player, night, order),
         starpass_action(player, night, order, red_herring_spy_catches=True),
+        mark_demon_kill_action(player, night, order),
         label=f"player {player} is the Imp who starpassed to the Spy with the Red Herring",
     )
 
@@ -768,6 +770,19 @@ def _add_demon_kill(
         grim,
         mark_dead_action(player, night, order),
         character_action(Role.NON_DEMON, player, night, order),
+        mark_demon_kill_action(player, night, order),
+        label=f"player {player} is not the demon"
+    )
+
+    # Soldier killed, so must be poisoned
+    _ = _add_branch(
+        new_grims,
+        grim,
+        character_action(Role.SOLDIER, player, night, order),
+        mark_dead_action(player, night, order),
+        poisoned_action(player, night, order),
+        mark_demon_kill_action(player, night, order),
+        label=f"player {player} is the Soldier who was poisoned"
     )
 
     return new_grims

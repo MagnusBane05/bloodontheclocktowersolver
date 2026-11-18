@@ -280,6 +280,29 @@ class TestValidation(unittest.TestCase):
         result = validators.is_no_sober_saint_executed(page)
         self.assertTrue(result, "Expected non-execution page to be valid.")
 
+    def test_is_no_sober_soldier_killed(self):
+        page = GrimoirePage(10)
+        page.characters[0] = Role.SOLDIER
+        page.dead[0] = True
+        self.assertTrue(validators.is_no_sober_soldier_killed(page), "Expected a page without a demon kill to be valid.")
+
+        page.demon_kill = 0
+        self.assertFalse(validators.is_no_sober_soldier_killed(page), "Expected the Imp killing a sober Soldier to be invalid.")
+        valid, reason = validators.is_page_valid(page)
+        self.assertFalse(valid, "Expected the Soldier validator to run as part of full page validation.")
+        self.assertEqual(reason, validators.SOLDIER_KILLED_VALIDATOR.reason)
+
+        page.poisoned[0] = True
+        self.assertTrue(validators.is_no_sober_soldier_killed(page), "Expected the Imp killing a poisoned Soldier to be valid.")
+
+        page.poisoned[0] = False
+        page.characters[0] = Role.EMPATH
+        self.assertTrue(validators.is_no_sober_soldier_killed(page), "Expected the Imp killing a non-Soldier to be valid.")
+
+    def test_soldier_validator_reruns_on_demon_kill(self):
+        affected = validators.get_affected_validators_forall({validators.ChangeType.DEMON_KILL})
+        self.assertIn(validators.SOLDIER_KILLED_VALIDATOR, affected)
+
 class TestIsRedHerringValid(unittest.TestCase):
     def test_red_herring_ruled_out(self):
         page = GrimoirePage()

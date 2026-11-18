@@ -651,6 +651,7 @@ class TestSameState(unittest.TestCase):
         "night_order_position": lambda p: setattr(p, "night_order_position", NightOrderPosition.AFTER_EXECUTION),
         "star_passed": lambda p: setattr(p, "star_passed", True),
         "executee": lambda p: setattr(p, "executee", 1),
+        "demon_kill": lambda p: setattr(p, "demon_kill", 1),
         "slayer_shot": lambda p: p.slayer_shot.__setitem__(0, True),
         "red_herring_moved": lambda p: setattr(p, "red_herring_moved", True),
     }

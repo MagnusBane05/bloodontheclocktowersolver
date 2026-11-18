@@ -58,6 +58,7 @@ _FIELD_CHANGE_TYPES = {
     'poisoned': ChangeType.POISONED,
     'night_order_position': ChangeType.NIGHT_ORDER,
     'executee': ChangeType.EXECUTEE,
+    'demon_kill': ChangeType.DEMON_KILL,
     'chef_number': ChangeType.CHEF_NUMBER,
     'in_chef_pair': ChangeType.CHEF_NUMBER,
     'not_in_chef_pair': ChangeType.CHEF_NUMBER,
@@ -94,6 +95,8 @@ class GrimoirePage:
         self.night_order_position: NightOrderPosition = night_order_position
         self.star_passed: bool = False
         self.executee: int | None = None
+        # the player the Imp killed on this page's night, set only on that page
+        self.demon_kill: int | None = None
         self.slayer_shot: list[bool] = [False]*num_players
         self.red_herring_moved: bool = False
         
@@ -140,6 +143,7 @@ class GrimoirePage:
         page.no_outsiders = self.no_outsiders
         page.star_passed = self.star_passed
         page.executee = self.executee
+        page.demon_kill = self.demon_kill
         page.red_herring_moved = self.red_herring_moved
         return page
     
@@ -210,6 +214,7 @@ class GrimoirePage:
             self.no_outsiders,
             self.star_passed,
             self.executee,
+            self.demon_kill,
             self.red_herring_moved,
         )
 

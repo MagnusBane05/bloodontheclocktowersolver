@@ -165,8 +165,10 @@ class Grimoire:
         new_page.night_order_position = night_order_position
         new_page.poisoned = [False]*len(new_page.poisoned)
         new_page.chef_number = None
-        # these mark the page a starpass or red herring move happened on, so they aren't copied
+        # these mark the page a starpass, red herring move or demon kill happened on, so they aren't copied.
+        # demon_kill especially, since poisoned isn't copied either
         new_page.star_passed = False
+        new_page.demon_kill = None
         new_page.red_herring_moved = False
         self.pages.insert(i, new_page)
         self.keys.insert(i, key)
